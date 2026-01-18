@@ -1,0 +1,17 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+.nuxt
+.output
+dist
+.vercel
+.netlify
+
+# Generated files
+*.log
+
+# Environment files
+.env
+.env.*
