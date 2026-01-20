@@ -2,7 +2,7 @@
   <div class="min-h-screen flex items-center justify-center bg-gray-100">
     <div class="bg-white p-8 rounded shadow-md w-full max-w-md">
       <h1 class="text-2xl font-bold mb-6 text-center">
-        {{ isLoginMode ? 'Login' : 'Register' }}
+        {{ isResetMode ? 'Reset Password' : isLoginMode ? 'Login' : 'Register' }}
       </h1>
 
       <!-- Error message -->
@@ -15,7 +15,8 @@
         {{ successMessage }}
       </div>
 
-      <form @submit.prevent="handleSubmit">
+      <!-- Reset Password Form -->
+      <form v-if="isResetMode" @submit.prevent="handleResetPassword">
         <div class="mb-4">
           <label class="block text-gray-700 mb-2">Email</label>
           <input
@@ -27,7 +28,35 @@
           />
         </div>
 
-        <div class="mb-6">
+        <button
+          type="submit"
+          :disabled="isLoading"
+          class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
+        >
+          {{ isLoading ? 'Sending...' : 'Send Reset Link' }}
+        </button>
+
+        <div class="mt-4 text-center">
+          <button @click="backToLogin" type="button" class="text-blue-500 hover:underline">
+            Back to Login
+          </button>
+        </div>
+      </form>
+
+      <!-- Login/Register Form -->
+      <form v-else @submit.prevent="handleSubmit">
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">Email</label>
+          <input
+            v-model="email"
+            type="email"
+            required
+            class="w-full px-3 py-2 border border-gray-300 rounded"
+            placeholder="your@email.com"
+          />
+        </div>
+
+        <div class="mb-4">
           <label class="block text-gray-700 mb-2">Password</label>
           <input
             v-model="password"
@@ -36,6 +65,17 @@
             class="w-full px-3 py-2 border border-gray-300 rounded"
             placeholder="••••••••"
           />
+        </div>
+
+        <!-- Forgot Password Link -->
+        <div v-if="isLoginMode" class="mb-6 text-right">
+          <button
+            @click="showResetMode"
+            type="button"
+            class="text-sm text-blue-500 hover:underline"
+          >
+            Forgot password?
+          </button>
         </div>
 
         <button
@@ -96,10 +136,11 @@
 </template>
 
 <script lang="ts" setup>
-const { login, signup, signInWithGoogle } = useAuth()
+const { login, signup, signInWithGoogle, resetPassword } = useAuth()
 const router = useRouter()
 
 const isLoginMode = ref(true)
+const isResetMode = ref(false)
 const email = ref('')
 const password = ref('')
 const isLoading = ref(false)
@@ -111,6 +152,44 @@ function toggleMode() {
   isLoginMode.value = !isLoginMode.value
   errorMessage.value = ''
   successMessage.value = ''
+}
+
+function showResetMode() {
+  isResetMode.value = true
+  isLoginMode.value = false
+  errorMessage.value = ''
+  successMessage.value = ''
+  password.value = ''
+}
+
+function backToLogin() {
+  isResetMode.value = false
+  isLoginMode.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+}
+
+async function handleResetPassword() {
+  errorMessage.value = ''
+  successMessage.value = ''
+  isLoading.value = true
+
+  try {
+    const { error } = await resetPassword(email.value)
+
+    if (error) {
+      errorMessage.value = error.message
+    } else {
+      successMessage.value = 'Password reset link sent! Check your email.'
+      setTimeout(() => {
+        backToLogin()
+      }, 3000)
+    }
+  } catch (error) {
+    errorMessage.value = 'Failed to send reset link. Please try again.'
+  } finally {
+    isLoading.value = false
+  }
 }
 
 async function handleSubmit() {
@@ -131,6 +210,11 @@ async function handleSubmit() {
         }, 1000)
       }
     } else {
+      if (password.value.length < 6) {
+        errorMessage.value = 'Password must be at least 6 characters'
+        return
+      }
+
       const { user, error } = await signup(email.value, password.value)
 
       if (error) {

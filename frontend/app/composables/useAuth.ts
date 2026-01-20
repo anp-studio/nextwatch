@@ -64,6 +64,34 @@ export const useAuth = () => {
     }
   }
 
+  const resetPassword = async (email: string) => {
+    try {
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/reset-password',
+      })
+
+      if (error) throw error
+
+      return { error: null }
+    } catch (error) {
+      console.error('Reset Password error:', error)
+      return { error: error as AuthError }
+    }
+  }
+
+  const updatePassword = async (newPassword: string) => {
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword,
+      })
+      if (error) throw error
+      return { user: data.user }
+    } catch (error) {
+      console.error('Update Password error:', error)
+      return { user: null, error: error as AuthError }
+    }
+  }
+
   //Login user again if there's an active session
   const initialize = async () => {
     try {
@@ -113,5 +141,7 @@ export const useAuth = () => {
     initialize,
     logout,
     signInWithGoogle,
+    resetPassword,
+    updatePassword,
   }
 }
