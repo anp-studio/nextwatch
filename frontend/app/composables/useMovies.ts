@@ -59,10 +59,10 @@ export const useMovies = () => {
         poster: movie.poster_path ? `${IMAGE_BASE}${movie.poster_path}` : '',
         rating: Math.round(movie.vote_average * 10) / 10,
         year: parseInt(movie.release_date?.split('-')[0] || '0'),
-        genres: movie.genre_ids.map((id) => genreMap.get(id) || 'Unknown'),
+        genres: movie.genre_ids.map((id) => genreMap.get(id) || 'Unknown').slice(0, 3),
         description: movie.overview,
       }))
-      .slice(0, 20) // limit to first 20 movies
+      .slice(0, 20) // * limit to first 20 movies
   }
 
   const getMovieDetails = async (movieId: number): Promise<Movie> => {
@@ -89,7 +89,7 @@ export const useMovies = () => {
     }
   }
 
-  // sacuvacu ako moramo da testiramo bez api poziva
+  // just for development and testing purposes
   const moviesMock = useState<Movie[]>('movies', () => [
     {
       id: 1,
@@ -129,11 +129,13 @@ export const useMovies = () => {
     },
   ])
 
-  const watchedMovies = useState<string[]>('watched', () => [])
+  const watchedMovies = useState<number[]>('watched', () => [])
 
-  const markAsWatched = (imdbId: string) => {
-    watchedMovies.value.push(imdbId)
-    //zvatu supabase
+  const markAsWatched = (tmdbId: number) => {
+    if (!watchedMovies.value.includes(tmdbId)) {
+      watchedMovies.value.push(tmdbId)
+    }
+    // TODO: later supabsae will map tmdbID, imdbID, omdbID
   }
 
   return { getPopularMovies, getMovieDetails, moviesMock, watchedMovies, markAsWatched }

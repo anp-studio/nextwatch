@@ -12,7 +12,7 @@
 
     <div class="grid grid-cols-2 gap-4 mb-8">
       <div class="bg-gray-800 p-4 rounded-2xl text-center">
-        <p class="text-3xl font-bold text-white">{{ watchedMovies.length }}</p>
+        <p class="text-3xl font-bold text-white">{{ watchedCount }}</p>
         <p class="text-gray-400 text-sm">Movies Watched</p>
       </div>
       <div class="bg-gray-800 p-4 rounded-2xl text-center">
@@ -45,4 +45,6 @@
 
 <script setup lang="ts">
 const { watchedMovies } = useMovies()
+
+const watchedCount = computed(() => watchedMovies.value.length)
 </script>

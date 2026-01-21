@@ -98,20 +98,8 @@ const handleSwipe = async (direction: 'left' | 'right') => {
   if (!currentMovie) return
 
   if (direction === 'right') {
-    try {
-      const details = await getMovieDetails(currentMovie.id)
-      if (!details || !details.imdb_id) {
-        console.error('Failed to get IMDB ID')
-        return
-      }
-      markAsWatched(details.imdb_id)
-      // dodati animaciju? (trigger)
-    } catch (error) {
-      console.error('Error fetching movie details:', error)
-      // povecaj index da se ne blokira?
-      currentIndex.value++
-      return
-    }
+    markAsWatched(currentMovie.id)
+    // dodati animaciju? (trigger)
   } else {
     // preskakanje?
   }
@@ -129,6 +117,7 @@ const openDetails = async (movie: MoviePreview) => {
 }
 
 const reset = async () => {
+  //will change when recommendation model is added
   currentIndex.value = 0
   const fetchedMovies = await getPopularMovies()
   movies.value = fetchedMovies
