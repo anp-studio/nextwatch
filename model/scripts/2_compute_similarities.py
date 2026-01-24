@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import MultiLabelBinarizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 import ast
 import json
 # from utils.db import get_db_connection  # Not needed yet
@@ -109,13 +110,16 @@ def safe_literal_eval(val):
 
 def create_feature_vectors(df):
   """
-  Create feature vectors from genres, keywords, type, rating, and popularity
+  Create feature vectors from genres, keywords, type, rating, popularity, and overview
   
   Features:
   - Genres (one-hot)
   - Keywords (one-hot)
+  - Overview (TF-IDF)
   - Type (movie vs show)
-  - Rating (normalized)
+  - Rating (normalized and weighted)
+  - Popularity (normalized and weighted)
+  - Vote count (normalized, to favor well-rated items)
   """
 
   print("  Creating genre features...")
@@ -130,6 +134,22 @@ def create_feature_vectors(df):
   mlb_keywords = MultiLabelBinarizer()
   keyword_features = mlb_keywords.fit_transform(df['keywords'])
   print(f"    {len(mlb_keywords.classes_)} unique keywords")
+  
+  print("  Creating overview (description) features...")
+  # Overview features using TF-IDF
+  # Fill missing overviews with empty string
+  overviews = df['overview'].fillna('').values
+  
+  # TF-IDF with parameters optimized for movie descriptions
+  tfidf = TfidfVectorizer(
+    max_features=500,        # Limit to top 500 words to avoid overfitting
+    stop_words='english',    # Remove common English words
+    ngram_range=(1, 2),      # Use unigrams and bigrams for better context
+    min_df=2,                # Word must appear in at least 2 documents
+    max_df=0.8               # Ignore words that appear in >80% of documents
+  )
+  overview_features = tfidf.fit_transform(overviews).toarray()
+  print(f"    {overview_features.shape[1]} TF-IDF features from overviews")
 
   print("  Creating type features...")
   # Type features (binary: is_movie)
@@ -153,11 +173,12 @@ def create_feature_vectors(df):
   vote_count_features = vote_count_features / np.max(vote_count_features)
 
   # Combine all features with weights
-  # Adjusted weights: prioritize quality (rating, vote_count) over just similarity
+  # mozemo ovo da menjamo kasnije po potrebi
   print("  Combining features with weights...")
   feature_matrix = np.hstack([
     genre_features * 3.0,           # Genre similarity is important
     keyword_features * 2.0,          # Keywords are important but less than genres
+    overview_features * 4.0,         # NEW: Overview/plot similarity is very important!
     type_features * 1.5,             # Movie vs Show preference
     rating_features * 3.5,           # INCREASED: Quality matters a lot
     popularity_features * 1.5,       # NEW: Popular items are more relevant
