@@ -73,14 +73,22 @@ def main():
     # Filter movies
     print("\n[5/7] Filtering quality movies...")
     # Criteria:
-    # - At least 10 votes
-    # - Has rating > 0
+    # - (At least 10 votes AND has rating > 0) OR (Popularity >= 10)
     # - Has at least 1 genre
+    # - Already released (not future releases)
+    # This includes both established movies with votes and new/upcoming popular movies
+    
+    # Parse release dates and filter out future releases
+    df['release_date_parsed'] = pd.to_datetime(df['release_date'], errors='coerce')
+    today = pd.Timestamp.now()
     
     df_filtered = df[
-        (df['vote_count'] >= 10) &
-        (df['vote_average'] > 0) &
-        (df['genres_list'].apply(len) > 0)
+        (
+            ((df['vote_count'] >= 10) & (df['vote_average'] > 0)) |  # Established movies
+            (df['popularity'] >= 10)  # Popular movies (even without votes yet)
+        ) &
+        (df['genres_list'].apply(len) > 0) &  # Must have genres
+        ((df['release_date_parsed'].isna()) | (df['release_date_parsed'] <= today))  # Only released movies
     ].copy()
     
     print(f"✓ Filtered to {len(df_filtered):,} quality movies")
