@@ -41,18 +41,23 @@
 </template>
 
 <script setup lang="ts">
-import type { Movie } from '~/composables/useMovies'
+import type { MoviePreview } from '~/composables/useMovies'
 
-const { movies } = useMovies()
+const { getPopularMovies } = useMovies()
 const query = ref('')
+const movies = ref<MoviePreview[]>([])
+
+onMounted(async () => {
+  movies.value = await getPopularMovies()
+})
 
 const filteredMovies = computed(() => {
   if (!query.value) return movies.value
 
   return movies.value.filter(
-    (m: Movie) =>
+    (m: MoviePreview) =>
       m.title.toLowerCase().includes(query.value.toLowerCase()) ||
-      m.actors.some((a: string) => a.toLowerCase().includes(query.value.toLowerCase()))
+      m.genres.some((g: string) => g.toLowerCase().includes(query.value.toLowerCase()))
   )
 })
 </script>

@@ -1,5 +1,14 @@
+import type {
+  TMDBMovie,
+  TMDBMovieDetails,
+  TMDBPopularResponse,
+  TMDBGenreListResponse,
+  TMDBGenre,
+} from '~/types/tmdb'
+
 export interface Movie {
   id: number
+  imdb_id?: string | null
   title: string
   poster: string
   rating: number
@@ -10,13 +19,82 @@ export interface Movie {
   description: string
 }
 
+export interface MoviePreview {
+  id: number
+  title: string
+  poster: string
+  rating: number
+  year: number
+  genres: string[]
+  description: string
+}
+
 export const useMovies = () => {
-  // treba izmeniti ovo je samo mock
-  const movies = useState<Movie[]>('movies', () => [
+  const config = useRuntimeConfig()
+  const apiKey = config.public.tmdbApiKey
+  const BASE_URL = 'https://api.themoviedb.org/3'
+  const IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
+
+  const getPopularMovies = async (): Promise<MoviePreview[]> => {
+    const [moviesResponse, genresResponse] = await Promise.all([
+      fetch(`${BASE_URL}/movie/popular?api_key=${apiKey}&language=en-US&page=1`),
+      fetch(`${BASE_URL}/genre/movie/list?api_key=${apiKey}`),
+    ])
+
+    if (!moviesResponse.ok || !genresResponse.ok) {
+      throw new Error('Failed to fetch movies')
+    }
+
+    const moviesData: TMDBPopularResponse = await moviesResponse.json()
+    const genresData: TMDBGenreListResponse = await genresResponse.json()
+
+    const genreMap = new Map<number, string>(
+      genresData.genres.map((g: TMDBGenre) => [g.id, g.name])
+    )
+
+    return moviesData.results
+      .map((movie: TMDBMovie) => ({
+        id: movie.id,
+        title: movie.title,
+        poster: movie.poster_path ? `${IMAGE_BASE}${movie.poster_path}` : '',
+        rating: Math.round(movie.vote_average * 10) / 10,
+        year: parseInt(movie.release_date?.split('-')[0] || '0'),
+        genres: movie.genre_ids.map((id) => genreMap.get(id) || 'Unknown').slice(0, 3),
+        description: movie.overview,
+      }))
+      .slice(0, 20) // * limit to first 20 movies
+  }
+
+  const getMovieDetails = async (movieId: number): Promise<Movie> => {
+    const response = await fetch(
+      `${BASE_URL}/movie/${movieId}?api_key=${apiKey}&language=en-US&append_to_response=credits`
+    )
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch movie details')
+    }
+
+    const data: TMDBMovieDetails = await response.json()
+    return {
+      id: data.id,
+      imdb_id: data.imdb_id,
+      title: data.title,
+      poster: data.poster_path ? `${IMAGE_BASE}${data.poster_path}` : '',
+      rating: Math.round(data.vote_average * 10) / 10,
+      year: parseInt(data.release_date?.split('-')[0] || '0'),
+      duration: data.runtime ? `${Math.floor(data.runtime / 60)}h ${data.runtime % 60}m` : 'N/A',
+      genres: data.genres.map((g) => g.name),
+      actors: data.credits.cast.slice(0, 5).map((actor) => actor.name),
+      description: data.overview,
+    }
+  }
+
+  // just for development and testing purposes
+  const moviesMock = useState<Movie[]>('movies', () => [
     {
       id: 1,
       title: 'Inception',
-      poster: 'https://image.tmdb.org/t/p/w500/9gk7admal4zl67YrxIo16EOzoGO.jpg',
+      poster: 'https://www.themoviedb.org/t/p/w600_and_h900_face/xlaY2zyzMfkhk0HSC5VUwzoZPU1.jpg',
       rating: 8.8,
       year: 2010,
       duration: '2h 28m',
@@ -51,12 +129,14 @@ export const useMovies = () => {
     },
   ])
 
-  const watchedMovies = useState<Movie[]>('watched', () => [])
+  const watchedMovies = useState<number[]>('watched', () => [])
 
-  const markAsWatched = (movie: Movie) => {
-    watchedMovies.value.push(movie)
-    //zvatu supabase
+  const markAsWatched = (tmdbId: number) => {
+    if (!watchedMovies.value.includes(tmdbId)) {
+      watchedMovies.value.push(tmdbId)
+    }
+    // TODO: later supabsae will map tmdbID, imdbID, omdbID
   }
 
-  return { movies, watchedMovies, markAsWatched }
+  return { getPopularMovies, getMovieDetails, moviesMock, watchedMovies, markAsWatched }
 }
