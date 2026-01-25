@@ -1,10 +1,5 @@
 """
 Compute cosine similarity matrix for core movies and shows - V2
-Changes from V1:
-- Sentence transformers for semantic overview embedding (replaces TF-IDF)
-- Animation style detection and penalty
-- Popularity-based quality filtering for non-core movies
-- Adjusted feature weights for better recommendations
 """
 import sys
 sys.path.append('../..')
@@ -221,16 +216,59 @@ def create_feature_vectors(df):
   
   print("  Creating overview (description) features...")
   # Overview features using Sentence Transformers for semantic understanding
-  # Fill missing overviews with empty string
-  overviews = df['overview'].fillna('').values
+  # Check for cached embeddings to speed up batching
+  # If cache exists, verify if it matches current data (check IDs)
+  # If not, recompute embeddings
+  cache_file = '../../data/processed/overview_embeddings_cache_v2.pkl'
+  import os
+  import pickle
   
-  # Load sentence transformer model (lightweight and fast)
-  print("    Loading sentence transformer model...")
-  model = SentenceTransformer('all-MiniLM-L6-v2')
+  cached_data = None
+  features_loaded = False
   
-  # Generate embeddings
-  print("    Generating semantic embeddings for overviews...")
-  overview_features = model.encode(overviews, show_progress_bar=True, batch_size=32)
+  if os.path.exists(cache_file):
+    print(f"    Found cache file: {cache_file}")
+    try:
+      with open(cache_file, 'rb') as f:
+        cached_data = pickle.load(f)
+      
+      cached_ids = cached_data.get('ids')
+      cached_features = cached_data.get('features')
+      
+      current_ids = df['id'].values
+      
+      if np.array_equal(cached_ids, current_ids):
+        print("    Cache hit! Loading pre-computed embeddings...")
+        overview_features = cached_features
+        features_loaded = True
+      else:
+        print("    Cache mismatch (data changed). Recomputing...")
+    except Exception as e:
+      print(f"    Error reading cache: {e}")
+  
+  if not features_loaded:
+    # Fill missing overviews with empty string
+    overviews = df['overview'].fillna('').values
+    
+    # Load sentence transformer model (lightweight and fast)
+    print("    Loading sentence transformer model...")
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+    
+    # Generate embeddings
+    print("    Generating semantic embeddings for overviews...")
+    overview_features = model.encode(overviews, show_progress_bar=True, batch_size=32)
+    
+    # Save to cache
+    print(f"    Saving embeddings to cache: {cache_file}")
+    try:
+      with open(cache_file, 'wb') as f:
+        pickle.dump({
+          'ids': df['id'].values,
+          'features': overview_features
+        }, f)
+    except Exception as e:
+      print(f"    Error saving cache: {e}")
+      
   print(f"    {overview_features.shape[1]} semantic features from overviews")
 
   print("  Creating type features...")
@@ -238,18 +276,18 @@ def create_feature_vectors(df):
   type_features = (df['type'] == 'movie').astype(int).values.reshape(-1, 1)
 
   print("  Creating rating features...")
-  # Rating features (normalized 0-1, heavily weighted)
+  # Rating features
   rating_features = df['vote_average'].fillna(5.0).values.reshape(-1, 1)
   rating_features = rating_features / 10.0
   
   print("  Creating popularity features...")
-  # Popularity features (log-normalized to reduce outliers)
+  # Popularity features
   popularity_features = df['popularity'].fillna(1.0).values.reshape(-1, 1)
-  popularity_features = np.log1p(popularity_features)  # log(1+x) to handle zeros
-  popularity_features = popularity_features / np.max(popularity_features)  # normalize to 0-1
+  popularity_features = np.log1p(popularity_features) 
+  popularity_features = popularity_features / np.max(popularity_features) 
   
   print("  Creating vote count features...")
-  # Vote count features (log-normalized, to favor movies with more votes)
+  # Vote count features
   vote_count_features = df['vote_count'].fillna(1.0).values.reshape(-1, 1)
   vote_count_features = np.log1p(vote_count_features)
   vote_count_features = vote_count_features / np.max(vote_count_features)
@@ -258,7 +296,7 @@ def create_feature_vectors(df):
   # Extract year from release_date and normalize
   df['release_year'] = pd.to_datetime(df['release_date'], errors='coerce').dt.year
   release_year_features = df['release_year'].fillna(2000).values.reshape(-1, 1)
-  # Normalize to 0-1 (assuming range 1900-2026)
+  # Normalize to 0-1
   release_year_features = (release_year_features - 1900) / (2026 - 1900)
   
   print("  Creating budget features...")
@@ -313,7 +351,7 @@ def create_feature_vectors(df):
     popularity_features * 3.5,       # UP from 2.5 - popular films are quality indicator
     vote_count_features * 2.5,       # UP from 2.0 - well-established films
     release_year_features * 2.0,     # Similar era films
-    budget_tiers * 4.0,              # KEEP at 4.0 per user feedback
+    budget_tiers * 4.0,              # KEEP at 4.0
     revenue_tiers * 2.0,             # Box office success matters
     is_core_features * 0.5,          # Slight preference for core items
     animation_features * 3.0         # NEW: Animation style matters
@@ -349,22 +387,20 @@ def save_similarity_matrix(matrix, df, top_n=100):
   
   print(f"  Extracting top {top_n} similar items for each movie/show...")
   for i, item_id in enumerate(ids):
-    # Skip if id is NaN
     if pd.isna(item_id):
       skipped_null_ids += 1
       continue
     
     # Get similarity scores for this item
     similarities = matrix[i].copy()
-    
     # Set self-similarity to -1 so it won't be selected
     similarities[i] = -1
-    
     # Clip scores to [0, 1] to fix floating point errors
     similarities = np.clip(similarities, 0, 1)
     
     # OPTIMIZATION: Only apply penalties to top 250 candidates
     # This avoids processing 30,000 items for every movie
+    # Bilo je bolno sporo
     candidate_indices = np.argsort(similarities)[::-1][:250]
     
     # POST-FILTERING: Apply quality penalties
@@ -427,6 +463,8 @@ def save_similarity_matrix(matrix, df, top_n=100):
       results.append({
         'id': int(item_id),
         'similar_id': int(similar_id),
+        'type': types[i],
+        'similar_type': types[idx],
         'similarity_score': float(score)
       })
     

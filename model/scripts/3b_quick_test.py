@@ -31,8 +31,6 @@ test_cases = [
 ]
 
 def get_item_info(item_id):
-    """Find item info, handling ID collisions by checking both tables"""
-    # Return list of matches because of collision
     matches = []
     
     # Check movies
@@ -53,7 +51,7 @@ def get_item_info(item_id):
     if not s.empty:
         row = s.iloc[0]
         matches.append({
-            'title': row['title'], # 'name' in raw, 'title' in normalized
+            'title': row['title'],
             'type': 'Show', 
             'rating': row['vote_average'],
             'votes': row['vote_count'],
@@ -74,19 +72,22 @@ for movie_id, movie_name in test_cases:
   # Display
   for i, (_, row) in enumerate(sims.iterrows()):
     sim_id = int(row['similar_id'])
+    sim_type = row['similar_type']
     score = row['similarity_score']
     
-    # Lookup info
-    infos = get_item_info(sim_id)
+    # Lookup info only for title and other metadata
+    meta_src = movies_meta if sim_type == 'movie' else shows_meta
+    m = meta_src[meta_src['id'] == sim_id]
     
-    if not infos:
-        print(f"{i+1:2d}. [ID {sim_id} NOT FOUND IN METADATA]")
+    if m.empty:
+        print(f"{i+1:2d}. [ID {sim_id} ({sim_type}) NOT FOUND IN METADATA]")
         continue
         
-    # Valid output
-    for info in infos:
-        budget_str = f"${info['budget']/1e6:.0f}M" if info['budget'] > 0 else "N/A"
-        print(f"{i+1:2d}. {info['title'][:35]:35s} | {info['type']:5s} | Score: {score:.3f} | Rating: {info['rating']:.1f} ({int(info['votes'])}) | Pop: {info['pop']:.0f} | Budget: {budget_str}")
+    row_m = m.iloc[0]
+    budget = row_m['budget'] if 'budget' in row_m else 0
+    budget_str = f"${budget/1e6:.0f}M" if budget > 0 else "N/A"
+    
+    print(f"{i+1:2d}. {row_m['title'][:35]:35s} | {sim_type.capitalize():5s} | Score: {score:.3f} | Rating: {row_m['vote_average']:.1f} ({int(row_m['vote_count'])}) | Pop: {row_m['popularity']:.0f} | Budget: {budget_str}")
 
 print("\n" + "=" * 80)
 print("DONE!")

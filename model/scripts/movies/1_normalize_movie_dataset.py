@@ -184,9 +184,7 @@ def main():
   print("=" * 60)
 
 def parse_genres(genres_str):
-  """
-  Parse genres from comma-separated string to Python list
-  
+  """  
   Input: 'Action, Science Fiction, Adventure'
   Output: ['Action', 'Science Fiction', 'Adventure']
   """
@@ -204,13 +202,9 @@ def parse_genres(genres_str):
   return []
 
 def parse_keywords(keywords_str):
-  """
-  Parse keywords from comma-separated string to Python list
-  
+  """  
   Input: 'space, alien, future, technology'
   Output: ['space', 'alien', 'future', 'technology']
-  
-  Limits to top 15 keywords per movie to avoid feature explosion
   """
   if pd.isna(keywords_str):
     return []
