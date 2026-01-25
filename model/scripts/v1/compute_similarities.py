@@ -2,7 +2,7 @@
 Compute cosine similarity matrix for core movies and shows
 """
 import sys
-sys.path.append('..')
+sys.path.append('../..')
 
 import pandas as pd
 import numpy as np
@@ -22,8 +22,8 @@ def main():
   # Load processed data
   print("\n[1/6] Loading normalized datasets...")
 
-  movies_df = pd.read_csv('../data/processed/movies_normalized.csv')
-  shows_df = pd.read_csv('../data/processed/shows_normalized.csv')
+  movies_df = pd.read_csv('../../data/processed/movies_normalized.csv')
+  shows_df = pd.read_csv('../../data/processed/shows_normalized.csv')
   
   # Rename show_id to id for consistency
   if 'show_id' in shows_df.columns:
@@ -401,13 +401,13 @@ def save_similarity_matrix(matrix, df, top_n=100):
   
   # Convert to DataFrame and save
   results_df = pd.DataFrame(results)
-  results_df.to_csv('../data/processed/similarity_matrix.csv', index=False)
+  results_df.to_csv('../../data/processed/similarity_matrix_v1.csv', index=False)
   
   if skipped_null_ids > 0:
     print(f"  Skipped {skipped_null_ids} items with null IDs")
   
   print(f"  Applied {penalties_applied:,} quality penalties (rating diff, low votes, budget mismatch)")
-  print(f"  Saved {len(results_df):,} similarity pairs to '../data/processed/similarity_matrix.csv'")
+  print(f"  Saved {len(results_df):,} similarity pairs to '../../data/processed/similarity_matrix_v1.csv'")
   print(f"  Score range: [{results_df['similarity_score'].min():.4f}, {results_df['similarity_score'].max():.4f}]")
   print(f"  File size: {len(results_df) * 3 * 8 / 1024 / 1024:.1f} MB (approximate)")
 

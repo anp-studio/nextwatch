@@ -7,7 +7,7 @@ Changes from V1:
 - Adjusted feature weights for better recommendations
 """
 import sys
-sys.path.append('..')
+sys.path.append('../..')
 
 import pandas as pd
 import numpy as np
@@ -26,8 +26,8 @@ def main():
   # Load processed data
   print("\n[1/6] Loading normalized datasets...")
 
-  movies_df = pd.read_csv('../data/processed/movies_normalized.csv')
-  shows_df = pd.read_csv('../data/processed/shows_normalized.csv')
+  movies_df = pd.read_csv('../../data/processed/movies_normalized.csv')
+  shows_df = pd.read_csv('../../data/processed/shows_normalized.csv')
   
   # Rename show_id to id for consistency
   if 'show_id' in shows_df.columns:
@@ -335,9 +335,10 @@ def save_similarity_matrix(matrix, df, top_n=100):
   ids = df['id'].values
   ratings = df['vote_average'].values
   vote_counts = df['vote_count'].values
-  budgets = df['budget'].fillna(0).values
   popularities = df['popularity'].values
+  budgets = df['budget'].fillna(0).values
   is_core = df['is_core'].values
+  types = df['type'].values
   
   # Detect animation for penalty
   is_animated = detect_animation(df)
@@ -374,26 +375,31 @@ def save_similarity_matrix(matrix, df, top_n=100):
       original_score = similarities[j]
       penalty_multiplier = 1.0
       
-      # Penalty 1: Animation style mismatch (configurable weight)
+      # Penalty 1: Animation style mismatch
       if is_animated[i] != is_animated[j]:
-        penalty_multiplier *= 0.3  # Strong penalty but can be adjusted
+        penalty_multiplier *= 0.3  # ovo je poprilicno jako
         penalties_applied += 1
       
-      # Penalty 2: Large rating difference (> 2.0 points) - STRICTER
+      # Penalty 2: Large rating difference
       rating_diff = abs(ratings[i] - ratings[j])
       if rating_diff > 2.0:
-        penalty_multiplier *= 0.2  # Stricter than v1 (was 0.5)
+        penalty_multiplier *= 0.2
         penalties_applied += 1
       
-      # Penalty 3: Non-core movies with low popularity
-      # Core movies already filtered by popularity, so no penalty
-      if not is_core[j]:
-        # Require popularity >= 15 AND (vote_count >= 100 OR budget > 0)
-        if popularities[j] < 15 or (vote_counts[j] < 100 and budgets[j] == 0):
-          penalty_multiplier *= 0.1  # Very strong penalty
-          penalties_applied += 1
+      # Penalty 3: Low Quality / Popularity Filter
+      is_weak = False
+      if types[j] == 'show':
+        if popularities[j] < 15 and vote_counts[j] < 20:
+          is_weak = True
+      else:
+        if popularities[j] < 10 and (vote_counts[j] < 100 and budgets[j] == 0):
+          is_weak = True
       
-      # Penalty 4: Large budget mismatch (> 10x or < 0.1x)
+      if is_weak:
+        penalty_multiplier *= 0.1
+        penalties_applied += 1
+      
+      # Penalty 4: Large budget mismatch
       budget_i = budgets[i]
       budget_j = budgets[j]
       if budget_i > 0 and budget_j > 0:
@@ -402,11 +408,11 @@ def save_similarity_matrix(matrix, df, top_n=100):
           penalty_multiplier *= 0.4
           penalties_applied += 1
       
-      # Apply combined penalty (update score in place)
+      # Apply combined penalty
       if penalty_multiplier < 1.0:
         similarities[j] = original_score * penalty_multiplier
     
-    # Get indices of top N most similar (AFTER penalties)
+    # Get indices of top N most similar
     top_indices = np.argsort(similarities)[::-1][:top_n]
     
     # Create rows for each similar item
@@ -414,7 +420,7 @@ def save_similarity_matrix(matrix, df, top_n=100):
       similar_id = ids[idx]
       score = similarities[idx]
       
-      # Skip if similar_id is NaN or score is negative (should not happen but safety check)
+      # Skip if similar_id is NaN or score is negative
       if pd.isna(similar_id) or score < 0:
         continue
       
@@ -424,19 +430,19 @@ def save_similarity_matrix(matrix, df, top_n=100):
         'similarity_score': float(score)
       })
     
-    # Progress indicator every 1000 items
+    # Progress indicator
     if (i + 1) % 1000 == 0:
       print(f"    Processed {i + 1:,} / {len(ids):,} items...")
   
   # Convert to DataFrame and save
   results_df = pd.DataFrame(results)
-  results_df.to_csv('../data/processed/similarity_matrix.csv', index=False)
+  results_df.to_csv('../../data/processed/similarity_matrix.csv', index=False)
   
   if skipped_null_ids > 0:
     print(f"  Skipped {skipped_null_ids} items with null IDs")
   
   print(f"  Applied {penalties_applied:,} quality penalties (animation, rating diff, popularity, budget)")
-  print(f"  Saved {len(results_df):,} similarity pairs to '../data/processed/similarity_matrix.csv'")
+  print(f"  Saved {len(results_df):,} similarity pairs to '../../data/processed/similarity_matrix.csv'")
   print(f"  Score range: [{results_df['similarity_score'].min():.4f}, {results_df['similarity_score'].max():.4f}]")
   print(f"  File size: {len(results_df) * 3 * 8 / 1024 / 1024:.1f} MB (approximate)")
 
@@ -456,7 +462,7 @@ def detect_animation(df):
     # Check overview
     overview_lower = str(row['overview']).lower() if pd.notna(row['overview']) else ''
     
-    # Check genres (Animation genre is most reliable)
+    # Check genres
     genres_lower = ' '.join([str(g).lower() for g in row['genres']]) if isinstance(row['genres'], list) else ''
     
     # Combine all text
