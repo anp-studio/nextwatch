@@ -92,7 +92,7 @@ def main():
   similarity_matrix = apply_sequel_boost(similarity_matrix, core_df)
 
   # Save similarity matrix
-  # treba u supabase kada budemo imali tabelu
+  # TODO: treba u supabase kada budemo imali tabelu
   print("\n[6/6] Saving similarity matrix...")
   start_time = datetime.now()
   save_similarity_matrix(similarity_matrix, core_df)
@@ -188,9 +188,9 @@ def create_feature_vectors(df):
   Create feature vectors from multiple features
   
   Features:
-  - Genres (one-hot)
-  - Keywords (one-hot)
-  - Overview (TF-IDF)
+  - Genres (one-hot) - TODO: TF-IDF
+  - Keywords (one-hot) - TODO: TF-IDF
+  - Overview (semantic embedding)
   - Type (movie vs show)
   - Rating (normalized and weighted)
   - Popularity (normalized and weighted)
@@ -238,7 +238,7 @@ def create_feature_vectors(df):
       current_ids = df['id'].values
       
       if np.array_equal(cached_ids, current_ids):
-        print("    Cache hit! Loading pre-computed embeddings...")
+        print("    Cache found! Loading pre-computed embeddings...")
         overview_features = cached_features
         features_loaded = True
       else:
@@ -340,14 +340,13 @@ def create_feature_vectors(df):
   animation_features = detect_animation(df).reshape(-1, 1)
 
   # Combine all features with weights
-  # V2 WEIGHTS: Adjusted based on testing and user feedback
   print("  Combining features with weights...")
   feature_matrix = np.hstack([
     genre_features * 4.0,            # UP from 3.0 - genre is crucial
     keyword_features * 1.5,          # DOWN from 2.0 - less reliable
-    overview_features * 5.0,         # UP from 2.0 - semantic embeddings are high quality!
+    overview_features * 5.0,         # UP from 2.0 - semantic embeddings are high quality
     type_features * 1.5,             # Movie vs Show preference
-    rating_features * 6.0,           # UP from 5.0 - quality is crucial!
+    rating_features * 6.0,           # UP from 5.0 - quality is crucial
     popularity_features * 3.5,       # UP from 2.5 - popular films are quality indicator
     vote_count_features * 2.5,       # UP from 2.0 - well-established films
     release_year_features * 2.0,     # Similar era films
@@ -362,7 +361,7 @@ def create_feature_vectors(df):
 def save_similarity_matrix(matrix, df, top_n=100):
   """
   Save top N most similar items for each movie/show
-  Format: id, similar_id, similarity_score
+  Format: id, similar_id, type, similar_type, similarity_score
   
   V2 POST-FILTERING: Apply penalties for quality mismatches
   - Animation style mismatch: multiply by 0.3 (configurable)
