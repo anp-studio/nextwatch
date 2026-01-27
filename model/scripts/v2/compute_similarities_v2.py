@@ -21,14 +21,25 @@ def main():
   # Load processed data
   print("\n[1/6] Loading normalized datasets...")
 
-  movies_df = pd.read_csv('../../data/processed/movies_normalized.csv')
+  movies_df = pd.read_csv('../../data/processed/movies_core.csv')
   shows_df = pd.read_csv('../../data/processed/shows_normalized.csv')
   
-  # Rename show_id to id for consistency
-  if 'show_id' in shows_df.columns:
-    shows_df.rename(columns={'show_id': 'id'}, inplace=True)
+  # Rename columns for consistency
   if 'movie_id' in movies_df.columns:
     movies_df.rename(columns={'movie_id': 'id'}, inplace=True)
+  
+  if 'show_id' in shows_df.columns:
+    shows_df.rename(columns={'show_id': 'id'}, inplace=True)
+
+  # Prevent ID collisions with prefixes
+  movies_df['id'] = 'm_' + movies_df['id'].astype(str)
+  shows_df['id'] = 's_' + shows_df['id'].astype(str)
+
+  # Ensure IMDb columns exist in shows_df (rename if needed)
+  if 'vote_average' in shows_df.columns and 'imdb_rating' not in shows_df.columns:
+    shows_df.rename(columns={'vote_average': 'imdb_rating'}, inplace=True)
+  if 'vote_count' in shows_df.columns and 'imdb_votes' not in shows_df.columns:
+    shows_df.rename(columns={'vote_count': 'imdb_votes'}, inplace=True)
 
   # Add type column
   movies_df['type'] = 'movie'
@@ -65,10 +76,24 @@ def main():
 
   # Parse string lists back to Python lists
   print("\n[3/6] Parsing features...")
-  core_df['genres'] = core_df['genres'].apply(safe_literal_eval)
-  core_df['keywords'] = core_df['keywords'].apply(safe_literal_eval)
+  def parse_genres_hybrid(row):
+    if row['type'] == 'movie':
+      val = row['genres_str']
+      # Handle potential non-standard delimiters or brackets
+      if isinstance(val, str) and val:
+        # Check for brackets
+        val = val.replace('[', '').replace(']', '').replace("'", "").replace('"', "")
+        return [g.strip() for g in val.split('|') if g.strip()]
+      return []
+    else:
+      # For shows
+      return safe_literal_eval(row['genres'])
 
-  print(f"Parsed genres and keywords")
+  core_df['genres_list'] = core_df.apply(parse_genres_hybrid, axis=1)
+  # Pre-calculate genres string for fast processing
+  core_df['genres_str'] = core_df['genres_list'].apply(lambda x: ' '.join(x) if isinstance(x, list) else '')
+
+  print(f"Parsed genres")
 
   print("\n[4/6] Creating feature vectors...")
   feature_matrix = create_feature_vectors(core_df)
@@ -76,12 +101,25 @@ def main():
   print(f"Feature matrix shape: {feature_matrix.shape}")
   print(f"  {feature_matrix.shape[0]} items × {feature_matrix.shape[1]} features")
 
-  # Compute cosine similarity
-  print("\n[5/6] Computing cosine similarity matrix...")
-
-  # ovo je za mene da vidim koliko traje
+  # Compute cosine similarity using batch processing
+  print("\n[5/6] Computing cosine similarity matrix (Batch-wise)...")
+  
+  n_items = feature_matrix.shape[0]
+  similarity_matrix = np.zeros((n_items, n_items), dtype=np.float32)
+  batch_size = 1000 # Adjust based on available RAM
+  
   start_time = datetime.now()
-  similarity_matrix = cosine_similarity(feature_matrix)
+  
+  for start_idx in range(0, n_items, batch_size):
+    end_idx = min(start_idx + batch_size, n_items)
+    
+    batch_sims = cosine_similarity(feature_matrix[start_idx:end_idx], feature_matrix)
+    
+    similarity_matrix[start_idx:end_idx] = batch_sims.astype(np.float32)
+    
+    if (start_idx // batch_size) % 5 == 0:
+      print(f"  Processed {end_idx}/{n_items} rows...")
+
   elapsed = (datetime.now() - start_time).total_seconds()
 
   print(f"  Similarity matrix computed in {elapsed:.1f} seconds")
@@ -157,29 +195,37 @@ def apply_sequel_boost(similarity_matrix, df):
   
   boosted_count = 0
   
-  # Apply boost
-  for i in range(len(titles)):
-    if not franchise_names[i]:
-      continue
-      
-    for j in range(i + 1, len(titles)):
-      if not franchise_names[j]:
-        continue
-      
-      # Check if same franchise
-      if franchise_names[i] == franchise_names[j] and len(franchise_names[i]) > 3:
-        # Boost the similarity significantly
-        original_score = similarity_matrix[i, j]
-        
-        # Apply boost: multiply by 1.5 and add 0.3 (but cap at 1.0)
-        boosted_score = min(1.0, original_score * 1.5 + 0.3)
-        
-        similarity_matrix[i, j] = boosted_score
-        similarity_matrix[j, i] = boosted_score
-        
-        boosted_count += 1
+  # Group items by franchise
+  franchise_groups = {}
+  for i, name in enumerate(franchise_names):
+    if name and len(name) > 3:
+      if name not in franchise_groups:
+        franchise_groups[name] = []
+      franchise_groups[name].append(i)
   
-  print(f"  Applied franchise boost to {boosted_count} movie pairs")
+  # Apply boost using optimized numpy indexing
+  for name, indices in franchise_groups.items():
+    if len(indices) < 2:
+      continue
+    
+    # Create a meshgrid of indices for this franchise
+    idx_grid = np.ix_(indices, indices)
+    
+    # Apply boost: multiply by 1.5, add 0.3, cap at 1.0
+    # Only apply to off-diagonal elements (handled by logic, but robust here)
+    franchise_submatrix = similarity_matrix[idx_grid]
+    
+    # Vectorized update
+    boosted_submatrix = np.minimum(1.0, franchise_submatrix * 1.5 + 0.3)
+    
+    # Update the main matrix
+    similarity_matrix[idx_grid] = boosted_submatrix
+    
+    # Count pairs (approximate)
+    n = len(indices)
+    boosted_count += (n * (n-1)) // 2
+  
+  print(f"  Applied franchise boost to approx {boosted_count} pairs")
   
   return similarity_matrix
 
@@ -189,7 +235,6 @@ def create_feature_vectors(df):
   
   Features:
   - Genres (one-hot) - TODO: TF-IDF
-  - Keywords (one-hot) - TODO: TF-IDF
   - Overview (semantic embedding)
   - Type (movie vs show)
   - Rating (normalized and weighted)
@@ -205,15 +250,9 @@ def create_feature_vectors(df):
 
   # Genre features
   mlb_genres = MultiLabelBinarizer()
-  genre_features = mlb_genres.fit_transform(df['genres'])
+  genre_features = mlb_genres.fit_transform(df['genres_list'])
   print(f"    {len(mlb_genres.classes_)} unique genres")
 
-  print("  Creating keyword features...")
-  # Keyword features
-  mlb_keywords = MultiLabelBinarizer()
-  keyword_features = mlb_keywords.fit_transform(df['keywords'])
-  print(f"    {len(mlb_keywords.classes_)} unique keywords")
-  
   print("  Creating overview (description) features...")
   # Overview features using Sentence Transformers for semantic understanding
   # Check for cached embeddings to speed up batching
@@ -232,17 +271,24 @@ def create_feature_vectors(df):
       with open(cache_file, 'rb') as f:
         cached_data = pickle.load(f)
       
+      # Check if cache matches current data
       cached_ids = cached_data.get('ids')
-      cached_features = cached_data.get('features')
+      cached_hash = cached_data.get('content_hash')
       
-      current_ids = df['id'].values
+      # Verify IDs match
+      ids_match = np.array_equal(cached_ids, df['id'].values)
       
-      if np.array_equal(cached_ids, current_ids):
+      # Verify content hash (if available in cache)
+      import hashlib
+      current_content_hash = hashlib.sha256(pd.util.hash_pandas_object(df['overview'].fillna('')).values).hexdigest()
+      hash_match = cached_hash == current_content_hash if cached_hash else True
+      
+      if ids_match and hash_match:
         print("    Cache found! Loading pre-computed embeddings...")
         overview_features = cached_features
         features_loaded = True
       else:
-        print("    Cache mismatch (data changed). Recomputing...")
+        print(f"    Cache mismatch (IDs or content changed). Recomputing...")
     except Exception as e:
       print(f"    Error reading cache: {e}")
   
@@ -260,10 +306,15 @@ def create_feature_vectors(df):
     
     # Save to cache
     print(f"    Saving embeddings to cache: {cache_file}")
+    # Calculate hash of all overviews to verify data consistency
+    import hashlib
+    current_content_hash = hashlib.sha256(pd.util.hash_pandas_object(df['overview'].fillna('')).values).hexdigest()
+    
     try:
       with open(cache_file, 'wb') as f:
         pickle.dump({
           'ids': df['id'].values,
+          'content_hash': current_content_hash,
           'features': overview_features
         }, f)
     except Exception as e:
@@ -277,7 +328,7 @@ def create_feature_vectors(df):
 
   print("  Creating rating features...")
   # Rating features
-  rating_features = df['vote_average'].fillna(5.0).values.reshape(-1, 1)
+  rating_features = df['imdb_rating'].fillna(5.0).values.reshape(-1, 1)
   rating_features = rating_features / 10.0
   
   print("  Creating popularity features...")
@@ -288,7 +339,7 @@ def create_feature_vectors(df):
   
   print("  Creating vote count features...")
   # Vote count features
-  vote_count_features = df['vote_count'].fillna(1.0).values.reshape(-1, 1)
+  vote_count_features = df['imdb_votes'].fillna(1.0).values.reshape(-1, 1)
   vote_count_features = np.log1p(vote_count_features)
   vote_count_features = vote_count_features / np.max(vote_count_features)
   
@@ -296,11 +347,17 @@ def create_feature_vectors(df):
   # Extract year from release_date and normalize
   df['release_year'] = pd.to_datetime(df['release_date'], errors='coerce').dt.year
   release_year_features = df['release_year'].fillna(2000).values.reshape(-1, 1)
-  # Normalize to 0-1
-  release_year_features = (release_year_features - 1900) / (2026 - 1900)
+  
+  # Min-Max normalization
+  min_year = release_year_features.min()
+  max_year = release_year_features.max()
+  if max_year > min_year:
+      release_year_features = (release_year_features - min_year) / (max_year - min_year)
+  else:
+      release_year_features = np.zeros_like(release_year_features)
   
   print("  Creating budget features...")
-  # Budget tier system (better than log normalization)
+  # Budget tier system
   def budget_tier(budget):
     """Categorize budget into tiers to preserve meaningful differences"""
     if budget == 0: return 0
@@ -343,7 +400,6 @@ def create_feature_vectors(df):
   print("  Combining features with weights...")
   feature_matrix = np.hstack([
     genre_features * 4.0,            # UP from 3.0 - genre is crucial
-    keyword_features * 1.5,          # DOWN from 2.0 - less reliable
     overview_features * 5.0,         # UP from 2.0 - semantic embeddings are high quality
     type_features * 1.5,             # Movie vs Show preference
     rating_features * 6.0,           # UP from 5.0 - quality is crucial
@@ -370,8 +426,8 @@ def save_similarity_matrix(matrix, df, top_n=100):
   - Large budget mismatches (> 10x or < 0.1x): multiply by 0.4
   """
   ids = df['id'].values
-  ratings = df['vote_average'].values
-  vote_counts = df['vote_count'].values
+  ratings = df['imdb_rating'].values
+  vote_counts = df['imdb_votes'].values
   popularities = df['popularity'].values
   budgets = df['budget'].fillna(0).values
   is_core = df['is_core'].values
@@ -399,7 +455,6 @@ def save_similarity_matrix(matrix, df, top_n=100):
     
     # OPTIMIZATION: Only apply penalties to top 250 candidates
     # This avoids processing 30,000 items for every movie
-    # Bilo je bolno sporo
     candidate_indices = np.argsort(similarities)[::-1][:250]
     
     # POST-FILTERING: Apply quality penalties
@@ -460,8 +515,8 @@ def save_similarity_matrix(matrix, df, top_n=100):
         continue
       
       results.append({
-        'id': int(item_id),
-        'similar_id': int(similar_id),
+        'id': str(item_id),
+        'similar_id': str(similar_id),
         'type': types[i],
         'similar_type': types[idx],
         'similarity_score': float(score)
@@ -490,24 +545,14 @@ def detect_animation(df):
   """
   animation_keywords = ['anime', 'animation', 'animated', 'cartoon', 'cgi', 'pixar', 'dreamworks']
   
-  is_animated = np.zeros(len(df), dtype=int)
+  # Combine text fields
+  genres_text = df['genres_str'] if 'genres_str' in df.columns else df['genres_list'].apply(lambda x: ' '.join(x) if isinstance(x, list) else '')
   
-  for i, (idx, row) in enumerate(df.iterrows()):
-    # Check keywords
-    keywords_lower = ' '.join([str(k).lower() for k in row['keywords']]) if isinstance(row['keywords'], list) else ''
-    
-    # Check overview
-    overview_lower = str(row['overview']).lower() if pd.notna(row['overview']) else ''
-    
-    # Check genres
-    genres_lower = ' '.join([str(g).lower() for g in row['genres']]) if isinstance(row['genres'], list) else ''
-    
-    # Combine all text
-    combined_text = keywords_lower + ' ' + overview_lower + ' ' + genres_lower
-    
-    # Check for animation indicators
-    if any(kw in combined_text for kw in animation_keywords):
-      is_animated[i] = 1
+  combined_text = (df['overview'].fillna('') + ' ' + genres_text.fillna('')).str.lower()
+  
+  # Check for keywords
+  pattern = '|'.join(animation_keywords)
+  is_animated = combined_text.str.contains(pattern, case=False, regex=True).astype(int).values
   
   return is_animated
 

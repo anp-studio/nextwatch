@@ -21,7 +21,7 @@ def load_data():
   sim_df = pd.read_csv('../data/processed/similarity_matrix.csv')
   
   # Load movies and shows metadata
-  movies_df = pd.read_csv('../data/processed/movies_normalized.csv')
+  movies_df = pd.read_csv('../data/processed/movies_core.csv')
   shows_df = pd.read_csv('../data/processed/shows_normalized.csv')
   
   # Rename columns for consistency
@@ -30,6 +30,10 @@ def load_data():
   if 'show_id' in shows_df.columns:
     shows_df.rename(columns={'show_id': 'id'}, inplace=True)
   
+  # Ensure internal consistency
+  if 'vote_average' in shows_df.columns:
+    shows_df.rename(columns={'vote_average': 'imdb_rating', 'vote_count': 'imdb_votes'}, inplace=True)
+
   movies_df['type'] = 'movie'
   shows_df['type'] = 'show'
   
@@ -63,7 +67,7 @@ def get_recommendations(item_id, sim_df, content_df, top_n=20, min_rating=5.5):
   
   # Merge with content metadata early to enable filtering
   recommendations = recommendations.merge(
-    content_df[['id', 'title', 'type', 'vote_average', 'vote_count', 'release_date']],
+    content_df[['id', 'title', 'type', 'imdb_rating', 'imdb_votes', 'release_date']],
     left_on='similar_id',
     right_on='id',
     how='left',
@@ -76,8 +80,8 @@ def get_recommendations(item_id, sim_df, content_df, top_n=20, min_rating=5.5):
   # QUALITY FILTER: Remove low-rated items (less than min_rating)
   # Also require minimum vote count to avoid obscure films with few votes
   recommendations = recommendations[
-    (recommendations['vote_average'] >= min_rating) & 
-    (recommendations['vote_count'] >= 100)
+    (recommendations['imdb_rating'] >= min_rating) & 
+    (recommendations['imdb_votes'] >= 100)
   ].copy()
   
   # Sort by similarity score (descending)
@@ -97,7 +101,7 @@ def display_item_info(item, content_df):
   print(f"Title: {item['title']}")
   print(f"Type: {item['type'].upper()}")
   print(f"Year: {item['release_date'][:4] if pd.notna(item['release_date']) else 'N/A'}")
-  print(f"Rating: {item['vote_average']:.1f}/10")
+  print(f"Rating: {item['imdb_rating']:.1f}/10")
   if 'genres' in item and pd.notna(item['genres']):
     print(f"Genres: {item['genres']}")
   print("=" * 80)
@@ -111,7 +115,7 @@ def display_recommendations(recommendations):
   for idx, row in recommendations.iterrows():
     year = row['release_date'][:4] if pd.notna(row['release_date']) else 'N/A'
     print(f"\n{idx+1}. {row['title']} ({year})")
-    print(f"   Type: {row['type'].upper()} | Rating: {row['vote_average']:.1f}/10 | Similarity: {row['similarity_score']:.3f}")
+    print(f"   Type: {row['type'].upper()} | Rating: {row['imdb_rating']:.1f}/10 | Similarity: {row['similarity_score']:.3f}")
   
   print("\n" + "=" * 80)
 
@@ -146,12 +150,11 @@ def main():
     print(f"\nFound {len(matches)} match(es):")
     for i, (idx, item) in enumerate(matches.head(10).iterrows()):
       year = item['release_date'][:4] if pd.notna(item['release_date']) else 'N/A'
-      print(f"{i+1}. {item['title']} ({year}) - {item['type'].upper()} - Rating: {item['vote_average']:.1f}/10")
+      print(f"{i+1}. {item['title']} ({year}) - {item['type'].upper()} - Rating: {item['imdb_rating']:.1f}/10")
     
     if len(matches) > 10:
       print(f"... and {len(matches) - 10} more")
     
-    # Auto-select first match if --auto flag or only one match
     if args.auto or len(matches) == 1:
       selection = 0
       if len(matches) > 1:
@@ -222,7 +225,7 @@ def main():
     print(f"\nFound {len(matches)} match(es):")
     for i, (idx, item) in enumerate(matches.head(10).iterrows()):
       year = item['release_date'][:4] if pd.notna(item['release_date']) else 'N/A'
-      print(f"{i+1}. {item['title']} ({year}) - {item['type'].upper()} - Rating: {item['vote_average']:.1f}/10")
+      print(f"{i+1}. {item['title']} ({year}) - {item['type'].upper()} - Rating: {item['imdb_rating']:.1f}/10")
     
     if len(matches) > 10:
       print(f"... and {len(matches) - 10} more")

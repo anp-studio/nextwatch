@@ -22,14 +22,21 @@ def main():
   # Load processed data
   print("\n[1/6] Loading normalized datasets...")
 
-  movies_df = pd.read_csv('../../data/processed/movies_normalized.csv')
+  movies_df = pd.read_csv('../../data/processed/movies_core.csv')
   shows_df = pd.read_csv('../../data/processed/shows_normalized.csv')
   
-  # Rename show_id to id for consistency
-  if 'show_id' in shows_df.columns:
-    shows_df.rename(columns={'show_id': 'id'}, inplace=True)
+  # Rename columns for consistency
   if 'movie_id' in movies_df.columns:
     movies_df.rename(columns={'movie_id': 'id'}, inplace=True)
+  
+  if 'show_id' in shows_df.columns:
+    shows_df.rename(columns={'show_id': 'id'}, inplace=True)
+
+  # Ensure IMDb columns exist in shows_df (rename if needed)
+  if 'vote_average' in shows_df.columns and 'imdb_rating' not in shows_df.columns:
+    shows_df.rename(columns={'vote_average': 'imdb_rating'}, inplace=True)
+  if 'vote_count' in shows_df.columns and 'imdb_votes' not in shows_df.columns:
+    shows_df.rename(columns={'vote_count': 'imdb_votes'}, inplace=True)
 
   # Add type column
   movies_df['type'] = 'movie'
@@ -41,7 +48,7 @@ def main():
   print(f"Loaded {len(shows_df):,} shows")
   print(f"Total items: {len(df):,}")
 
-   # Filter only core items
+  # Filter only core items
   print("\n[2/6] Filtering core items...")
   core_df = df[df['is_core'] == True].copy()
   
@@ -65,10 +72,17 @@ def main():
 
   # Parse string lists back to Python lists
   print("\n[3/6] Parsing features...")
-  core_df['genres'] = core_df['genres'].apply(safe_literal_eval)
-  core_df['keywords'] = core_df['keywords'].apply(safe_literal_eval)
+  # Use split('|') for movies and literal_eval for shows
+  def parse_genres_hybrid(row):
+    if row['type'] == 'movie':
+      val = row['genres_str']
+      return val.split('|') if isinstance(val, str) and val else []
+    else:
+      return safe_literal_eval(row['genres'])
 
-  print(f"Parsed genres and keywords")
+  core_df['genres_list'] = core_df.apply(parse_genres_hybrid, axis=1)
+
+  print(f"Parsed genres")
 
   print("\n[4/6] Creating feature vectors...")
   feature_matrix = create_feature_vectors(core_df)
@@ -154,26 +168,30 @@ def apply_sequel_boost(similarity_matrix, df):
   
   boosted_count = 0
   
-  # Apply boost
-  for i in range(len(titles)):
-    if not franchise_names[i]:
+  # Group items by franchise
+  franchise_groups = {}
+  for i, name in enumerate(franchise_names):
+    if name and len(name) > 3:
+      if name not in franchise_groups:
+        franchise_groups[name] = []
+      franchise_groups[name].append(i)
+  
+  # Apply boost only within franchise groups
+  for name, indices in franchise_groups.items():
+    if len(indices) < 2:
       continue
-      
-    for j in range(i + 1, len(titles)):
-      if not franchise_names[j]:
-        continue
-      
-      # Check if same franchise
-      if franchise_names[i] == franchise_names[j] and len(franchise_names[i]) > 3:
-        # Boost the similarity significantly
-        original_score = similarity_matrix[i, j]
+    
+    for i in range(len(indices)):
+      idx_i = indices[i]
+      for j in range(i + 1, len(indices)):
+        idx_j = indices[j]
         
-        # Apply boost: multiply by 1.5 and add 0.3 (but cap at 1.0)
+        # Boost the similarity significantly
+        original_score = similarity_matrix[idx_i, idx_j]
         boosted_score = min(1.0, original_score * 1.5 + 0.3)
         
-        similarity_matrix[i, j] = boosted_score
-        similarity_matrix[j, i] = boosted_score
-        
+        similarity_matrix[idx_i, idx_j] = boosted_score
+        similarity_matrix[idx_j, idx_i] = boosted_score
         boosted_count += 1
   
   print(f"  Applied franchise boost to {boosted_count} movie pairs")
@@ -186,7 +204,6 @@ def create_feature_vectors(df):
   
   Features:
   - Genres (one-hot)
-  - Keywords (one-hot)
   - Overview (TF-IDF)
   - Type (movie vs show)
   - Rating (normalized and weighted)
@@ -202,15 +219,9 @@ def create_feature_vectors(df):
 
   # Genre features
   mlb_genres = MultiLabelBinarizer()
-  genre_features = mlb_genres.fit_transform(df['genres'])
+  genre_features = mlb_genres.fit_transform(df['genres_list'])
   print(f"    {len(mlb_genres.classes_)} unique genres")
 
-  print("  Creating keyword features...")
-  # Keyword features
-  mlb_keywords = MultiLabelBinarizer()
-  keyword_features = mlb_keywords.fit_transform(df['keywords'])
-  print(f"    {len(mlb_keywords.classes_)} unique keywords")
-  
   print("  Creating overview (description) features...")
   # Overview features using TF-IDF
   # Fill missing overviews with empty string
@@ -233,7 +244,7 @@ def create_feature_vectors(df):
 
   print("  Creating rating features...")
   # Rating features (normalized 0-1, heavily weighted)
-  rating_features = df['vote_average'].fillna(5.0).values.reshape(-1, 1)
+  rating_features = df['imdb_rating'].fillna(5.0).values.reshape(-1, 1)
   rating_features = rating_features / 10.0
   
   print("  Creating popularity features...")
@@ -244,7 +255,7 @@ def create_feature_vectors(df):
   
   print("  Creating vote count features...")
   # Vote count features (log-normalized, to favor movies with more votes)
-  vote_count_features = df['vote_count'].fillna(1.0).values.reshape(-1, 1)
+  vote_count_features = df['imdb_votes'].fillna(1.0).values.reshape(-1, 1)
   vote_count_features = np.log1p(vote_count_features)
   vote_count_features = vote_count_features / np.max(vote_count_features)
   
@@ -296,7 +307,6 @@ def create_feature_vectors(df):
   print("  Combining features with weights...")
   feature_matrix = np.hstack([
     genre_features * 3.0,           # Genre similarity is important
-    keyword_features * 2.0,          # Keywords help but less than genres
     overview_features * 2.0,         # REDUCED from 4.0 - was causing too much anime similarity
     type_features * 1.5,             # Movie vs Show preference
     rating_features * 5.0,           # INCREASED from 3.5 - quality is crucial!
@@ -321,8 +331,8 @@ def save_similarity_matrix(matrix, df, top_n=100):
   - Large budget mismatches (>10x or <0.1x): multiply by 0.4
   """
   ids = df['id'].values
-  ratings = df['vote_average'].values
-  vote_counts = df['vote_count'].values
+  ratings = df['imdb_rating'].values
+  vote_counts = df['imdb_votes'].values
   budgets = df['budget'].fillna(0).values
   
   results = []
@@ -345,8 +355,12 @@ def save_similarity_matrix(matrix, df, top_n=100):
     # Clip scores to [0, 1] to fix floating point errors
     similarities = np.clip(similarities, 0, 1)
     
+    # OPTIMIZATION: Only apply penalties to top candidates to avoid O(N^2)
+    # We take top 250 candidates, apply penalties, then take final top_n
+    candidate_indices = np.argsort(similarities)[::-1][:250]
+    
     # POST-FILTERING: Apply quality penalties
-    for j in range(len(similarities)):
+    for j in candidate_indices:
       if j == i or similarities[j] < 0:
         continue
       
