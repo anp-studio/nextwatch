@@ -1,5 +1,3 @@
-# ml-pipeline/.gitignore
-
 # Virtual environment
 .venv/
 .env/
