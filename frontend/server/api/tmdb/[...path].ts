@@ -1,11 +1,16 @@
-import { set } from '@vueuse/core'
-
 const TMDB_API_URL = 'https://api.themoviedb.org/3'
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async (event): Promise<any> => {
   const config = useRuntimeConfig()
   const query = getQuery(event)
-  const path = event.context.params!.path
+  const path = event.context.params?.path as string | undefined
+
+  if (!path) {
+    throw createError({
+      statusCode: 400,
+      message: 'Path parameter is required',
+    })
+  }
 
   try {
     return await $fetch(path, {
@@ -19,7 +24,7 @@ export default defineEventHandler(async (event) => {
     })
   } catch (error: any) {
     const status = error.response?.status || 500
-    setHeaders(event, status)
+    setResponseStatus(event, status)
     return { error: String(error) }
   }
 })
