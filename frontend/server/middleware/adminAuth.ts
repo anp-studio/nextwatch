@@ -9,7 +9,15 @@ export default defineEventHandler(async (event) => {
   const headers = getRequestHeaders(event)
   const providedToken = headers['x-admin-token'] as string | undefined
 
+  console.log('[adminAuth] All headers received:', JSON.stringify(headers))
+  console.log('[adminAuth] x-admin-token value:', providedToken)
+
   const validToken = process.env.ADMIN_API_TOKEN
+
+  console.log(
+    '[adminAuth] ADMIN_API_TOKEN from env:',
+    validToken ? `${validToken.substring(0, 8)}...` : 'NOT SET'
+  )
 
   if (!validToken) {
     console.error('ADMIN_API_TOKEN environment variable is not set')

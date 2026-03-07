@@ -6,47 +6,14 @@ import type {
   TMDBGenre,
 } from '~/types/tmdb'
 
-export interface Movie {
-  id: number
-  imdb_id?: string | null
-  title: string
-  poster: string
-  rating: number
-  year: number
-  duration: string
-  genres: string[]
-  actors: string[]
-  description: string
-}
-
-export interface MoviePreview {
-  id: number
-  title: string
-  poster: string
-  rating: number
-  year: number
-  genres: string[]
-  description: string
-}
-
 export const useMovies = () => {
-  const config = useRuntimeConfig()
-  const apiKey = config.public.tmdbApiKey
-  const BASE_URL = 'https://api.themoviedb.org/3'
   const IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
 
   const getPopularMovies = async (): Promise<MoviePreview[]> => {
-    const [moviesResponse, genresResponse] = await Promise.all([
-      fetch(`${BASE_URL}/movie/popular?api_key=${apiKey}&language=en-US&page=1`),
-      fetch(`${BASE_URL}/genre/movie/list?api_key=${apiKey}`),
+    const [moviesData, genresData] = await Promise.all([
+      $fetch<TMDBPopularResponse>('/api/tmdb/movie/popular', { params: { page: 1 } }),
+      $fetch<TMDBGenreListResponse>('/api/tmdb/genre/movie/list'),
     ])
-
-    if (!moviesResponse.ok || !genresResponse.ok) {
-      throw new Error('Failed to fetch movies')
-    }
-
-    const moviesData: TMDBPopularResponse = await moviesResponse.json()
-    const genresData: TMDBGenreListResponse = await genresResponse.json()
 
     const genreMap = new Map<number, string>(
       genresData.genres.map((g: TMDBGenre) => [g.id, g.name])
@@ -66,15 +33,10 @@ export const useMovies = () => {
   }
 
   const getMovieDetails = async (movieId: number): Promise<Movie> => {
-    const response = await fetch(
-      `${BASE_URL}/movie/${movieId}?api_key=${apiKey}&language=en-US&append_to_response=credits`
-    )
+    const data = await $fetch<TMDBMovieDetails>(`/api/tmdb/movie/${movieId}`, {
+      params: { append_to_response: 'credits' },
+    })
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch movie details')
-    }
-
-    const data: TMDBMovieDetails = await response.json()
     return {
       id: data.id,
       imdb_id: data.imdb_id,
@@ -83,10 +45,19 @@ export const useMovies = () => {
       rating: Math.round(data.vote_average * 10) / 10,
       year: parseInt(data.release_date?.split('-')[0] || '0'),
       duration: data.runtime ? `${Math.floor(data.runtime / 60)}h ${data.runtime % 60}m` : 'N/A',
-      genres: data.genres.map((g) => g.name),
-      actors: data.credits.cast.slice(0, 5).map((actor) => actor.name),
+      genres: data.genres.map((g: TMDBGenre) => g.name),
+      actors: data.credits.cast.slice(0, 5).map((actor: { name: string }) => actor.name),
       description: data.overview,
     }
+  }
+
+  const watchedMovies = useState<number[]>('watched', () => [])
+
+  const markAsWatched = (tmdbId: number) => {
+    if (!watchedMovies.value.includes(tmdbId)) {
+      watchedMovies.value.push(tmdbId)
+    }
+    // TODO: later add to supabase
   }
 
   // just for development and testing purposes
@@ -129,14 +100,28 @@ export const useMovies = () => {
     },
   ])
 
-  const watchedMovies = useState<number[]>('watched', () => [])
-
-  const markAsWatched = (tmdbId: number) => {
-    if (!watchedMovies.value.includes(tmdbId)) {
-      watchedMovies.value.push(tmdbId)
-    }
-    // TODO: later supabsae will map tmdbID, imdbID, omdbID
-  }
-
   return { getPopularMovies, getMovieDetails, moviesMock, watchedMovies, markAsWatched }
+}
+
+export interface Movie {
+  id: number
+  imdb_id?: string | null
+  title: string
+  poster: string
+  rating: number
+  year: number
+  duration: string
+  genres: string[]
+  actors: string[]
+  description: string
+}
+
+export interface MoviePreview {
+  id: number
+  title: string
+  poster: string
+  rating: number
+  year: number
+  genres: string[]
+  description: string
 }

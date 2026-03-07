@@ -11,4 +11,10 @@ export default defineNuxtConfig({
   devtools: {
     enabled: false,
   },
+  mdc: {
+    highlight: {
+      theme: "github-dark",
+      langs: ["js", "ts", "python"],
+    },
+  },
 });

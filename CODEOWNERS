@@ -1,5 +1,7 @@
 /model/**    @th3akii
 /frontend/server/**    @th3akii
-/frontend/pages/**     @pmackovic
+/frontend/app/pages/**     @pmackovic
+/frontend/app/layouts/**     @pmackovic
+/frontend/app/components/**     @pmackovic
 /docs/**               @th3akii @pmackovic
 /*    @th3akii @pmackovic

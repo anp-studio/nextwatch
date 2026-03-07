@@ -1,6 +1,6 @@
 <template>
   <div class="relative w-full h-full flex flex-col items-center justify-center p-4">
-    <div v-if="currentIndex >= movies.length" class="text-center">
+    <div v-if="!movies || currentIndex >= movies.length" class="text-center">
       <h2 class="text-2xl font-bold mb-2">No more movies!</h2>
       <p class="text-gray-400">Come back later for more recommendations.</p>
       <button @click="reset" class="mt-4 text-red-500 hover:underline">Refresh</button>
@@ -69,18 +69,17 @@
 <script setup lang="ts">
 import type { Movie, MoviePreview } from '~/composables/useMovies'
 const { getPopularMovies, getMovieDetails, markAsWatched } = useMovies()
-import { ref, computed, onMounted } from 'vue'
-const movies = ref<MoviePreview[]>([])
+import { ref, computed } from 'vue'
+
+const { data: movies, refresh } = await useAsyncData<MoviePreview[]>('popular-movies', () =>
+  getPopularMovies()
+)
 
 const selectedMovie = ref<Movie | null>(null)
 const currentIndex = ref(0)
 
-onMounted(async () => {
-  const fetchedMovies = await getPopularMovies()
-  movies.value = fetchedMovies
-})
-
 const reversedMovies = computed(() => {
+  if (!movies.value) return []
   return movies.value.slice(currentIndex.value, currentIndex.value + 2).reverse()
 })
 
@@ -94,6 +93,7 @@ const getCardStyle = (index: number) => {
 }
 
 const handleSwipe = async (direction: 'left' | 'right') => {
+  if (!movies.value || currentIndex.value >= movies.value.length) return
   const currentMovie = movies.value[currentIndex.value]
   if (!currentMovie) return
 
@@ -119,7 +119,6 @@ const openDetails = async (movie: MoviePreview) => {
 const reset = async () => {
   //will change when recommendation model is added
   currentIndex.value = 0
-  const fetchedMovies = await getPopularMovies()
-  movies.value = fetchedMovies
+  await refresh()
 }
 </script>
