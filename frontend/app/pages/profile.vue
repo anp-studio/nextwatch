@@ -47,11 +47,12 @@
 <script setup lang="ts">
 const { watchedMovies } = useMovies()
 const { logout } = useAuth()
+const router = useRouter()
 
 const watchedCount = computed(() => watchedMovies.value.length)
 
 const handleLogout = async () => {
   await logout()
-  watchedMovies.value = []
+  router.push('/')
 }
 </script>

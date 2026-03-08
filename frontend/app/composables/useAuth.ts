@@ -7,10 +7,21 @@ const loading = ref(true)
 
 export const useAuth = () => {
   const supabase = useSupabase()
-  const { syncWatchedMoviesFromSupabase } = useMovies()
+  const { syncWatchedMoviesFromSupabase, processPendingWatchedMovies, clearWatchedMovies } = useMovies()
 
   const isAuthenticated = computed(() => !!user.value)
   const userEmail = computed(() => user.value?.email || '')
+
+  const syncWatchedStateAfterAuth = async (accessToken?: string) => {
+    if (!accessToken) {
+      clearWatchedMovies()
+      return
+    }
+
+    await syncWatchedMoviesFromSupabase(accessToken)
+    await processPendingWatchedMovies(accessToken)
+    await syncWatchedMoviesFromSupabase(accessToken)
+  }
 
   const login = async (email: string, password: string) => {
     try {
@@ -24,7 +35,7 @@ export const useAuth = () => {
       user.value = data.user
       session.value = data.session
 
-      await syncWatchedMoviesFromSupabase(data.session?.access_token)
+      await syncWatchedStateAfterAuth(data.session?.access_token)
 
       return { user: data.user }
     } catch (error) {
@@ -47,7 +58,7 @@ export const useAuth = () => {
         session.value = data.session
       }
 
-      await syncWatchedMoviesFromSupabase(data.session?.access_token)
+      await syncWatchedStateAfterAuth(data.session?.access_token)
 
       return { user: data.user }
     } catch (error) {
@@ -64,7 +75,7 @@ export const useAuth = () => {
 
       user.value = null
       session.value = null
-      await syncWatchedMoviesFromSupabase()
+      clearWatchedMovies()
     } catch (error) {
       console.error('Logout error:', error)
     }
@@ -108,12 +119,12 @@ export const useAuth = () => {
 
       session.value = currentSession
       user.value = currentSession?.user || null
-      await syncWatchedMoviesFromSupabase(currentSession?.access_token)
+      await syncWatchedStateAfterAuth(currentSession?.access_token)
 
       supabase.auth.onAuthStateChange(async (_event, newSession) => {
         session.value = newSession
         user.value = newSession?.user || null
-        await syncWatchedMoviesFromSupabase(newSession?.access_token)
+        await syncWatchedStateAfterAuth(newSession?.access_token)
       })
     } catch (error) {
       console.error('Error initializing auth:', error)
@@ -153,3 +164,4 @@ export const useAuth = () => {
     updatePassword,
   }
 }
+
