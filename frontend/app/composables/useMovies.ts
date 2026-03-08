@@ -6,6 +6,10 @@ import type {
   TMDBGenre,
 } from '~/types/tmdb'
 
+interface WatchedMoviePayload {
+  tmdbId: number
+}
+
 export const useMovies = () => {
   const IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
   const tmdbErrorMessage = 'TMDB data is unavailable right now. Check NUXT_TMDB_API_KEY.'
@@ -65,12 +69,66 @@ export const useMovies = () => {
   }
 
   const watchedMovies = useState<number[]>('watched', () => [])
+  const supabase = useSupabase()
 
-  const markAsWatched = (tmdbId: number) => {
-    if (!watchedMovies.value.includes(tmdbId)) {
-      watchedMovies.value.push(tmdbId)
+  const syncWatchedMoviesFromSupabase = async (accessToken?: string) => {
+    try {
+      let token = accessToken
+
+      if (!token) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        token = session?.access_token
+      }
+
+      if (!token) {
+        watchedMovies.value = []
+        return
+      }
+
+      const response = await $fetch<{ success: boolean; movies: WatchedMoviePayload[] }>('/api/watched', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      watchedMovies.value = response.movies.map((movie) => movie.tmdbId)
+    } catch (error) {
+      console.error('Failed to load watched movies from Supabase:', error)
     }
-    // TODO: later add to supabase
+  }
+
+  const markAsWatched = async (movie: Pick<MoviePreview, 'id' | 'title' | 'year'>) => {
+    if (!watchedMovies.value.includes(movie.id)) {
+      watchedMovies.value.push(movie.id)
+    }
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) return
+
+      await $fetch('/api/watched', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: {
+          movie: {
+            tmdbId: movie.id,
+            title: movie.title,
+            year: movie.year,
+          },
+        },
+      })
+    } catch (error) {
+      console.error('Failed to mark movie as watched in Supabase:', error)
+    }
   }
 
   // just for development and testing purposes
@@ -113,7 +171,14 @@ export const useMovies = () => {
     },
   ])
 
-  return { getPopularMovies, getMovieDetails, moviesMock, watchedMovies, markAsWatched }
+  return {
+    getPopularMovies,
+    getMovieDetails,
+    moviesMock,
+    watchedMovies,
+    markAsWatched,
+    syncWatchedMoviesFromSupabase,
+  }
 }
 
 export interface Movie {

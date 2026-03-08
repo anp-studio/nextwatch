@@ -118,7 +118,7 @@ const handleSwipe = async (direction: 'left' | 'right') => {
   if (!currentMovie) return
 
   if (direction === 'right') {
-    markAsWatched(currentMovie.id)
+    await markAsWatched({ id: currentMovie.id, title: currentMovie.title, year: currentMovie.year })
     // dodati animaciju? (trigger)
   } else {
     // preskakanje?
@@ -141,3 +141,4 @@ const reset = async () => {
   await refresh()
 }
 </script>
+

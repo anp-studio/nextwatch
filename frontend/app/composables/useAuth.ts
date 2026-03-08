@@ -7,6 +7,7 @@ const loading = ref(true)
 
 export const useAuth = () => {
   const supabase = useSupabase()
+  const { syncWatchedMoviesFromSupabase } = useMovies()
 
   const isAuthenticated = computed(() => !!user.value)
   const userEmail = computed(() => user.value?.email || '')
@@ -22,6 +23,8 @@ export const useAuth = () => {
 
       user.value = data.user
       session.value = data.session
+
+      await syncWatchedMoviesFromSupabase(data.session?.access_token)
 
       return { user: data.user }
     } catch (error) {
@@ -44,6 +47,8 @@ export const useAuth = () => {
         session.value = data.session
       }
 
+      await syncWatchedMoviesFromSupabase(data.session?.access_token)
+
       return { user: data.user }
     } catch (error) {
       console.error('Signup error:', error)
@@ -59,6 +64,7 @@ export const useAuth = () => {
 
       user.value = null
       session.value = null
+      await syncWatchedMoviesFromSupabase()
     } catch (error) {
       console.error('Logout error:', error)
     }
@@ -102,10 +108,12 @@ export const useAuth = () => {
 
       session.value = currentSession
       user.value = currentSession?.user || null
+      await syncWatchedMoviesFromSupabase(currentSession?.access_token)
 
-      supabase.auth.onAuthStateChange((_event, newSession) => {
+      supabase.auth.onAuthStateChange(async (_event, newSession) => {
         session.value = newSession
         user.value = newSession?.user || null
+        await syncWatchedMoviesFromSupabase(newSession?.access_token)
       })
     } catch (error) {
       console.error('Error initializing auth:', error)
