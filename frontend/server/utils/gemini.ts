@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import type { Schema } from '@google/generative-ai'
 
 const GEMINI_DEFAULT_MODEL = 'gemini-flash-lite-latest'
 
@@ -6,9 +7,10 @@ interface GeminiOptions {
   systemPrompt: string
   userMessage: string
   model?: string
+  schema?: Schema
 }
 
-export async function askGemini({ systemPrompt, userMessage, model = GEMINI_DEFAULT_MODEL }: GeminiOptions): Promise<string> {
+export async function askGemini({ systemPrompt, userMessage, model = GEMINI_DEFAULT_MODEL, schema }: GeminiOptions): Promise<string> {
   const config = useRuntimeConfig()
   const apiKey = config.geminiApiKey || process.env.NUXT_GEMINI_API_KEY || ''
 
@@ -21,7 +23,16 @@ export async function askGemini({ systemPrompt, userMessage, model = GEMINI_DEFA
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey)
-    const geminiModel = genAI.getGenerativeModel({ model, systemInstruction: systemPrompt })
+    const geminiModel = genAI.getGenerativeModel({
+      model,
+      systemInstruction: systemPrompt,
+      ...(schema && {
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: schema,
+        },
+      }),
+    })
     const result = await geminiModel.generateContent(userMessage)
     const text = result.response.text()
 

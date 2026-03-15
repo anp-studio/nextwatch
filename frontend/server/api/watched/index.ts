@@ -1,4 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
+import { getMethod } from 'h3'
+import { getAuthorizedUser } from '../../utils/auth'
 
 interface WatchedMovie {
   tmdbId: number
@@ -8,40 +9,6 @@ interface WatchedMovie {
 
 interface WatchBody {
   movie?: Partial<WatchedMovie>
-}
-
-const getAuthorizedUser = async (event: Parameters<typeof defineEventHandler>[0]) => {
-  const config = useRuntimeConfig(event)
-  const authHeader = getHeader(event, 'authorization')
-
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  }
-
-  const token = authHeader.slice('Bearer '.length)
-
-  const supabase = createClient(
-    config.public.supabaseUrl as string,
-    config.public.supabaseKey as string,
-    {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    }
-  )
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser(token)
-
-  if (userError || !user) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  }
-
-  return { supabase, user }
 }
 
 export default defineEventHandler(async (event) => {
