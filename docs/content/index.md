@@ -60,7 +60,7 @@ Documentation
   Backend API
 
   #description
-  TMDB proxy behavior and current server responsibilities
+  TMDB proxy and watched-movies authenticated endpoints
   :::
 
   :::u-page-feature

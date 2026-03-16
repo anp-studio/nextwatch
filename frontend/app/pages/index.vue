@@ -74,7 +74,7 @@
 
 <script setup lang="ts">
 import type { Movie, MoviePreview } from '~/composables/useMovies'
-const { getPopularMovies, getMovieDetails, markAsWatched } = useMovies()
+const { getPopularMovies, getMovieDetails, markAsWatched, queuePendingWatchedMovie } = useMovies()
 import { ref, computed } from 'vue'
 
 const moviesError = ref('')
@@ -118,7 +118,23 @@ const handleSwipe = async (direction: 'left' | 'right') => {
   if (!currentMovie) return
 
   if (direction === 'right') {
-    markAsWatched(currentMovie.id)
+    const markResult = await markAsWatched({
+      id: currentMovie.id,
+      title: currentMovie.title,
+      year: currentMovie.year,
+    })
+
+    if (markResult === 'unauthorized') {
+      queuePendingWatchedMovie({
+        id: currentMovie.id,
+        title: currentMovie.title,
+        year: currentMovie.year,
+      })
+      await navigateTo('/login')
+      return
+    }
+
+    if (markResult !== 'ok') return
     // dodati animaciju? (trigger)
   } else {
     // preskakanje?
@@ -141,3 +157,4 @@ const reset = async () => {
   await refresh()
 }
 </script>
+

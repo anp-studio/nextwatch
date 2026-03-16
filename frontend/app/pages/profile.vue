@@ -37,6 +37,7 @@
 
     <button
       class="w-full mt-8 py-3 bg-red-600/20 text-red-500 rounded-xl font-bold hover:bg-red-600/30 transition"
+      @click="handleLogout()"
     >
       Log Out
     </button>
@@ -45,6 +46,13 @@
 
 <script setup lang="ts">
 const { watchedMovies } = useMovies()
+const { logout } = useAuth()
+const router = useRouter()
 
 const watchedCount = computed(() => watchedMovies.value.length)
+
+const handleLogout = async () => {
+  await logout()
+  router.push('/')
+}
 </script>
