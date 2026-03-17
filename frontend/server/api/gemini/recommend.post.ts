@@ -5,9 +5,13 @@ import { getAuthorizedUser } from '../../utils/auth'
 
 const WATCHED_MOVIES_TABLE = 'watched_movies'
 const MAX_WATCHED_FOR_PROMPT = 50
+const MAX_RECOMMENDATIONS = 20
 
 const SYSTEM_PROMPT = `You are a movie recommendation engine.
 Based on the user's watch history, recommend exactly 10 movies they have not yet seen.
+Return movie titles in their original release language and script exactly as TMDB original titles.
+Do not transliterate, anglicize, or use localized variants.
+For example, use ゴジラ-1.0 instead of Godzilla Minus One.
 Respond ONLY with valid JSON — no explanation, no markdown, no code fences.`
 
 const RECOMMENDATION_SCHEMA: Schema = {
@@ -15,10 +19,17 @@ const RECOMMENDATION_SCHEMA: Schema = {
   items: {
     type: SchemaType.OBJECT,
     properties: {
-      name: { type: SchemaType.STRING, description: 'Movie title' },
+      name: {
+        type: SchemaType.STRING,
+        description: 'Movie title in original release language/script',
+      },
+      originalName: {
+        type: SchemaType.STRING,
+        description: 'Exact original TMDB title in original release language/script',
+      },
       year: { type: SchemaType.INTEGER, description: 'Release year' },
     },
-    required: ['name', 'year'],
+    required: ['name', 'originalName', 'year'],
   },
 }
 
@@ -34,7 +45,12 @@ interface WatchedMovieRecord {
 
 interface Recommendation {
   name: string
+  originalName: string
   year: number
+}
+
+interface RecommendationWithId extends Recommendation {
+  tmdbId: number | null
 }
 
 function isRecommendationArray(value: unknown): value is Recommendation[] {
@@ -45,9 +61,22 @@ function isRecommendationArray(value: unknown): value is Recommendation[] {
         typeof item === 'object' &&
         item !== null &&
         typeof (item as Record<string, unknown>).name === 'string' &&
+        typeof (item as Record<string, unknown>).originalName === 'string' &&
         typeof (item as Record<string, unknown>).year === 'number'
     )
   )
+}
+
+function normalizeTitle(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function getSearchCandidates(recommendation: Recommendation): string[] {
+  const candidates = [recommendation.originalName, recommendation.name]
+    .map((title) => title.trim())
+    .filter((title) => title.length > 0)
+
+  return [...new Set(candidates)]
 }
 
 async function fetchWatchedMovies(
@@ -92,6 +121,56 @@ function buildUserMessage(movies: Array<{ title: string; year: number }>): strin
   return `I have watched the following movies:\n${list}\n\nRecommend 10 movies I would enjoy.`
 }
 
+function pickBestMatchId(
+  recommendation: Recommendation,
+  results: MovieSearchResult[],
+  searchCandidates: string[]
+): number | null {
+  if (results.length === 0) return null
+
+  const normalizedCandidates = new Set(searchCandidates.map(normalizeTitle))
+  const exactTitleMatch = results.find((result) =>
+    normalizedCandidates.has(normalizeTitle(result.original_title))
+  )
+
+  if (exactTitleMatch) return exactTitleMatch.tmdb_id
+
+  const firstResult = results[0]
+  if (!firstResult) return null
+
+  return firstResult.tmdb_id
+}
+
+async function appendTmdbIds(recommendations: Recommendation[]): Promise<RecommendationWithId[]> {
+  const enriched = await Promise.all(
+    recommendations.slice(0, MAX_RECOMMENDATIONS).map(async (recommendation) => {
+      try {
+        const searchCandidates = getSearchCandidates(recommendation)
+        let fallbackId: number | null = null
+
+        for (const candidate of searchCandidates) {
+          const results = await searchMovies(candidate)
+          const tmdbId = pickBestMatchId(recommendation, results, searchCandidates)
+
+          if (tmdbId !== null) return { ...recommendation, tmdbId }
+
+          if (fallbackId === null) {
+            const firstResult = results[0]
+            fallbackId = firstResult ? firstResult.tmdb_id : null
+          }
+        }
+
+        const tmdbId = fallbackId
+        return { ...recommendation, tmdbId }
+      } catch {
+        return { ...recommendation, tmdbId: null }
+      }
+    })
+  )
+
+  return enriched
+}
+
 export default defineEventHandler(async (event) => {
   const { supabase, user } = await getAuthorizedUser(event)
   const body = (await readBody<RecommendBody>(event)) ?? {}
@@ -130,5 +209,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  return { recommendations: parsed }
+  const recommendations = await appendTmdbIds(parsed)
+
+  return { recommendations }
 })

@@ -10,7 +10,12 @@ interface GeminiOptions {
   schema?: Schema
 }
 
-export async function askGemini({ systemPrompt, userMessage, model = GEMINI_DEFAULT_MODEL, schema }: GeminiOptions): Promise<string> {
+export async function askGemini({
+  systemPrompt,
+  userMessage,
+  model = GEMINI_DEFAULT_MODEL,
+  schema,
+}: GeminiOptions): Promise<string> {
   const config = useRuntimeConfig()
   const apiKey = config.geminiApiKey || process.env.NUXT_GEMINI_API_KEY || ''
 
@@ -45,9 +50,10 @@ export async function askGemini({ systemPrompt, userMessage, model = GEMINI_DEFA
 
     return text
   } catch (error: unknown) {
-    if (error && typeof error === 'object' && 'statusCode' in error) throw error // re-throw H3 errors
+    if (error && typeof error === 'object' && 'statusCode' in error) throw error
 
-    const statusMessage = error instanceof Error ? error.message : 'Failed to get a response from Gemini.'
+    const statusMessage =
+      error instanceof Error ? error.message : 'Failed to get a response from Gemini.'
     throw createError({ statusCode: 500, statusMessage })
   }
 }
