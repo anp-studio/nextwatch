@@ -122,6 +122,7 @@ const handleSwipe = async (direction: 'left' | 'right') => {
       id: currentMovie.id,
       title: currentMovie.title,
       year: currentMovie.year,
+      poster: currentMovie.poster,
     })
 
     if (markResult === 'unauthorized') {
@@ -129,6 +130,7 @@ const handleSwipe = async (direction: 'left' | 'right') => {
         id: currentMovie.id,
         title: currentMovie.title,
         year: currentMovie.year,
+        poster: currentMovie.poster,
       })
       await navigateTo('/login')
       return

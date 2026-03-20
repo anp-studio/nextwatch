@@ -1,18 +1,17 @@
-import type {
-  TMDBMovie,
-  TMDBPopularResponse,
-  TMDBGenreListResponse,
-  TMDBGenre,
-} from '~/types/tmdb'
+import type { TMDBMovie, TMDBPopularResponse, TMDBGenreListResponse, TMDBGenre } from '~/types/tmdb'
 
-interface WatchedMoviePayload {
+interface WatchedMovie {
   tmdbId: number
+  title: string
+  year: number
+  posterPath: string
 }
 
 interface PendingWatchedMovie {
   id: number
   title: string
   year: number
+  posterPath: string
 }
 
 export const useMovies = () => {
@@ -57,7 +56,7 @@ export const useMovies = () => {
     }
   }
 
-  const watchedMovies = useState<number[]>('watched', () => [])
+  const watchedMovies = useState<WatchedMovie[]>('watched', () => [])
   const pendingWatchedMovies = useState<PendingWatchedMovie[]>('pending-watched', () => [])
   const supabase = useSupabase()
 
@@ -77,7 +76,8 @@ export const useMovies = () => {
           (movie): movie is PendingWatchedMovie =>
             typeof movie?.id === 'number' &&
             typeof movie?.title === 'string' &&
-            typeof movie?.year === 'number'
+            typeof movie?.year === 'number' &&
+            typeof movie?.posterPath === 'string'
         )
       }
     } catch (error) {
@@ -125,7 +125,7 @@ export const useMovies = () => {
         return
       }
 
-      const response = await $fetch<{ success: boolean; movies: WatchedMoviePayload[] }>(
+      const response = await $fetch<{ success: boolean; movies: WatchedMovie[] }>(
         '/api/watched',
         {
           method: 'GET',
@@ -135,14 +135,14 @@ export const useMovies = () => {
         }
       )
 
-      watchedMovies.value = response.movies.map((movie) => movie.tmdbId)
+      watchedMovies.value = response.movies
     } catch (error) {
       console.error('Failed to load watched movies from Supabase:', error)
     }
   }
 
   const markAsWatched = async (
-    movie: Pick<MoviePreview, 'id' | 'title' | 'year'>
+    movie: Pick<MoviePreview, 'id' | 'title' | 'year' | 'poster'>
   ): Promise<'ok' | 'unauthorized' | 'error'> => {
     try {
       const {
@@ -153,11 +153,18 @@ export const useMovies = () => {
         return 'unauthorized'
       }
 
-      if (!watchedMovies.value.includes(movie.id)) {
-        watchedMovies.value.push(movie.id)
+      const posterPath = movie.poster.slice(IMAGE_BASE.length)
+
+      if (!watchedMovies.value.some((s) => s.tmdbId === movie.id)) {
+        watchedMovies.value.push({
+          tmdbId: movie.id,
+          title: movie.title,
+          year: movie.year,
+          posterPath,
+        })
       }
 
-      await $fetch('/api/watched', {
+      $fetch('/api/watched', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -167,6 +174,7 @@ export const useMovies = () => {
             tmdbId: movie.id,
             title: movie.title,
             year: movie.year,
+            posterPath,
           },
         },
       })
@@ -178,7 +186,9 @@ export const useMovies = () => {
     return 'ok'
   }
 
-  const queuePendingWatchedMovie = (movie: Pick<MoviePreview, 'id' | 'title' | 'year'>) => {
+  const queuePendingWatchedMovie = (
+    movie: Pick<MoviePreview, 'id' | 'title' | 'year' | 'poster'>
+  ) => {
     if (pendingWatchedMovies.value.some((pendingMovie) => pendingMovie.id === movie.id)) {
       return
     }
@@ -187,6 +197,7 @@ export const useMovies = () => {
       id: movie.id,
       title: movie.title,
       year: movie.year,
+      posterPath: movie.poster.slice(IMAGE_BASE.length),
     })
 
     persistPendingWatchedToStorage()
@@ -220,7 +231,7 @@ export const useMovies = () => {
       const queueSnapshot = [...pendingWatchedMovies.value]
 
       for (const movie of queueSnapshot) {
-        if (watchedMovies.value.includes(movie.id)) {
+        if (watchedMovies.value.some((s) => s.tmdbId === movie.id)) {
           pendingWatchedMovies.value = pendingWatchedMovies.value.filter(
             (pendingMovie) => pendingMovie.id !== movie.id
           )
@@ -230,7 +241,7 @@ export const useMovies = () => {
         }
 
         try {
-          await $fetch('/api/watched', {
+          $fetch('/api/watched', {
             method: 'POST',
             headers: {
               Authorization: `Bearer ${token}`,
@@ -240,12 +251,18 @@ export const useMovies = () => {
                 tmdbId: movie.id,
                 title: movie.title,
                 year: movie.year,
+                posterPath: movie.posterPath,
               },
             },
           })
 
-          if (!watchedMovies.value.includes(movie.id)) {
-            watchedMovies.value.push(movie.id)
+          if (!watchedMovies.value.some((s) => s.tmdbId === movie.id)) {
+            watchedMovies.value.push({
+              tmdbId: movie.id,
+              title: movie.title,
+              year: movie.year,
+              posterPath: movie.posterPath,
+            })
           }
 
           pendingWatchedMovies.value = pendingWatchedMovies.value.filter(
@@ -310,6 +327,7 @@ export const useMovies = () => {
   ])
 
   return {
+    IMAGE_BASE,
     getPopularMovies,
     getMovieDetails,
     moviesMock,

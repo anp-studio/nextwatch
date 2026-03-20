@@ -5,6 +5,7 @@ interface WatchedMovie {
   tmdbId: number
   title: string
   year: number
+  posterPath: string
 }
 
 interface WatchBody {
@@ -41,7 +42,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody<WatchBody>(event)
     const movie = body.movie
 
-    if (!movie || typeof movie.tmdbId !== 'number' || !movie.title || typeof movie.year !== 'number') {
+    if (!movie || typeof movie.tmdbId !== 'number' || !movie.title || typeof movie.year !== 'number' || typeof movie.posterPath !== 'string') {
       throw createError({ statusCode: 400, statusMessage: 'Invalid movie payload' })
     }
 
@@ -67,6 +68,7 @@ export default defineEventHandler(async (event) => {
         tmdbId: movie.tmdbId,
         title: movie.title,
         year: movie.year,
+        posterPath: movie.posterPath,
       })
     }
 
