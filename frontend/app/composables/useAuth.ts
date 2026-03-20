@@ -7,7 +7,7 @@ const loading = ref(true)
 
 export const useAuth = () => {
   const supabase = useSupabase()
-  const { syncWatchedMoviesFromSupabase, processPendingWatchedMovies, clearWatchedMovies } = useWatchedMovies()
+  const { syncWatchedMoviesFromSupabase, processPendingWatchedMovies, clearWatchedMovies } = useMovies()
 
   const isAuthenticated = computed(() => !!user.value)
   const userEmail = computed(() => user.value?.email || '')

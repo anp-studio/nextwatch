@@ -1,5 +1,15 @@
 export type { Movie, MoviePreview } from '~/types/movie'
 
+interface WatchedMoviePayload {
+  tmdbId: number
+}
+
+interface PendingWatchedMovie {
+  id: number
+  title: string
+  year: number
+}
+
 export const useMovies = () => {
   const { IMAGE_BASE, getPopularMovies, getMovieDetails } = useMovieDetails()
   const {
