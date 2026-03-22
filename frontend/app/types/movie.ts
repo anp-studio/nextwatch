@@ -15,7 +15,6 @@ export interface TMDBMovie {
 
 export interface TMDBMovieDetails {
   id: number
-  imdb_id: string | null
   title: string
   poster_path: string | null
   backdrop_path: string | null
@@ -30,14 +29,22 @@ export interface TMDBMovieDetails {
       name: string
     }>
   }
-  adult: boolean
-  budget: number
-  revenue: number
+  videos: {
+    results: TMDBVideo[]
+  }
 }
 
 export interface TMDBGenre {
   id: number
   name: string
+}
+
+export interface TMDBVideo {
+  key: string
+  site: string
+  type: string
+  official: boolean
+  published_at: string
 }
 
 export interface TMDBPopularResponse {
@@ -49,4 +56,41 @@ export interface TMDBPopularResponse {
 
 export interface TMDBGenreListResponse {
   genres: TMDBGenre[]
+}
+
+export interface Movie {
+  id: number
+  title: string
+  poster: string
+  rating: number
+  year: number
+  duration: string
+  genres: string[]
+  actors: string[]
+  description: string
+  trailer: string | null
+}
+
+export interface MoviePreview {
+  id: number
+  title: string
+  poster: string
+  rating: number
+  year: number
+  genres: string[]
+  description: string
+}
+
+export interface WatchedMovie {
+  tmdbId: number
+  title: string
+  year: number
+  posterPath: string
+}
+
+export interface PendingWatchedMovie {
+  id: number
+  title: string
+  year: number
+  posterPath: string
 }

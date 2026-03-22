@@ -72,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Movie } from '~/composables/useMovies'
+import type { Movie } from '~/types/movie'
 
 defineProps<{
   isOpen: boolean

@@ -1,47 +1,15 @@
-import { createClient } from '@supabase/supabase-js'
+import { getMethod } from 'h3'
+import { getAuthorizedUser } from '../../utils/auth'
 
 interface WatchedMovie {
   tmdbId: number
   title: string
   year: number
+  posterPath: string
 }
 
 interface WatchBody {
   movie?: Partial<WatchedMovie>
-}
-
-const getAuthorizedUser = async (event: Parameters<typeof defineEventHandler>[0]) => {
-  const config = useRuntimeConfig(event)
-  const authHeader = getHeader(event, 'authorization')
-
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  }
-
-  const token = authHeader.slice('Bearer '.length)
-
-  const supabase = createClient(
-    config.public.supabaseUrl as string,
-    config.public.supabaseKey as string,
-    {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    }
-  )
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser(token)
-
-  if (userError || !user) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  }
-
-  return { supabase, user }
 }
 
 export default defineEventHandler(async (event) => {
@@ -74,7 +42,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody<WatchBody>(event)
     const movie = body.movie
 
-    if (!movie || typeof movie.tmdbId !== 'number' || !movie.title || typeof movie.year !== 'number') {
+    if (!movie || typeof movie.tmdbId !== 'number' || !movie.title || typeof movie.year !== 'number' || typeof movie.posterPath !== 'string') {
       throw createError({ statusCode: 400, statusMessage: 'Invalid movie payload' })
     }
 
@@ -100,6 +68,7 @@ export default defineEventHandler(async (event) => {
         tmdbId: movie.tmdbId,
         title: movie.title,
         year: movie.year,
+        posterPath: movie.posterPath,
       })
     }
 

@@ -47,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import type { MoviePreview } from '~/composables/useMovies'
+import type { MoviePreview } from '~/types/movie'
 
 const { getPopularMovies } = useMovies()
 const query = ref('')

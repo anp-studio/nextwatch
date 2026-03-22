@@ -181,7 +181,7 @@ async function handleResetPassword() {
         backToLogin()
       }, 3000)
     }
-  } catch (error) {
+  } catch {
     errorMessage.value = 'Failed to send reset link. Please try again.'
   } finally {
     isLoading.value = false
@@ -224,7 +224,7 @@ async function handleSubmit() {
         }, 2000)
       }
     }
-  } catch (error) {
+  } catch {
     errorMessage.value = 'Something went wrong. Please try again.'
   } finally {
     isLoading.value = false
@@ -241,7 +241,7 @@ async function handleGoogleSignIn() {
     setTimeout(() => {
       isGoogleLoading.value = false
     }, 3000)
-  } catch (error) {
+  } catch {
     errorMessage.value = 'Google Sign-In failed. Please try again.'
     isGoogleLoading.value = false
   }

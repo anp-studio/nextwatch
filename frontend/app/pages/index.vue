@@ -51,8 +51,8 @@
         </button>
 
         <button
-          @click.stop="handleSwipe('right')"
           class="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center text-white shadow-lg hover:scale-110 hover:bg-red-500 transition-transform"
+          @click.stop="handleSwipe('right')"
         >
           <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
             <path
@@ -73,9 +73,9 @@
 </template>
 
 <script setup lang="ts">
-import type { Movie, MoviePreview } from '~/composables/useMovies'
-const { getPopularMovies, getMovieDetails, markAsWatched, queuePendingWatchedMovie } = useMovies()
 import { ref, computed } from 'vue'
+import type { Movie, MoviePreview } from '~/types/movie'
+const { getPopularMovies, getMovieDetails, markAsWatched, queuePendingWatchedMovie } = useMovies()
 
 const moviesError = ref('')
 const { data: movies, refresh } = await useAsyncData<MoviePreview[]>(
@@ -122,6 +122,7 @@ const handleSwipe = async (direction: 'left' | 'right') => {
       id: currentMovie.id,
       title: currentMovie.title,
       year: currentMovie.year,
+      poster: currentMovie.poster,
     })
 
     if (markResult === 'unauthorized') {
@@ -129,6 +130,7 @@ const handleSwipe = async (direction: 'left' | 'right') => {
         id: currentMovie.id,
         title: currentMovie.title,
         year: currentMovie.year,
+        poster: currentMovie.poster,
       })
       await navigateTo('/login')
       return

@@ -96,7 +96,7 @@ async function handlePasswordUpdate() {
         router.push('/')
       }, 2000)
     }
-  } catch (error) {
+  } catch {
     errorMessage.value = 'Failed to update password. Please try again.'
   } finally {
     isLoading.value = false
