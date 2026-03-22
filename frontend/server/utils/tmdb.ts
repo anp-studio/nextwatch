@@ -1,8 +1,8 @@
+import type { QueryObject } from 'ufo'
+
 const TMDB_API_URL = 'https://api.themoviedb.org/3'
 
-type TmdbQuery = Record<string, string | string[] | number | undefined>
-
-export async function fetchTmdb(path: string, query: TmdbQuery = {}): Promise<unknown> {
+export async function fetchTmdb(path: string, query: QueryObject = {}): Promise<unknown> {
   const config = useRuntimeConfig()
   const apiKey = config.tmdbApiKey || process.env.NUXT_TMDB_API_KEY || ''
 
@@ -24,12 +24,14 @@ export async function fetchTmdb(path: string, query: TmdbQuery = {}): Promise<un
       headers: { Accept: 'application/json' },
     })
   } catch (error: unknown) {
-    const fetchError = error as { response?: { status?: number; _data?: { status_message?: string } } }
+    const fetchError = error as {
+      response?: { status?: number; _data?: { status_message?: string } }
+    }
     const statusCode = fetchError.response?.status ?? 500
     const statusMessage =
       statusCode === 401
         ? 'TMDB request unauthorized. Check NUXT_TMDB_API_KEY.'
-        : fetchError.response?._data?.status_message ?? 'Failed to fetch data from TMDB.'
+        : (fetchError.response?._data?.status_message ?? 'Failed to fetch data from TMDB.')
 
     throw createError({
       statusCode,

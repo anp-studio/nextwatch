@@ -97,6 +97,7 @@ export const useWatchedMovies = () => {
       }
 
       const posterPath = movie.poster.slice(IMAGE_BASE.length)
+      const originalList = [...watchedMovies.value]
 
       if (!watchedMovies.value.some((s) => s.tmdbId === movie.id)) {
         watchedMovies.value.push({
@@ -117,11 +118,11 @@ export const useWatchedMovies = () => {
             },
             { onConflict: 'user_id' }
           )
+          console.log(`Marked movie ${movie.id} as watched for user ${session.user.id}`)
         } catch (error) {
           console.error('Failed to save watched movies to Supabase:', error)
+          watchedMovies.value = originalList
         }
-
-        console.log(`Marked movie ${movie.id} as watched for user ${session.user.id}`)
       })()
     } catch (error) {
       console.error('Failed to mark movie as watched:', error)
