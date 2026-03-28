@@ -22,12 +22,18 @@
             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
           ></path>
         </svg>
-        <p>Finding movies...</p>
+        <p>Loading test movies...</p>
       </div>
 
       <div v-else-if="movies.length === 0" class="text-center text-gray-500">
         <p class="text-xl font-medium mb-2">You're all caught up!</p>
         <p class="text-sm">Check back later for more movies.</p>
+        <button
+          @click="resetMockMovies"
+          class="mt-6 px-6 py-2 bg-rose-500 text-white rounded-full font-semibold"
+        >
+          Load again
+        </button>
       </div>
 
       <div
@@ -166,9 +172,69 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 
-const { getPopularMovies, getMovieDetails, markAsWatched, queuePendingWatchedMovie, IMAGE_BASE } =
-  useMovies()
-const { isAuthenticated } = useAuth()
+const { queuePendingWatchedMovie, IMAGE_BASE } = useMovies()
+
+// 1. FORSIRAMO DA SMO ULOGOVANI ZA TESTIRANJE
+const isAuthenticated = ref(true)
+
+// 2. MOCK PODACI (5 FILMOVA)
+const MOCK_MOVIES_DATA = [
+  {
+    id: 1,
+    title: 'Dune: Part Two',
+    poster: 'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2JGjjc9CW.jpg',
+    poster_path: '/1pdfLvkbY9ohJlCjQH2JGjjc9CW.jpg',
+    rating: 8.3,
+    year: 2024,
+    genres: ['Sci-Fi', 'Adventure'],
+    description:
+      'Paul Atreides unites with Chani and the Fremen while on a warpath of revenge against the conspirators who destroyed his family.',
+  },
+  {
+    id: 2,
+    title: 'Oppenheimer',
+    poster: 'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
+    poster_path: '/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
+    rating: 8.1,
+    year: 2023,
+    genres: ['Drama', 'History'],
+    description:
+      "The story of J. Robert Oppenheimer's role in the development of the atomic bomb during World War II.",
+  },
+  {
+    id: 3,
+    title: 'Spider-Man: Across the Spider-Verse',
+    poster: 'https://image.tmdb.org/t/p/w500/8Vt6mWEReuy4Of61Lnj5Xj704m8.jpg',
+    poster_path: '/8Vt6mWEReuy4Of61Lnj5Xj704m8.jpg',
+    rating: 8.4,
+    year: 2023,
+    genres: ['Animation', 'Action'],
+    description:
+      'Miles Morales catapults across the Multiverse, where he encounters a team of Spider-People charged with protecting its very existence.',
+  },
+  {
+    id: 4,
+    title: 'Poor Things',
+    poster: 'https://image.tmdb.org/t/p/w500/kCGlIMHnOm8JPXq3rXM6c5wMxcT.jpg',
+    poster_path: '/kCGlIMHnOm8JPXq3rXM6c5wMxcT.jpg',
+    rating: 7.8,
+    year: 2023,
+    genres: ['Sci-Fi', 'Romance'],
+    description:
+      'Brought back to life by an unorthodox scientist, a young woman runs off with a debauched lawyer on a whirlwind adventure across the continents.',
+  },
+  {
+    id: 5,
+    title: 'John Wick: Chapter 4',
+    poster: 'https://image.tmdb.org/t/p/w500/vZloFAK7NmvMGKE7VkF5UHaz0I.jpg',
+    poster_path: '/vZloFAK7NmvMGKE7VkF5UHaz0I.jpg',
+    rating: 7.8,
+    year: 2023,
+    genres: ['Action', 'Thriller'],
+    description:
+      'John Wick uncovers a path to defeating The High Table. But before he can earn his freedom, Wick must face off against a new enemy.',
+  },
+]
 
 const movies = ref([])
 const pending = ref(true)
@@ -179,16 +245,17 @@ const loadingDetails = ref(false)
 
 const currentMovie = computed(() => movies.value[0] || null)
 
-onMounted(async () => {
-  try {
-    const popular = await getPopularMovies()
-    movies.value = popular
-  } catch (error) {
-    console.error(error)
-  } finally {
+onMounted(() => {
+  // Simuliramo ucitavanje sa API-ja od 0.5 sekundi
+  setTimeout(() => {
+    movies.value = [...MOCK_MOVIES_DATA]
     pending.value = false
-  }
+  }, 500)
 })
+
+const resetMockMovies = () => {
+  movies.value = [...MOCK_MOVIES_DATA]
+}
 
 const handleDislike = () => {
   if (movies.value.length > 0) {
@@ -196,34 +263,29 @@ const handleDislike = () => {
   }
 }
 
-const handleLike = async () => {
+const handleLike = () => {
   if (!currentMovie.value) return
 
   const movieToSave = currentMovie.value
-
   movies.value.shift()
 
-  if (isAuthenticated.value) {
-    const status = await markAsWatched(movieToSave)
-    if (status === 'unauthorized' || status === 'error') {
-      queuePendingWatchedMovie(movieToSave)
-    }
-  } else {
-    queuePendingWatchedMovie(movieToSave)
-  }
+  // Posaljemo film u queue (kako bi mogli da testiramo logiku za odgledano bez API gresaka)
+  queuePendingWatchedMovie(movieToSave)
 }
 
-const openDetails = async (moviePreview) => {
+// 3. LAŽIRAMO FETCH DETALJA
+const openDetails = (moviePreview) => {
   isDetailsOpen.value = true
   loadingDetails.value = true
-  try {
-    detailedMovie.value = await getMovieDetails(moviePreview.id)
-  } catch (error) {
-    console.error(error)
-    isDetailsOpen.value = false
-  } finally {
+
+  setTimeout(() => {
+    detailedMovie.value = {
+      ...moviePreview,
+      overview: moviePreview.description,
+      genres: moviePreview.genres.map((g, index) => ({ id: index, name: g })),
+    }
     loadingDetails.value = false
-  }
+  }, 200)
 }
 
 const closeDetails = () => {

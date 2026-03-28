@@ -26,7 +26,7 @@ export const useWatchedMovies = () => {
             typeof movie?.id === 'number' &&
             typeof movie?.title === 'string' &&
             typeof movie?.year === 'number' &&
-            typeof movie?.posterPath === 'string',
+            typeof movie?.posterPath === 'string'
         )
       }
     } catch (error) {
@@ -46,7 +46,7 @@ export const useWatchedMovies = () => {
 
       window.localStorage.setItem(
         PENDING_WATCHED_STORAGE_KEY,
-        JSON.stringify(pendingWatchedMovies.value),
+        JSON.stringify(pendingWatchedMovies.value)
       )
     } catch (error) {
       console.error('Failed to persist pending watched movies to storage:', error)
@@ -74,15 +74,12 @@ export const useWatchedMovies = () => {
         return
       }
 
-      const response = await $fetch<{ success: boolean; movies: WatchedMovie[] }>(
-        '/api/watched',
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const response = await $fetch<{ success: boolean; movies: WatchedMovie[] }>('/api/watched', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      )
+      })
 
       watchedMovies.value = response.movies
     } catch (error) {
@@ -91,7 +88,7 @@ export const useWatchedMovies = () => {
   }
 
   const markAsWatched = async (
-    movie: Pick<MoviePreview, 'id' | 'title' | 'year' | 'poster'>,
+    movie: Pick<MoviePreview, 'id' | 'title' | 'year' | 'poster'>
   ): Promise<'ok' | 'unauthorized' | 'error'> => {
     try {
       const {
@@ -136,7 +133,7 @@ export const useWatchedMovies = () => {
   }
 
   const queuePendingWatchedMovie = (
-    movie: Pick<MoviePreview, 'id' | 'title' | 'year' | 'poster'>,
+    movie: Pick<MoviePreview, 'id' | 'title' | 'year' | 'poster'>
   ) => {
     if (pendingWatchedMovies.value.some((pendingMovie) => pendingMovie.id === movie.id)) {
       return
@@ -182,7 +179,7 @@ export const useWatchedMovies = () => {
       for (const movie of queueSnapshot) {
         if (watchedMovies.value.some((s) => s.tmdbId === movie.id)) {
           pendingWatchedMovies.value = pendingWatchedMovies.value.filter(
-            (pendingMovie) => pendingMovie.id !== movie.id,
+            (pendingMovie) => pendingMovie.id !== movie.id
           )
           persistPendingWatchedToStorage()
           processedCount++
@@ -215,7 +212,7 @@ export const useWatchedMovies = () => {
           }
 
           pendingWatchedMovies.value = pendingWatchedMovies.value.filter(
-            (pendingMovie) => pendingMovie.id !== movie.id,
+            (pendingMovie) => pendingMovie.id !== movie.id
           )
 
           persistPendingWatchedToStorage()

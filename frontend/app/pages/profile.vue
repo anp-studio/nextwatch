@@ -1,58 +1,122 @@
 <template>
-  <div class="p-4 pt-10">
-    <div class="flex flex-col items-center mb-8">
+  <div class="p-6 h-full flex flex-col overflow-y-auto bg-gray-50">
+    <div v-if="user" class="flex flex-col items-center w-full min-h-full pb-20">
       <div
-        class="w-24 h-24 bg-gradient-to-tr from-red-500 to-orange-500 rounded-full flex items-center justify-center text-4xl font-bold mb-4 shadow-lg"
+        class="w-24 h-24 rounded-full bg-rose-100 mb-4 flex items-center justify-center text-rose-500 overflow-hidden shadow-md mt-8 border-4 border-white"
       >
-        JD
+        <img
+          v-if="user?.user_metadata?.avatar_url"
+          :src="user.user_metadata.avatar_url"
+          class="w-full h-full object-cover"
+        />
+        <span v-else class="text-3xl font-bold uppercase">{{ user?.email?.charAt(0) || 'U' }}</span>
       </div>
-      <h2 class="text-2xl font-bold">John Doe</h2>
-      <p class="text-gray-400">Movie Enthusiast</p>
-    </div>
 
-    <div class="grid grid-cols-2 gap-4 mb-8">
-      <div class="bg-gray-800 p-4 rounded-2xl text-center">
-        <p class="text-3xl font-bold text-white">{{ watchedCount }}</p>
-        <p class="text-gray-400 text-sm">Movies Watched</p>
-      </div>
-      <div class="bg-gray-800 p-4 rounded-2xl text-center">
-        <p class="text-3xl font-bold text-white">42</p>
-        <p class="text-gray-400 text-sm">Hours Total</p>
-      </div>
-    </div>
+      <h2 class="text-2xl font-bold mb-1 text-gray-900">
+        {{ user?.user_metadata?.full_name || 'User' }}
+      </h2>
+      <p class="text-gray-500 mb-6 text-sm">{{ user?.email }}</p>
 
-    <div class="bg-gray-800 rounded-2xl p-6">
-      <h3 class="font-bold mb-4 border-b border-gray-700 pb-2">Preferences</h3>
-      <div class="space-y-3">
-        <div class="flex justify-between">
-          <span class="text-gray-400">Favorite Genre</span>
-          <span>Sci-Fi</span>
+      <button
+        @click="handleLogout"
+        class="w-full max-w-xs bg-white border border-gray-200 text-gray-700 rounded-xl py-3 px-6 font-semibold hover:bg-gray-50 transition-colors shadow-sm mb-10"
+      >
+        Log Out
+      </button>
+
+      <div class="w-full">
+        <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center justify-between">
+          Watched Movies
+          <span class="text-sm font-normal text-gray-500 bg-gray-200 px-2 py-1 rounded-full">{{
+            watchedMovies.length
+          }}</span>
+        </h3>
+
+        <div v-if="loading" class="flex justify-center py-10">
+          <svg
+            class="animate-spin h-8 w-8 text-rose-500"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              class="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="4"
+            ></circle>
+            <path
+              class="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
+          </svg>
         </div>
-        <div class="flex justify-between">
-          <span class="text-gray-400">Avg. Rating Given</span>
-          <span>8.2</span>
+
+        <div
+          v-else-if="watchedMovies.length === 0"
+          class="text-center text-gray-500 py-12 bg-white rounded-2xl border border-dashed border-gray-300"
+        >
+          You haven't marked any movies yet.
+        </div>
+
+        <div v-else class="grid grid-cols-3 gap-3">
+          <div
+            v-for="movie in watchedMovies"
+            :key="movie.tmdbId"
+            class="aspect-[2/3] rounded-xl overflow-hidden bg-gray-200 shadow-sm relative group"
+          >
+            <img
+              :src="IMAGE_BASE + movie.posterPath"
+              :alt="movie.title"
+              class="w-full h-full object-cover"
+            />
+            <div
+              class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2"
+            >
+              <span class="text-[10px] text-white font-medium truncate">{{ movie.title }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <button
-      class="w-full mt-8 py-3 bg-red-600/20 text-red-500 rounded-xl font-bold hover:bg-red-600/30 transition"
-      @click="handleLogout()"
-    >
-      Log Out
-    </button>
+    <div v-else class="flex-1 flex flex-col justify-center h-full">
+      <AuthForm />
+    </div>
   </div>
 </template>
 
-<script setup lang="ts">
-const { watchedMovies } = useMovies()
-const { logout } = useAuth()
-const router = useRouter()
+<script setup>
+import { ref, onMounted, watch } from 'vue'
+import AuthForm from '~/components/AuthForm.vue'
 
-const watchedCount = computed(() => watchedMovies.value.length)
+const { user, logout } = useAuth()
+const { watchedMovies, syncWatchedMoviesFromSupabase, IMAGE_BASE, clearWatchedMovies } = useMovies()
+
+const loading = ref(false)
+
+onMounted(async () => {
+  if (user.value) {
+    loading.value = true
+    await syncWatchedMoviesFromSupabase()
+    loading.value = false
+  }
+})
+
+watch(user, async (newUser) => {
+  if (newUser) {
+    loading.value = true
+    await syncWatchedMoviesFromSupabase()
+    loading.value = false
+  } else {
+    clearWatchedMovies()
+  }
+})
 
 const handleLogout = async () => {
   await logout()
-  router.push('/')
 }
 </script>

@@ -1,13 +1,15 @@
 <template>
-  <NuxtLayout>
-    <NuxtPage />
-  </NuxtLayout>
+  <div>
+    <NuxtLayout>
+      <NuxtPage />
+    </NuxtLayout>
+  </div>
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
 const { initialize } = useAuth()
 
-//load session on app start
 onMounted(() => {
   initialize()
 })
