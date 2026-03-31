@@ -109,48 +109,6 @@
       <div v-else class="w-full flex flex-col gap-10">
         <div class="w-full">
           <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center justify-between">
-            To Watch
-            <span class="text-sm font-normal text-gray-500 bg-gray-200 px-2 py-1 rounded-full">{{
-              toWatchMovies.length
-            }}</span>
-          </h3>
-
-          <div
-            v-if="toWatchMovies.length === 0"
-            class="text-center text-gray-500 py-12 bg-white rounded-2xl border border-dashed border-gray-300"
-          >
-            You haven't added any movies to your watchlist yet.
-          </div>
-
-          <div
-            v-else
-            class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6"
-          >
-            <div
-              v-for="movie in toWatchMovies"
-              :key="movie.tmdbId"
-              @click="openMovieDetails(movie)"
-              class="aspect-[2/3] rounded-xl overflow-hidden bg-gray-200 shadow-sm relative group cursor-pointer"
-            >
-              <img
-                :src="IMAGE_BASE + movie.posterPath"
-                :alt="movie.title"
-                class="w-full h-full object-cover"
-              />
-              <div
-                class="absolute inset-0 bg-gradient-to-t from-gray-900/95 via-gray-900/40 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-end p-3"
-              >
-                <span
-                  class="text-sm sm:text-base text-white font-bold leading-tight line-clamp-2 drop-shadow-md"
-                  >{{ movie.title }}</span
-                >
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="w-full">
-          <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center justify-between">
             Watched Movies
             <span class="text-sm font-normal text-gray-500 bg-gray-200 px-2 py-1 rounded-full">{{
               watchedMovies.length
@@ -211,9 +169,6 @@ const {
   watchedMovies,
   syncWatchedMoviesFromSupabase,
   clearWatchedMovies,
-  toWatchMovies,
-  syncToWatchMoviesFromSupabase,
-  clearToWatchMovies,
   IMAGE_BASE,
 } = useMovies()
 
@@ -222,19 +177,19 @@ const loading = ref(false)
 onMounted(async () => {
   if (user.value) {
     loading.value = true
-    await Promise.all([syncWatchedMoviesFromSupabase(), syncToWatchMoviesFromSupabase()])
+    await syncWatchedMoviesFromSupabase()
     loading.value = false
   }
 })
 
+// watch needed to re-sync when user logs in while already on this page
 watch(user, async (newUser) => {
   if (newUser) {
     loading.value = true
-    await Promise.all([syncWatchedMoviesFromSupabase(), syncToWatchMoviesFromSupabase()])
+    await syncWatchedMoviesFromSupabase()
     loading.value = false
   } else {
     clearWatchedMovies()
-    clearToWatchMovies()
   }
 })
 

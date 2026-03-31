@@ -35,8 +35,8 @@
           :movie="currentMovieFormatted"
           @open-details="openDetails"
           @dislike="handleDislike"
-          @watched="handleWatched"
-          @to-watch="handleToWatch"
+          @watched="handleLike"
+          @to-watch="handleLike"
         />
       </div>
     </div>
@@ -103,7 +103,7 @@
               {{ genre.name }}
             </span>
           </div>
-          <h3 class="text-lg font-bold text-gray-900 mb-2">Synopsis</h3>
+          <h3 class="text-lg font-bold text-gray-900 mb-2">Overview</h3>
           <p class="text-gray-600 leading-relaxed">{{ detailedMovie.overview }}</p>
         </div>
       </template>
@@ -114,16 +114,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 
-const {
-  getPopularMovies,
-  getMovieDetails,
-  markAsWatched,
-  queuePendingWatchedMovie,
-  markAsToWatch,
-  queuePendingToWatchMovie,
-  IMAGE_BASE,
-} = useMovies()
-
+const { getPopularMovies, getMovieDetails, markAsWatched, queuePendingWatchedMovie, IMAGE_BASE } =
+  useMovies()
 const { isAuthenticated } = useAuth()
 
 const movies = ref([])
@@ -133,17 +125,7 @@ const isDetailsOpen = ref(false)
 const detailedMovie = ref(null)
 const loadingDetails = ref(false)
 
-const currentMovieFormatted = computed(() => {
-  const movie = movies.value[0]
-  if (!movie) return null
-
-  return {
-    ...movie,
-    image: movie.poster || (movie.poster_path ? IMAGE_BASE + movie.poster_path : ''),
-    genre: movie.genre || 'Unknown Genre',
-    director: movie.director || 'Unknown Director',
-  }
-})
+const currentMovie = computed(() => movies.value[0] || null)
 
 onMounted(async () => {
   try {
@@ -156,16 +138,16 @@ onMounted(async () => {
   }
 })
 
-// Akcije na dugmićima
 const handleDislike = () => {
   if (movies.value.length > 0) {
     movies.value.shift()
   }
 }
 
-const handleWatched = async (movie) => {
-  const movieToSave = movie || movies.value[0]
-  if (!movieToSave) return
+const handleLike = async () => {
+  if (!currentMovie.value) return
+
+  const movieToSave = currentMovie.value
 
   movies.value.shift()
 
@@ -176,28 +158,10 @@ const handleWatched = async (movie) => {
     }
   } else {
     queuePendingWatchedMovie(movieToSave)
+    router.push('/login')
   }
 }
 
-const handleToWatch = async (movie) => {
-  const movieToSave = movie || movies.value[0]
-  if (!movieToSave) return
-
-  movies.value.shift()
-
-  if (isAuthenticated.value) {
-    if (markAsToWatch) {
-      const status = await markAsToWatch(movieToSave)
-      if (status === 'unauthorized' || status === 'error') {
-        if (queuePendingToWatchMovie) queuePendingToWatchMovie(movieToSave)
-      }
-    }
-  } else {
-    if (queuePendingToWatchMovie) queuePendingToWatchMovie(movieToSave)
-  }
-}
-
-// Detalji o filmu
 const openDetails = async (moviePreview) => {
   isDetailsOpen.value = true
   loadingDetails.value = true

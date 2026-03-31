@@ -28,9 +28,7 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 500, statusMessage: selectError.message })
     }
 
-    const watchedMovies = Array.isArray(existing?.movies)
-      ? (existing.movies as WatchedMovie[])
-      : []
+    const watchedMovies = Array.isArray(existing?.movies) ? (existing.movies as WatchedMovie[]) : []
 
     return {
       success: true,
@@ -42,13 +40,19 @@ export default defineEventHandler(async (event) => {
     const body = await readBody<WatchBody>(event)
     const movie = body.movie
 
-    if (!movie || typeof movie.tmdbId !== 'number' || !movie.title || typeof movie.year !== 'number' || typeof movie.posterPath !== 'string') {
+    if (
+      !movie ||
+      typeof movie.tmdbId !== 'number' ||
+      !movie.title ||
+      typeof movie.year !== 'number' ||
+      typeof movie.posterPath !== 'string'
+    ) {
       throw createError({ statusCode: 400, statusMessage: 'Invalid movie payload' })
     }
 
     const { data: existing, error: selectError } = await supabase
       .from('watched_movies')
-      .select('id,movies')
+      .select('movies')
       .eq('user_id', user.id)
       .limit(1)
       .maybeSingle()
@@ -57,11 +61,11 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 500, statusMessage: selectError.message })
     }
 
-    const watchedMovies = Array.isArray(existing?.movies)
-      ? (existing.movies as WatchedMovie[])
-      : []
+    const watchedMovies = Array.isArray(existing?.movies) ? (existing.movies as WatchedMovie[]) : []
 
-    const alreadyWatched = watchedMovies.some((watchedMovie) => watchedMovie.tmdbId === movie.tmdbId)
+    const alreadyWatched = watchedMovies.some(
+      (watchedMovie) => watchedMovie.tmdbId === movie.tmdbId
+    )
 
     if (!alreadyWatched) {
       watchedMovies.push({
@@ -74,14 +78,14 @@ export default defineEventHandler(async (event) => {
 
     const updatedAt = new Date().toISOString()
 
-    if (existing?.id) {
+    if (existing) {
       const { error: updateError } = await supabase
         .from('watched_movies')
         .update({
           movies: watchedMovies,
           updated_at: updatedAt,
         })
-        .eq('id', existing.id)
+        .eq('user_id', user.id)
 
       if (updateError) {
         throw createError({ statusCode: 500, statusMessage: updateError.message })
