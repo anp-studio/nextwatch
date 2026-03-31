@@ -160,38 +160,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref } from 'vue'
 import AuthForm from '~/components/AuthForm.vue'
 import MovieDetails from '~/components/MovieDetails.vue'
 
 const { user, logout } = useAuth()
-const {
-  watchedMovies,
-  syncWatchedMoviesFromSupabase,
-  clearWatchedMovies,
-  IMAGE_BASE,
-} = useMovies()
+const { watchedMovies, IMAGE_BASE } = useMovies()
 
 const loading = ref(false)
-
-onMounted(async () => {
-  if (user.value) {
-    loading.value = true
-    await syncWatchedMoviesFromSupabase()
-    loading.value = false
-  }
-})
-
-// watch needed to re-sync when user logs in while already on this page
-watch(user, async (newUser) => {
-  if (newUser) {
-    loading.value = true
-    await syncWatchedMoviesFromSupabase()
-    loading.value = false
-  } else {
-    clearWatchedMovies()
-  }
-})
 
 const handleLogout = async () => {
   await logout()

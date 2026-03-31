@@ -7,7 +7,8 @@ const loading = ref(true)
 
 export const useAuth = () => {
   const supabase = useSupabase()
-  const { syncWatchedMoviesFromSupabase, processPendingWatchedMovies, clearWatchedMovies } = useMovies()
+  const { syncWatchedMoviesFromSupabase, processPendingWatchedMovies, clearWatchedMovies } =
+    useMovies()
 
   const isAuthenticated = computed(() => !!user.value)
   const userEmail = computed(() => user.value?.email || '')
@@ -18,9 +19,11 @@ export const useAuth = () => {
       return
     }
 
+    const processed = await processPendingWatchedMovies(accessToken)
     await syncWatchedMoviesFromSupabase(accessToken)
-    await processPendingWatchedMovies(accessToken)
-    await syncWatchedMoviesFromSupabase(accessToken)
+    if (processed > 0) {
+      await syncWatchedMoviesFromSupabase(accessToken)
+    }
   }
 
   const login = async (email: string, password: string) => {
@@ -119,7 +122,7 @@ export const useAuth = () => {
 
       session.value = currentSession
       user.value = currentSession?.user || null
-      await syncWatchedStateAfterAuth(currentSession?.access_token)
+      //await syncWatchedStateAfterAuth(currentSession?.access_token)
 
       supabase.auth.onAuthStateChange(async (_event, newSession) => {
         session.value = newSession
@@ -164,4 +167,3 @@ export const useAuth = () => {
     updatePassword,
   }
 }
-

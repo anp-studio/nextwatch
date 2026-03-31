@@ -117,6 +117,7 @@ import { ref, computed, onMounted } from 'vue'
 const { getPopularMovies, getMovieDetails, markAsWatched, queuePendingWatchedMovie, IMAGE_BASE } =
   useMovies()
 const { isAuthenticated } = useAuth()
+const router = useRouter()
 
 const movies = ref([])
 const pending = ref(true)
@@ -126,6 +127,18 @@ const detailedMovie = ref(null)
 const loadingDetails = ref(false)
 
 const currentMovie = computed(() => movies.value[0] || null)
+
+const currentMovieFormatted = computed(() => {
+  const movie = movies.value[0]
+  if (!movie) return null
+
+  return {
+    ...movie,
+    image: movie.poster || (movie.poster_path ? IMAGE_BASE + movie.poster_path : ''),
+    genre: movie.genre || 'Unknown Genre',
+    director: movie.director || 'Unknown Director',
+  }
+})
 
 onMounted(async () => {
   try {
@@ -158,7 +171,7 @@ const handleLike = async () => {
     }
   } else {
     queuePendingWatchedMovie(movieToSave)
-    router.push('/login')
+    router.push('/profile')
   }
 }
 
