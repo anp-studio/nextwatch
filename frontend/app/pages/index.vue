@@ -30,67 +30,15 @@
         <p class="text-sm">Check back later for more movies.</p>
       </div>
 
-      <div
-        v-else
-        class="w-full max-w-sm h-[65vh] relative rounded-3xl shadow-xl overflow-hidden bg-gray-900 cursor-pointer transition-transform duration-300 transform"
-        @click="openDetails(currentMovie)"
-      >
-        <img
-          :src="currentMovie.poster"
-          class="absolute inset-0 w-full h-full object-cover opacity-90"
+      <div v-else class="w-full max-w-sm h-[65vh] relative mx-auto">
+        <MovieCard
+          :movie="currentMovieFormatted"
+          @open-details="openDetails"
+          @dislike="handleDislike"
+          @watched="handleWatched"
+          @to-watch="handleToWatch"
         />
-        <div
-          class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"
-        ></div>
-
-        <div class="absolute bottom-0 left-0 w-full p-6 text-white">
-          <h2 class="text-3xl font-bold mb-1 leading-tight">{{ currentMovie.title }}</h2>
-          <div class="flex items-center gap-2 text-sm font-medium text-gray-300 mb-3">
-            <span>{{ currentMovie.year }}</span>
-            <span>•</span>
-            <span class="flex items-center gap-1 text-yellow-400">
-              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-                />
-              </svg>
-              {{ currentMovie.rating }}
-            </span>
-          </div>
-          <p class="text-sm text-gray-300 line-clamp-2">{{ currentMovie.description }}</p>
-        </div>
       </div>
-    </div>
-
-    <div
-      v-if="!pending && movies.length > 0"
-      class="pb-8 pt-2 px-6 flex justify-center items-center gap-6"
-    >
-      <button
-        @click="handleDislike"
-        class="w-16 h-16 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-gray-50 transition-colors"
-      >
-        <svg
-          class="w-8 h-8"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-          viewBox="0 0 24 24"
-        >
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
-        </svg>
-      </button>
-
-      <button
-        @click="handleLike"
-        class="w-20 h-20 rounded-full bg-rose-500 shadow-lg shadow-rose-500/30 flex items-center justify-center text-white hover:bg-rose-600 hover:scale-105 transition-all"
-      >
-        <svg class="w-10 h-10 mt-1" fill="currentColor" viewBox="0 0 24 24">
-          <path
-            d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-          />
-        </svg>
-      </button>
     </div>
 
     <div v-if="isDetailsOpen" class="absolute inset-0 bg-white z-50 flex flex-col overflow-y-auto">
@@ -166,8 +114,16 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 
-const { getPopularMovies, getMovieDetails, markAsWatched, queuePendingWatchedMovie, IMAGE_BASE } =
-  useMovies()
+const {
+  getPopularMovies,
+  getMovieDetails,
+  markAsWatched,
+  queuePendingWatchedMovie,
+  markAsToWatch,
+  queuePendingToWatchMovie,
+  IMAGE_BASE,
+} = useMovies()
+
 const { isAuthenticated } = useAuth()
 
 const movies = ref([])
@@ -177,7 +133,17 @@ const isDetailsOpen = ref(false)
 const detailedMovie = ref(null)
 const loadingDetails = ref(false)
 
-const currentMovie = computed(() => movies.value[0] || null)
+const currentMovieFormatted = computed(() => {
+  const movie = movies.value[0]
+  if (!movie) return null
+
+  return {
+    ...movie,
+    image: movie.poster || (movie.poster_path ? IMAGE_BASE + movie.poster_path : ''),
+    genre: movie.genre || 'Unknown Genre',
+    director: movie.director || 'Unknown Director',
+  }
+})
 
 onMounted(async () => {
   try {
@@ -190,16 +156,16 @@ onMounted(async () => {
   }
 })
 
+// Akcije na dugmićima
 const handleDislike = () => {
   if (movies.value.length > 0) {
     movies.value.shift()
   }
 }
 
-const handleLike = async () => {
-  if (!currentMovie.value) return
-
-  const movieToSave = currentMovie.value
+const handleWatched = async (movie) => {
+  const movieToSave = movie || movies.value[0]
+  if (!movieToSave) return
 
   movies.value.shift()
 
@@ -213,6 +179,25 @@ const handleLike = async () => {
   }
 }
 
+const handleToWatch = async (movie) => {
+  const movieToSave = movie || movies.value[0]
+  if (!movieToSave) return
+
+  movies.value.shift()
+
+  if (isAuthenticated.value) {
+    if (markAsToWatch) {
+      const status = await markAsToWatch(movieToSave)
+      if (status === 'unauthorized' || status === 'error') {
+        if (queuePendingToWatchMovie) queuePendingToWatchMovie(movieToSave)
+      }
+    }
+  } else {
+    if (queuePendingToWatchMovie) queuePendingToWatchMovie(movieToSave)
+  }
+}
+
+// Detalji o filmu
 const openDetails = async (moviePreview) => {
   isDetailsOpen.value = true
   loadingDetails.value = true
