@@ -5,7 +5,11 @@ const TMDB_API_URL = 'https://api.themoviedb.org/3'
 
 type TmdbQuery = Record<string, string | string[] | number | undefined>
 
-export async function fetchTmdb(event: H3Event, path: string, query: TmdbQuery = {}): Promise<unknown> {
+export async function fetchTmdb(
+  event: H3Event,
+  path: string,
+  query: TmdbQuery = {}
+): Promise<unknown> {
   const config = useRuntimeConfig()
   const apiKey = config.tmdbApiKey || process.env.NUXT_TMDB_API_KEY || ''
 

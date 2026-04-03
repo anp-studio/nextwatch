@@ -26,4 +26,9 @@ export default defineNuxtConfig({
       '0 8 * * *': ['tmdb-import'],
     },
   },
+  vite: {
+    optimizeDeps: {
+      include: ['@vue/devtools-core', '@vue/devtools-kit', '@supabase/supabase-js'],
+    },
+  },
 })

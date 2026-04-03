@@ -26,11 +26,10 @@ export const useWatchedMovies = () => {
             typeof movie?.id === 'number' &&
             typeof movie?.title === 'string' &&
             typeof movie?.year === 'number' &&
-            typeof movie?.posterPath === 'string',
+            typeof movie?.posterPath === 'string'
         )
       }
-    } catch (error) {
-      console.error('Failed to read pending watched movies from storage:', error)
+    } catch {
       pendingWatchedMovies.value = []
     }
   }
@@ -46,10 +45,10 @@ export const useWatchedMovies = () => {
 
       window.localStorage.setItem(
         PENDING_WATCHED_STORAGE_KEY,
-        JSON.stringify(pendingWatchedMovies.value),
+        JSON.stringify(pendingWatchedMovies.value)
       )
-    } catch (error) {
-      console.error('Failed to persist pending watched movies to storage:', error)
+    } catch {
+      // localStorage may be unavailable (e.g. private browsing)
     }
   }
 
@@ -57,52 +56,47 @@ export const useWatchedMovies = () => {
     watchedMovies.value = []
   }
 
-  const syncWatchedMoviesFromSupabase = async (accessToken?: string) => {
+  const syncWatchedMoviesFromSupabase = async () => {
     try {
-      let token = accessToken
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
 
-      if (!token) {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-
-        token = session?.access_token
-      }
-
-      if (!token) {
+      if (!session?.user.id) {
         watchedMovies.value = []
         return
       }
 
-      const response = await $fetch<{ success: boolean; movies: WatchedMovie[] }>(
-        '/api/watched',
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      )
+      const { data, error } = await supabase
+        .from('watched_movies')
+        .select('movies')
+        .eq('user_id', session.user.id)
+        .maybeSingle()
 
-      watchedMovies.value = response.movies
-    } catch (error) {
-      console.error('Failed to load watched movies from Supabase:', error)
+      if (error) {
+        throw error
+      }
+
+      watchedMovies.value = Array.isArray(data?.movies) ? (data.movies as WatchedMovie[]) : []
+    } catch {
+      // Sync failed — keep existing local state
     }
   }
 
   const markAsWatched = async (
-    movie: Pick<MoviePreview, 'id' | 'title' | 'year' | 'poster'>,
+    movie: Pick<MoviePreview, 'id' | 'title' | 'year' | 'poster'>
   ): Promise<'ok' | 'unauthorized' | 'error'> => {
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession()
 
-      if (!session?.access_token) {
+      if (!session?.user.id) {
         return 'unauthorized'
       }
 
       const posterPath = movie.poster.slice(IMAGE_BASE.length)
+      const originalList = [...watchedMovies.value]
 
       if (!watchedMovies.value.some((s) => s.tmdbId === movie.id)) {
         watchedMovies.value.push({
@@ -113,22 +107,53 @@ export const useWatchedMovies = () => {
         })
       }
 
-      $fetch('/api/watched', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
+      const { error: upsertError } = await supabase.from('watched_movies').upsert(
+        {
+          user_id: session.user.id,
+          movies: watchedMovies.value,
+          updated_at: new Date().toISOString(),
         },
-        body: {
-          movie: {
-            tmdbId: movie.id,
-            title: movie.title,
-            year: movie.year,
-            posterPath,
-          },
+        { onConflict: 'user_id' }
+      )
+
+      if (upsertError) {
+        watchedMovies.value = originalList
+        return 'error'
+      }
+    } catch {
+      return 'error'
+    }
+
+    return 'ok'
+  }
+
+  const unmarkAsWatched = async (tmdbId: number): Promise<'ok' | 'unauthorized' | 'error'> => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.user.id) {
+        return 'unauthorized'
+      }
+
+      const originalList = [...watchedMovies.value]
+      watchedMovies.value = watchedMovies.value.filter((movie) => movie.tmdbId !== tmdbId)
+
+      const { error: upsertError } = await supabase.from('watched_movies').upsert(
+        {
+          user_id: session.user.id,
+          movies: watchedMovies.value,
+          updated_at: new Date().toISOString(),
         },
-      })
-    } catch (error) {
-      console.error('Failed to mark movie as watched in Supabase:', error)
+        { onConflict: 'user_id' }
+      )
+
+      if (upsertError) {
+        watchedMovies.value = originalList
+        return 'error'
+      }
+    } catch {
       return 'error'
     }
 
@@ -136,7 +161,7 @@ export const useWatchedMovies = () => {
   }
 
   const queuePendingWatchedMovie = (
-    movie: Pick<MoviePreview, 'id' | 'title' | 'year' | 'poster'>,
+    movie: Pick<MoviePreview, 'id' | 'title' | 'year' | 'poster'>
   ) => {
     if (pendingWatchedMovies.value.some((pendingMovie) => pendingMovie.id === movie.id)) {
       return
@@ -152,7 +177,7 @@ export const useWatchedMovies = () => {
     persistPendingWatchedToStorage()
   }
 
-  const processPendingWatchedMovies = async (accessToken?: string): Promise<number> => {
+  const processPendingWatchedMovies = async (): Promise<number> => {
     if (pendingWatchedMovies.value.length === 0) {
       loadPendingWatchedFromStorage()
     }
@@ -162,17 +187,11 @@ export const useWatchedMovies = () => {
     }
 
     try {
-      let token = accessToken
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
 
-      if (!token) {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-
-        token = session?.access_token
-      }
-
-      if (!token) {
+      if (!session?.user.id) {
         return 0
       }
 
@@ -182,7 +201,7 @@ export const useWatchedMovies = () => {
       for (const movie of queueSnapshot) {
         if (watchedMovies.value.some((s) => s.tmdbId === movie.id)) {
           pendingWatchedMovies.value = pendingWatchedMovies.value.filter(
-            (pendingMovie) => pendingMovie.id !== movie.id,
+            (pendingMovie) => pendingMovie.id !== movie.id
           )
           persistPendingWatchedToStorage()
           processedCount++
@@ -190,21 +209,6 @@ export const useWatchedMovies = () => {
         }
 
         try {
-          $fetch('/api/watched', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            body: {
-              movie: {
-                tmdbId: movie.id,
-                title: movie.title,
-                year: movie.year,
-                posterPath: movie.posterPath,
-              },
-            },
-          })
-
           if (!watchedMovies.value.some((s) => s.tmdbId === movie.id)) {
             watchedMovies.value.push({
               tmdbId: movie.id,
@@ -214,20 +218,30 @@ export const useWatchedMovies = () => {
             })
           }
 
+          const { error: upsertError } = await supabase.from('watched_movies').upsert(
+            {
+              user_id: session.user.id,
+              movies: watchedMovies.value,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id' }
+          )
+
+          if (upsertError) continue
+
           pendingWatchedMovies.value = pendingWatchedMovies.value.filter(
-            (pendingMovie) => pendingMovie.id !== movie.id,
+            (pendingMovie) => pendingMovie.id !== movie.id
           )
 
           persistPendingWatchedToStorage()
           processedCount++
-        } catch (error) {
-          console.error(`Failed to process pending movie ${movie.id}:`, error)
+        } catch {
+          // Skip failed movies — they remain in pending queue for next attempt
         }
       }
 
       return processedCount
-    } catch (error) {
-      console.error('Failed to process pending watched movies:', error)
+    } catch {
       return 0
     }
   }
@@ -236,6 +250,7 @@ export const useWatchedMovies = () => {
     watchedMovies,
     pendingWatchedMovies,
     markAsWatched,
+    unmarkAsWatched,
     queuePendingWatchedMovie,
     processPendingWatchedMovies,
     syncWatchedMoviesFromSupabase,
