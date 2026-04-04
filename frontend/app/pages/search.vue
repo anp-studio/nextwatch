@@ -91,15 +91,15 @@
       @add="addToWatchedFromModal"
     />
 
-    <LoginPromptModal :is-open="showLoginModal" @close="showLoginModal = false" />
+    <LoginPromptModal :is-open="showLoginModal" @close="handleModalClose" />
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 
-const { user } = useAuth()
-const { markAsWatched, queuePendingWatchedMovie, watchedMovies } = useWatchedMovies()
+const { user, isAuthenticated } = useAuth()
+const { markAsWatched, queuePendingWatchedMovie, removePendingWatchedMovie, watchedMovies } = useWatchedMovies()
 const { getMovieDetails } = useMovieDetails()
 
 const searchQuery = ref('')
@@ -112,6 +112,7 @@ const selectedMovie = ref(null)
 const isLoadingDetails = ref(false)
 
 const showLoginModal = ref(false)
+const pendingModalMovieId = ref(null)
 
 const searchTMDB = async (query) => {
   if (!query) {
@@ -174,6 +175,9 @@ const buildMovieToSave = (movie) => ({
 
 const addToWatched = async (movie) => {
   if (!user.value) {
+    const movieToSave = buildMovieToSave(movie)
+    queuePendingWatchedMovie(movieToSave)
+    pendingModalMovieId.value = movie.id
     showLoginModal.value = true
     return
   }
@@ -185,10 +189,20 @@ const addToWatched = async (movie) => {
   }
 }
 
+const handleModalClose = () => {
+  showLoginModal.value = false
+  if (!isAuthenticated.value && pendingModalMovieId.value !== null) {
+    removePendingWatchedMovie(pendingModalMovieId.value)
+  }
+  pendingModalMovieId.value = null
+}
+
 const addToWatchedFromModal = async () => {
   if (!selectedMovie.value) return
 
   if (!user.value) {
+    queuePendingWatchedMovie(selectedMovie.value)
+    pendingModalMovieId.value = selectedMovie.value.id
     showLoginModal.value = true
     return
   }

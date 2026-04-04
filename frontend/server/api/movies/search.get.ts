@@ -1,5 +1,3 @@
-import { fetchTmdb } from '../../utils/tmdb'
-
 interface TmdbSearchMovie {
   id: number
   title: string
@@ -30,7 +28,7 @@ export default defineEventHandler(async (event) => {
     return { results: [] }
   }
 
-  const payload = await fetchTmdb('/search/movie', {
+  const payload = await fetchTmdb(event, '/search/movie', {
     query,
     page: 1,
   })

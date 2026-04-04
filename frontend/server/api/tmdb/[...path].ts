@@ -1,5 +1,3 @@
-import { fetchTmdb } from '../../utils/tmdb'
-
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const path = event.context.params?.path as string | undefined
@@ -11,5 +9,9 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  return fetchTmdb(path, query)
+  const tmdbQuery = Object.fromEntries(
+    Object.entries(query).filter(([, v]) => v !== null),
+  ) as Record<string, string | string[] | number>
+
+  return fetchTmdb(event, path, tmdbQuery)
 })

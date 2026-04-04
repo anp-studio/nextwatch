@@ -1,8 +1,15 @@
+import type { H3Event } from 'h3'
+import { createRateLimiter } from './ratelimit'
+
 const TMDB_API_URL = 'https://api.themoviedb.org/3'
 
 type TmdbQuery = Record<string, string | string[] | number | undefined>
 
-export async function fetchTmdb(path: string, query: TmdbQuery = {}): Promise<unknown> {
+export async function fetchTmdb(
+  event: H3Event,
+  path: string,
+  query: TmdbQuery = {}
+): Promise<unknown> {
   const config = useRuntimeConfig()
   const apiKey = config.tmdbApiKey
 
@@ -13,6 +20,23 @@ export async function fetchTmdb(path: string, query: TmdbQuery = {}): Promise<un
     })
   }
 
+  const ip = getRequestIP(event, { xForwardedFor: true }) ?? 'anonymous'
+  const { tmdbLimiter } = createRateLimiter()
+  const { success, limit, remaining, reset } = await tmdbLimiter.limit(ip)
+
+  setResponseHeaders(event, {
+    'X-RateLimit-Limit': String(limit),
+    'X-RateLimit-Remaining': String(remaining),
+    'X-RateLimit-Reset': String(reset),
+  })
+
+  if (!success) {
+    throw createError({
+      statusCode: 429,
+      message: 'Rate limit exceeded for TMDB API. Please try again later.',
+    })
+  }
+
   try {
     return await $fetch(path, {
       baseURL: TMDB_API_URL,
@@ -20,7 +44,10 @@ export async function fetchTmdb(path: string, query: TmdbQuery = {}): Promise<un
         language: 'en-US',
         ...query,
       },
-      headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` },
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
     })
   } catch (error: unknown) {
     const fetchError = error as {
