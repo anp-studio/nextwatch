@@ -21,10 +21,19 @@
           :src="posterUrl(movie.posterPath)"
           class="w-20 h-28 object-cover rounded-lg flex-shrink-0"
         />
-        <div class="flex flex-col justify-center">
+        <div class="flex flex-col justify-center flex-1 min-w-0">
           <h3 class="font-bold text-lg">{{ movie.title }}</h3>
           <p class="text-sm text-gray-400">{{ movie.year }}</p>
         </div>
+        <button
+          @click.stop="handleRemove(movie.tmdbId)"
+          class="self-center flex-shrink-0 text-gray-400 hover:text-red-500 transition-colors p-2"
+          title="Remove from watched"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -40,9 +49,13 @@
 <script setup lang="ts">
 import type { Movie } from '~/types/movie'
 
-const { watchedMovies } = useWatchedMovies()
+const { watchedMovies, removeFromWatched } = useWatchedMovies()
 const { getMovieDetails } = useMovieDetails()
 const selectedMovie = ref<Movie | null>(null)
+
+const handleRemove = async (tmdbId: number) => {
+  await removeFromWatched(tmdbId)
+}
 
 const openDetails = async (tmdbId: number) => {
   try {

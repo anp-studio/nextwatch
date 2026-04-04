@@ -6,6 +6,7 @@
         :movies="watchedMovies"
         :loading="loading"
         @open-details="openMovieDetails"
+        @remove="handleRemove"
       />
     </div>
 
@@ -21,7 +22,7 @@
 import { ref } from 'vue'
 
 const { user } = useAuth()
-const { watchedMovies } = useWatchedMovies()
+const { watchedMovies, removeFromWatched } = useWatchedMovies()
 const { getMovieDetails } = useMovieDetails()
 
 const loading = ref(false)
@@ -36,6 +37,10 @@ const openMovieDetails = async (movie) => {
   } catch (error) {
     console.error('Failed to load movie details:', error)
   }
+}
+
+const handleRemove = async (tmdbId) => {
+  await removeFromWatched(tmdbId)
 }
 
 const closeMovieDetails = () => {

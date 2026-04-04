@@ -35,8 +35,19 @@
             class="w-full h-full object-cover"
           />
           <div
-            class="absolute inset-0 bg-gradient-to-t from-gray-900/95 via-gray-900/40 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-end p-3"
+            class="absolute inset-0 bg-gradient-to-t from-gray-900/95 via-gray-900/40 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-between p-3"
           >
+            <div class="flex justify-end">
+              <button
+                @click.stop="$emit('remove', movie.tmdbId)"
+                class="bg-red-500/80 hover:bg-red-600 text-white rounded-full p-1.5 transition-colors"
+                title="Remove from watched"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            </div>
             <span
               class="text-sm sm:text-base text-white font-bold leading-tight line-clamp-2 drop-shadow-md"
               >{{ movie.title }}</span
@@ -52,5 +63,5 @@
 import type { WatchedMovie } from '~/types/movie'
 
 defineProps<{ movies: WatchedMovie[]; loading: boolean }>()
-defineEmits<{ 'open-details': [movie: WatchedMovie] }>()
+defineEmits<{ 'open-details': [movie: WatchedMovie]; 'remove': [tmdbId: number] }>()
 </script>

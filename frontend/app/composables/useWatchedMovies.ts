@@ -131,6 +131,34 @@ export const useWatchedMovies = () => {
     return 'ok'
   }
 
+  const removeFromWatched = async (tmdbId: number): Promise<'ok' | 'unauthorized' | 'error'> => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        return 'unauthorized'
+      }
+
+      watchedMovies.value = watchedMovies.value.filter((m) => m.tmdbId !== tmdbId)
+
+      await $fetch('/api/watched', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: { tmdbId },
+      })
+    } catch (error) {
+      console.error('Failed to remove movie from watched list:', error)
+      await syncWatchedMoviesFromSupabase()
+      return 'error'
+    }
+
+    return 'ok'
+  }
+
   const queuePendingWatchedMovie = (
     movie: Pick<MoviePreview, 'id' | 'title' | 'year' | 'poster'>
   ) => {
@@ -232,6 +260,7 @@ export const useWatchedMovies = () => {
     watchedMovies,
     pendingWatchedMovies,
     markAsWatched,
+    removeFromWatched,
     queuePendingWatchedMovie,
     processPendingWatchedMovies,
     syncWatchedMoviesFromSupabase,

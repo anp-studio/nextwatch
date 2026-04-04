@@ -109,5 +109,48 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  if (method === 'DELETE') {
+    const body = await readBody<{ tmdbId?: number }>(event)
+
+    if (typeof body.tmdbId !== 'number') {
+      throw createError({ statusCode: 400, statusMessage: 'Invalid tmdbId' })
+    }
+
+    const { data: existing, error: selectError } = await supabase
+      .from('watched_movies')
+      .select('movies')
+      .eq('user_id', user.id)
+      .limit(1)
+      .maybeSingle()
+
+    if (selectError) {
+      throw createError({ statusCode: 500, statusMessage: selectError.message })
+    }
+
+    if (!existing) {
+      throw createError({ statusCode: 404, statusMessage: 'No watched movies found' })
+    }
+
+    const watchedMovies = Array.isArray(existing.movies) ? (existing.movies as WatchedMovie[]) : []
+    const filtered = watchedMovies.filter((m) => m.tmdbId !== body.tmdbId)
+
+    const { error: updateError } = await supabase
+      .from('watched_movies')
+      .update({
+        movies: filtered,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', user.id)
+
+    if (updateError) {
+      throw createError({ statusCode: 500, statusMessage: updateError.message })
+    }
+
+    return {
+      success: true,
+      watchedCount: filtered.length,
+    }
+  }
+
   throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed' })
 })
