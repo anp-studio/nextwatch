@@ -42,7 +42,6 @@ export const useAuth = () => {
 
       return { user: data.user }
     } catch (error) {
-      console.error('Login error:', error)
       return { user: null, error: error as AuthError }
     }
   }
@@ -66,7 +65,6 @@ export const useAuth = () => {
 
       return { user: data.user }
     } catch (error) {
-      console.error('Signup error:', error)
       return { user: null, error: error as AuthError }
     }
   }
@@ -81,7 +79,7 @@ export const useAuth = () => {
       session.value = null
       clearWatchedMovies()
     } catch (error) {
-      console.error('Logout error:', error)
+      // logout failed silently
     }
   }
 
@@ -95,7 +93,6 @@ export const useAuth = () => {
 
       return { error: null }
     } catch (error) {
-      console.error('Reset Password error:', error)
       return { error: error as AuthError }
     }
   }
@@ -108,7 +105,6 @@ export const useAuth = () => {
       if (error) throw error
       return { user: data.user }
     } catch (error) {
-      console.error('Update Password error:', error)
       return { user: null, error: error as AuthError }
     }
   }
@@ -130,8 +126,8 @@ export const useAuth = () => {
         user.value = newSession?.user || null
         await syncWatchedStateAfterAuth(newSession?.access_token)
       })
-    } catch (error) {
-      console.error('Error initializing auth:', error)
+    } catch {
+      // auth initialization failed
     } finally {
       loading.value = false
     }
@@ -148,8 +144,8 @@ export const useAuth = () => {
       if (error) throw error
 
       return { user: data }
-    } catch (error) {
-      console.error('Google Sign-In error:', error)
+    } catch {
+      // Google sign-in failed
     }
   }
 

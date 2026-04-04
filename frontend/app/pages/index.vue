@@ -55,8 +55,8 @@ onMounted(async () => {
   try {
     const popular = await getPopularMovies()
     movies.value = popular
-  } catch (error) {
-    console.error(error)
+  } catch {
+    // failed to load popular movies
   } finally {
     pending.value = false
   }

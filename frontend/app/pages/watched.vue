@@ -60,8 +60,8 @@ const handleRemove = async (tmdbId: number) => {
 const openDetails = async (tmdbId: number) => {
   try {
     selectedMovie.value = await getMovieDetails(tmdbId)
-  } catch (error) {
-    console.error('Failed to load movie details:', error)
+  } catch {
+    // failed to load movie details
   }
 }
 </script>

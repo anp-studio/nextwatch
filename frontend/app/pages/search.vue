@@ -124,8 +124,7 @@ const searchTMDB = async (query) => {
     const response = await fetch(`/api/movies/search?q=${encodeURIComponent(query)}`)
     const data = await response.json()
     searchResults.value = data.results || []
-  } catch (error) {
-    console.error('Error searching TMDB:', error)
+  } catch {
     searchResults.value = []
   } finally {
     isSearching.value = false
@@ -154,8 +153,8 @@ const openDetails = async (movie) => {
   try {
     selectedMovie.value = await getMovieDetails(movie.id)
     isModalOpen.value = true
-  } catch (error) {
-    console.error('Failed to load movie details:', error)
+  } catch {
+    // failed to load movie details
   } finally {
     isLoadingDetails.value = false
   }

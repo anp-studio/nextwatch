@@ -119,7 +119,6 @@ const openDetails = async () => {
   try {
     detailedMovie.value = await getMovieDetails(props.movie.id)
   } catch (error) {
-    console.error('Failed to load movie details:', error)
     isDetailsOpen.value = false
   }
 }

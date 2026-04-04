@@ -57,8 +57,6 @@ export default defineEventHandler(async (event): Promise<MovieResponse> => {
   const [row] = cached.rows
 
   if (row) {
-    console.log(`[movies/:id] cache hit for tmdb_id=${id}`)
-
     const genres = row.genres ? (JSON.parse(row.genres as string) as string[]) : []
     const actors = row.cast ? (JSON.parse(row.cast as string) as string[]) : []
     const trailerKey = row.trailer_key as string | null
@@ -78,8 +76,6 @@ export default defineEventHandler(async (event): Promise<MovieResponse> => {
       trailer: trailerKey ? `${YOUTUBE_BASE}${trailerKey}` : null,
     }
   }
-
-  console.log(`[movies/:id] cache miss for tmdb_id=${id}, fetching from TMDB`)
 
   const data = (await fetchTmdb(`/movie/${id}`, {
     append_to_response: 'credits,videos',
@@ -114,7 +110,7 @@ export default defineEventHandler(async (event): Promise<MovieResponse> => {
       trailerKey,
       now,
     ],
-  }).catch((err: unknown) => console.error(`[movies/:id] failed to cache tmdb_id=${id}:`, err))
+  }).catch(() => {})
 
   return {
     id: data.id,

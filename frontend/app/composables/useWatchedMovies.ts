@@ -28,8 +28,7 @@ export const useWatchedMovies = () => {
             typeof movie?.posterPath === 'string'
         )
       }
-    } catch (error) {
-      console.error('Failed to read pending watched movies from storage:', error)
+    } catch {
       pendingWatchedMovies.value = []
     }
   }
@@ -47,8 +46,8 @@ export const useWatchedMovies = () => {
         PENDING_WATCHED_STORAGE_KEY,
         JSON.stringify(pendingWatchedMovies.value)
       )
-    } catch (error) {
-      console.error('Failed to persist pending watched movies to storage:', error)
+    } catch {
+      // persist failed silently
     }
   }
 
@@ -81,8 +80,8 @@ export const useWatchedMovies = () => {
       })
 
       watchedMovies.value = response.movies
-    } catch (error) {
-      console.error('Failed to load watched movies from Supabase:', error)
+    } catch {
+      // failed to load watched movies
     }
   }
 
@@ -130,11 +129,9 @@ export const useWatchedMovies = () => {
         if (!alreadyInState) {
           watchedMovies.value = watchedMovies.value.filter((m) => m.tmdbId !== movie.id)
         }
-        console.error('Failed to mark movie as watched in Supabase:', fetchError)
         return 'error'
       }
-    } catch (error) {
-      console.error('Failed to mark movie as watched in Supabase:', error)
+    } catch {
       return 'error'
     }
 
@@ -160,8 +157,7 @@ export const useWatchedMovies = () => {
         },
         body: { tmdbId },
       })
-    } catch (error) {
-      console.error('Failed to remove movie from watched list:', error)
+    } catch {
       await syncWatchedMoviesFromSupabase()
       return 'error'
     }
@@ -259,14 +255,13 @@ export const useWatchedMovies = () => {
 
           persistPendingWatchedToStorage()
           processedCount++
-        } catch (error) {
-          console.error(`Failed to process pending movie ${movie.id}:`, error)
+        } catch {
+          // failed to process pending movie
         }
       }
 
       return processedCount
-    } catch (error) {
-      console.error('Failed to process pending watched movies:', error)
+    } catch {
       return 0
     }
   }

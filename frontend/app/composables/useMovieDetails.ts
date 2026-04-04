@@ -20,8 +20,7 @@ export const useMovieDetails = () => {
       const movie = await $fetch<Movie>(`/api/movies/${movieId}`)
       movieCache.value[movieId] = movie
       return movie
-    } catch (error) {
-      console.error(`Failed to load movie details for ${movieId}:`, error)
+    } catch {
       throw new Error(TMDB_ERROR_MESSAGE)
     }
   }
@@ -48,8 +47,7 @@ export const useMovieDetails = () => {
           description: movie.overview,
         }))
         .slice(0, 20)
-    } catch (error) {
-      console.error('Failed to load popular movies:', error)
+    } catch {
       throw new Error(TMDB_ERROR_MESSAGE)
     }
   }
