@@ -1,5 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { Schema } from '@google/generative-ai'
+import type { H3Event } from 'h3'
+import { createRateLimiter } from './ratelimit'
 
 const GEMINI_DEFAULT_MODEL = 'gemini-flash-lite-latest'
 
@@ -8,6 +10,8 @@ interface GeminiOptions {
   userMessage: string
   model?: string
   schema?: Schema
+  userId?: string
+  event?: H3Event
 }
 
 export async function askGemini({
@@ -15,6 +19,8 @@ export async function askGemini({
   userMessage,
   model = GEMINI_DEFAULT_MODEL,
   schema,
+  userId,
+  event,
 }: GeminiOptions): Promise<string> {
   const config = useRuntimeConfig()
   const apiKey = config.geminiApiKey || process.env.NUXT_GEMINI_API_KEY || ''
@@ -24,6 +30,24 @@ export async function askGemini({
       statusCode: 500,
       statusMessage: 'Gemini API key is not configured. Set NUXT_GEMINI_API_KEY.',
     })
+  }
+
+  if (userId) {
+    const { recommednationLimiter } = createRateLimiter()
+    const { success, limit, remaining, reset } = await recommednationLimiter.limit(userId)
+    if (event) {
+      setResponseHeaders(event, {
+        'X-RateLimit-Limit': String(limit),
+        'X-RateLimit-Remaining': String(remaining),
+        'X-RateLimit-Reset': String(reset),
+      })
+    }
+    if (!success) {
+      throw createError({
+        statusCode: 429,
+        statusMessage: 'Daily recommendation limit reached. Please try again tomorrow.',
+      })
+    }
   }
 
   try {

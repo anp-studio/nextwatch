@@ -157,12 +157,16 @@ export async function appendTmdbIds(
 }
 
 export async function getRecommendationsFromGemini(
-  watchedMovies: Array<{ title: string; year: number }>
+  watchedMovies: Array<{ title: string; year: number }>,
+  userId?: string,
+  event?: import('h3').H3Event
 ): Promise<RecommendationWithId[]> {
   const raw = await askGemini({
     systemPrompt: SYSTEM_PROMPT,
     userMessage: buildUserMessage(watchedMovies),
     schema: RECOMMENDATION_SCHEMA,
+    userId,
+    event,
   })
 
   let parsed: unknown

@@ -13,6 +13,10 @@ export default defineNuxtConfig({
       supabaseUrl: process.env.NUXT_PUBLIC_SUPABASE_URL ?? '',
       supabaseKey: process.env.NUXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
     },
+    upstash: {
+      redisUrl: process.env.UPSTASH_REDIS_REST_URL ?? '',
+      redisToken: process.env.UPSTASH_REDIS_REST_TOKEN ?? '',
+    },
   },
   nitro: {
     experimental: {

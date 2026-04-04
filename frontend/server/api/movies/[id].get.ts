@@ -82,7 +82,7 @@ export default defineEventHandler(async (event): Promise<MovieResponse> => {
 
   console.log(`[movies/:id] cache miss for tmdb_id=${id}, fetching from TMDB`)
 
-  const data = (await fetchTmdb(`/movie/${id}`, {
+  const data = (await fetchTmdb(event, `/movie/${id}`, {
     append_to_response: 'credits,videos',
   })) as TMDBMovieDetails
 

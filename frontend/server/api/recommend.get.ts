@@ -1,10 +1,7 @@
 import { createHash } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getAuthorizedUser } from '../utils/auth'
-import {
-  fetchWatchedMovies,
-  getRecommendationsFromGemini,
-} from '../utils/recommendations'
+import { fetchWatchedMovies, getRecommendationsFromGemini } from '../utils/recommendations'
 import type { RecommendationWithId, WatchedMovieRecord } from '../utils/recommendations'
 
 const RECOMMENDATIONS_TABLE = 'recommendations'
@@ -83,7 +80,7 @@ export default defineEventHandler(async (event) => {
     return { recommendations: cached, cached: true }
   }
 
-  const recommendations = await getRecommendationsFromGemini(watchedMovies)
+  const recommendations = await getRecommendationsFromGemini(watchedMovies, user.id, event)
 
   await storeCachedRecommendations(supabase, user.id, recommendations, watchedHash)
 

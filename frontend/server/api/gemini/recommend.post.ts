@@ -48,7 +48,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const recommendations = await getRecommendationsFromGemini(
-    watchedMovies.slice(0, MAX_WATCHED_FOR_PROMPT)
+    watchedMovies.slice(0, MAX_WATCHED_FOR_PROMPT),
+    user.id,
+    event
   )
 
   return { recommendations }

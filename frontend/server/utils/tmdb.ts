@@ -1,10 +1,17 @@
-import type { QueryObject } from 'ufo'
+import type { H3Event } from 'h3'
+import { createRateLimiter } from './ratelimit'
 
 const TMDB_API_URL = 'https://api.themoviedb.org/3'
 
-export async function fetchTmdb(path: string, query: QueryObject = {}): Promise<unknown> {
+type TmdbQuery = Record<string, string | string[] | number | undefined>
+
+export async function fetchTmdb(
+  event: H3Event,
+  path: string,
+  query: TmdbQuery = {}
+): Promise<unknown> {
   const config = useRuntimeConfig()
-  const apiKey = config.tmdbApiKey || process.env.NUXT_TMDB_API_KEY || ''
+  const apiKey = config.tmdbApiKey || process.env.NUXT_TMDB_API_KEY
 
   if (!apiKey) {
     throw createError({
@@ -13,15 +20,34 @@ export async function fetchTmdb(path: string, query: QueryObject = {}): Promise<
     })
   }
 
+  const ip = getRequestIP(event, { xForwardedFor: true }) ?? 'anonymous'
+  const { tmdbLimiter } = createRateLimiter()
+  const { success, limit, remaining, reset } = await tmdbLimiter.limit(ip)
+
+  setResponseHeaders(event, {
+    'X-RateLimit-Limit': String(limit),
+    'X-RateLimit-Remaining': String(remaining),
+    'X-RateLimit-Reset': String(reset),
+  })
+
+  if (!success) {
+    throw createError({
+      statusCode: 429,
+      message: 'Rate limit exceeded for TMDB API. Please try again later.',
+    })
+  }
+
   try {
     return await $fetch(path, {
       baseURL: TMDB_API_URL,
       params: {
-        api_key: apiKey,
         language: 'en-US',
         ...query,
       },
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
     })
   } catch (error: unknown) {
     const fetchError = error as {
