@@ -1,8 +1,8 @@
 <template>
-  <div class="p-6 h-full flex flex-col overflow-y-auto bg-gray-50 relative">
+  <div class="p-6 h-full flex flex-col overflow-y-auto bg-gray-50 dark:bg-gray-900 relative">
     <div v-if="user" class="flex flex-col items-center w-full min-h-full pb-20">
       <div
-        class="w-24 h-24 flex-shrink-0 rounded-full bg-rose-100 mb-4 flex items-center justify-center text-rose-500 overflow-hidden shadow-md mt-8 border-4 border-white"
+        class="w-24 h-24 flex-shrink-0 rounded-full bg-rose-100 dark:bg-rose-900 mb-4 flex items-center justify-center text-rose-500 overflow-hidden shadow-md mt-8 border-4 border-white dark:border-gray-700"
       >
         <img
           v-if="user?.user_metadata?.avatar_url"
@@ -18,7 +18,7 @@
             <input
               v-model="newName"
               type="text"
-              class="w-full border-b-2 border-rose-500 bg-transparent px-2 py-1 text-xl font-bold text-gray-900 text-center focus:outline-none"
+              class="w-full border-b-2 border-rose-500 bg-transparent px-2 py-1 text-xl font-bold text-gray-900 dark:text-white text-center focus:outline-none"
               @keyup.enter="saveName"
               placeholder="Enter new name..."
             />
@@ -52,7 +52,7 @@
           </template>
 
           <template v-else>
-            <h2 class="text-2xl font-bold text-gray-900 text-center truncate">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white text-center truncate">
               {{ user?.user_metadata?.full_name || 'User' }}
             </h2>
             <button
@@ -71,14 +71,14 @@
           </template>
         </div>
 
-        <p class="text-gray-500 text-sm font-medium">
+        <p class="text-gray-500 dark:text-gray-400 text-sm font-medium">
           {{ user?.email }}
         </p>
       </div>
 
       <button
         @click="handleLogout"
-        class="w-full max-w-xs bg-white border border-gray-200 text-gray-700 rounded-xl py-3 px-6 font-semibold hover:bg-gray-50 transition-colors shadow-sm mb-10"
+        class="w-full max-w-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-xl py-3 px-6 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm mb-10"
       >
         Log Out
       </button>
@@ -108,16 +108,16 @@
 
       <div v-else class="w-full flex flex-col gap-10">
         <div class="w-full">
-          <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center justify-between">
+          <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center justify-between">
             Watched Movies
-            <span class="text-sm font-normal text-gray-500 bg-gray-200 px-2 py-1 rounded-full">{{
+            <span class="text-sm font-normal text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded-full">{{
               watchedMovies.length
             }}</span>
           </h3>
 
           <div
             v-if="watchedMovies.length === 0"
-            class="text-center text-gray-500 py-12 bg-white rounded-2xl border border-dashed border-gray-300"
+            class="text-center text-gray-500 dark:text-gray-400 py-12 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-300 dark:border-gray-600"
           >
             You haven't marked any movies as watched yet.
           </div>
@@ -130,7 +130,7 @@
               v-for="movie in watchedMovies"
               :key="movie.tmdbId"
               @click="openMovieDetails(movie)"
-              class="aspect-[2/3] rounded-xl overflow-hidden bg-gray-200 shadow-sm relative group cursor-pointer"
+              class="aspect-[2/3] rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-700 shadow-sm relative group cursor-pointer"
             >
               <img
                 :src="IMAGE_BASE + movie.posterPath"

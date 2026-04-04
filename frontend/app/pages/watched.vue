@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 pt-10">
+  <div class="p-4 pt-10 text-gray-900 dark:text-white">
     <div class="flex justify-between items-end mb-6">
       <h1 class="text-3xl font-bold">Already Watched</h1>
       <span class="text-gray-400 text-sm">{{ watchedMovies.length }} movies</span>
@@ -14,7 +14,7 @@
       <div
         v-for="movie in watchedMovies"
         :key="movie.tmdbId"
-        class="flex bg-gray-800 rounded-xl p-3 gap-3"
+        class="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-3 gap-3"
         @click="openDetails(movie.tmdbId)"
       >
         <img

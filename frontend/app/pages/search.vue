@@ -1,5 +1,5 @@
 <template>
-  <div class="p-6 h-full flex flex-col bg-gray-50 overflow-hidden">
+  <div class="p-6 h-full flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
     <div class="mb-6 flex-shrink-0">
       <div class="relative w-full shadow-sm rounded-2xl overflow-hidden">
         <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -17,7 +17,7 @@
           @input="handleInput"
           type="text"
           placeholder="Find a movie..."
-          class="w-full pl-11 pr-4 py-4 bg-white border-none focus:ring-2 focus:ring-rose-500 text-gray-900 placeholder-gray-400 font-medium outline-none"
+          class="w-full pl-11 pr-4 py-4 bg-white dark:bg-gray-800 border-none focus:ring-2 focus:ring-rose-500 text-gray-900 dark:text-white placeholder-gray-400 font-medium outline-none"
         />
         <button
           v-if="searchQuery"
@@ -62,10 +62,10 @@
 
       <div
         v-else-if="!searchQuery && searchResults.length === 0"
-        class="text-center text-gray-400 py-10"
+        class="text-center text-gray-400 dark:text-gray-500 py-10"
       >
         <svg
-          class="w-16 h-16 mx-auto mb-4 text-gray-300"
+          class="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -82,7 +82,7 @@
 
       <div
         v-else-if="searchQuery && searchResults.length === 0 && !isSearching"
-        class="text-center text-gray-500 py-10 bg-white rounded-2xl border border-dashed border-gray-300"
+        class="text-center text-gray-500 dark:text-gray-400 py-10 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-300 dark:border-gray-600"
       >
         <p>No results for "{{ searchQuery }}"</p>
       </div>
@@ -93,9 +93,9 @@
         <div
           v-for="movie in searchResults"
           :key="movie.id"
-          class="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 flex flex-col relative"
+          class="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col relative"
         >
-          <div class="aspect-[2/3] bg-gray-200 relative">
+          <div class="aspect-[2/3] bg-gray-200 dark:bg-gray-700 relative">
             <img
               v-if="movie.poster_path"
               :src="IMAGE_BASE + movie.poster_path"
@@ -123,8 +123,8 @@
 
           <div class="p-3 flex flex-col flex-1 justify-between">
             <div>
-              <h3 class="text-sm font-bold text-gray-900 line-clamp-1 mb-1">{{ movie.title }}</h3>
-              <p class="text-xs text-gray-500 mb-3">
+              <h3 class="text-sm font-bold text-gray-900 dark:text-white line-clamp-1 mb-1">{{ movie.title }}</h3>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
                 {{ movie.release_date ? movie.release_date.split('-')[0] : 'Unknown' }}
               </p>
             </div>
@@ -132,7 +132,7 @@
             <button
               v-if="isAlreadyWatched(movie.id)"
               disabled
-              class="w-full py-2 bg-gray-100 text-gray-400 rounded-lg text-xs font-bold flex justify-center items-center gap-1 cursor-not-allowed"
+              class="w-full py-2 bg-gray-100 dark:bg-gray-700 text-gray-400 rounded-lg text-xs font-bold flex justify-center items-center gap-1 cursor-not-allowed"
             >
               <svg
                 class="w-4 h-4 text-green-500"
@@ -152,7 +152,7 @@
             <button
               v-else
               @click="addToWatched(movie)"
-              class="w-full py-2 bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white transition-colors rounded-lg text-xs font-bold flex justify-center items-center gap-1"
+              class="w-full py-2 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white transition-colors rounded-lg text-xs font-bold flex justify-center items-center gap-1"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path

@@ -1,26 +1,26 @@
 <template>
   <div class="flex-1 flex flex-col justify-center items-center h-full p-4 w-full">
     <div
-      class="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg border border-gray-100 flex flex-col gap-4"
+      class="w-full max-w-md bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 flex flex-col gap-4"
     >
       <div class="text-center mb-6">
-        <h2 class="text-3xl font-bold text-gray-900 mb-2">
+        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
           <span v-if="authView === 'login'">Welcome Back</span>
           <span v-else-if="authView === 'register'">Create Account</span>
           <span v-else>Reset Password</span>
         </h2>
-        <p class="text-gray-500 text-sm">Find your next favorite movie</p>
+        <p class="text-gray-500 dark:text-gray-400 text-sm">Find your next favorite movie</p>
       </div>
 
       <div
         v-if="errorMessage"
-        class="bg-red-50 text-red-500 p-3 rounded-xl text-sm font-medium text-center"
+        class="bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 p-3 rounded-xl text-sm font-medium text-center"
       >
         {{ errorMessage }}
       </div>
       <div
         v-if="successMessage"
-        class="bg-emerald-50 text-emerald-500 p-3 rounded-xl text-sm font-medium text-center"
+        class="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 dark:text-emerald-400 p-3 rounded-xl text-sm font-medium text-center"
       >
         {{ successMessage }}
       </div>
@@ -31,7 +31,7 @@
           type="email"
           placeholder="Email address"
           required
-          class="w-full bg-gray-100 rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+          class="w-full bg-gray-100 dark:bg-gray-700 dark:text-white rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
         />
 
         <input
@@ -40,7 +40,7 @@
           type="password"
           placeholder="Password"
           required
-          class="w-full bg-gray-100 rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+          class="w-full bg-gray-100 dark:bg-gray-700 dark:text-white rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
         />
 
         <button
@@ -125,16 +125,16 @@
       </div>
 
       <div v-if="authView !== 'forgot'" class="flex items-center my-4">
-        <div class="flex-1 border-t border-gray-200"></div>
+        <div class="flex-1 border-t border-gray-200 dark:border-gray-600"></div>
         <span class="px-4 text-gray-400 text-sm">OR</span>
-        <div class="flex-1 border-t border-gray-200"></div>
+        <div class="flex-1 border-t border-gray-200 dark:border-gray-600"></div>
       </div>
 
       <button
         v-if="authView !== 'forgot'"
         @click="handleGoogleSignIn"
         :disabled="isLoading || isGoogleLoading"
-        class="w-full flex items-center justify-center gap-3 bg-white border border-gray-200 text-gray-700 py-3 rounded-xl hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors font-medium h-12 shadow-sm"
+        class="w-full flex items-center justify-center gap-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed transition-colors font-medium h-12 shadow-sm"
       >
         <svg v-if="!isGoogleLoading" class="w-5 h-5" viewBox="0 0 24 24">
           <path

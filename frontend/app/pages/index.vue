@@ -1,7 +1,7 @@
 <template>
-  <div class="h-full flex flex-col bg-gray-50 relative overflow-hidden">
+  <div class="h-full flex flex-col bg-gray-50 dark:bg-gray-900 relative overflow-hidden">
     <div class="flex-1 relative w-full px-6 py-4 flex flex-col items-center justify-center mt-4">
-      <div v-if="pending" class="flex flex-col items-center text-gray-400">
+      <div v-if="pending" class="flex flex-col items-center text-gray-400 dark:text-gray-500">
         <svg
           class="animate-spin h-10 w-10 text-rose-500 mb-4"
           xmlns="http://www.w3.org/2000/svg"
@@ -25,7 +25,7 @@
         <p>Finding movies...</p>
       </div>
 
-      <div v-else-if="movies.length === 0" class="text-center text-gray-500">
+      <div v-else-if="movies.length === 0" class="text-center text-gray-500 dark:text-gray-400">
         <p class="text-xl font-medium mb-2">You're all caught up!</p>
         <p class="text-sm">Check back later for more movies.</p>
       </div>
@@ -41,7 +41,7 @@
       </div>
     </div>
 
-    <div v-if="isDetailsOpen" class="absolute inset-0 bg-white z-50 flex flex-col overflow-y-auto">
+    <div v-if="isDetailsOpen" class="absolute inset-0 bg-white dark:bg-gray-900 z-50 flex flex-col overflow-y-auto">
       <div v-if="loadingDetails" class="flex-1 flex justify-center items-center">
         <svg
           class="animate-spin h-10 w-10 text-rose-500"
@@ -86,25 +86,25 @@
             class="w-full h-full object-cover"
           />
           <div
-            class="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent"
+            class="absolute inset-0 bg-gradient-to-t from-white dark:from-gray-900 via-transparent to-transparent"
           ></div>
         </div>
 
         <div
-          class="px-6 py-4 -mt-12 relative z-10 bg-white rounded-t-3xl h-full shadow-[0_-10px_20px_rgba(0,0,0,0.1)]"
+          class="px-6 py-4 -mt-12 relative z-10 bg-white dark:bg-gray-900 rounded-t-3xl h-full shadow-[0_-10px_20px_rgba(0,0,0,0.1)]"
         >
-          <h2 class="text-3xl font-extrabold text-gray-900 mb-2">{{ detailedMovie.title }}</h2>
+          <h2 class="text-3xl font-extrabold text-gray-900 dark:text-white mb-2">{{ detailedMovie.title }}</h2>
           <div class="flex flex-wrap gap-2 mb-6">
             <span
               v-for="genre in detailedMovie.genres"
               :key="genre.id"
-              class="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium"
+              class="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-full text-xs font-medium"
             >
               {{ genre.name }}
             </span>
           </div>
-          <h3 class="text-lg font-bold text-gray-900 mb-2">Overview</h3>
-          <p class="text-gray-600 leading-relaxed">{{ detailedMovie.overview }}</p>
+          <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">Overview</h3>
+          <p class="text-gray-600 dark:text-gray-300 leading-relaxed">{{ detailedMovie.overview }}</p>
         </div>
       </template>
     </div>

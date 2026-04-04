@@ -1,7 +1,7 @@
 <template>
-  <div class="flex justify-center items-center gap-4 py-4 px-6 bg-white z-10 w-full shrink-0">
+  <div class="flex justify-center items-center gap-4 py-4 px-6 bg-white dark:bg-gray-800 z-10 w-full shrink-0">
     <button
-      class="w-12 h-12 flex items-center justify-center rounded-full bg-white shadow-lg border border-gray-100 text-yellow-500 hover:scale-110 transition-transform"
+      class="w-12 h-12 flex items-center justify-center rounded-full bg-white dark:bg-gray-700 shadow-lg border border-gray-100 dark:border-gray-600 text-yellow-500 hover:scale-110 transition-transform"
     >
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -13,7 +13,7 @@
       </svg>
     </button>
     <button
-      class="w-16 h-16 flex items-center justify-center rounded-full bg-white shadow-lg border border-gray-100 text-rose-500 hover:scale-110 transition-transform"
+      class="w-16 h-16 flex items-center justify-center rounded-full bg-white dark:bg-gray-700 shadow-lg border border-gray-100 dark:border-gray-600 text-rose-500 hover:scale-110 transition-transform"
     >
       <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -25,7 +25,7 @@
       </svg>
     </button>
     <button
-      class="w-12 h-12 flex items-center justify-center rounded-full bg-white shadow-lg border border-gray-100 text-blue-400 hover:scale-110 transition-transform"
+      class="w-12 h-12 flex items-center justify-center rounded-full bg-white dark:bg-gray-700 shadow-lg border border-gray-100 dark:border-gray-600 text-blue-400 hover:scale-110 transition-transform"
     >
       <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
         <path
@@ -34,7 +34,7 @@
       </svg>
     </button>
     <button
-      class="w-16 h-16 flex items-center justify-center rounded-full bg-white shadow-lg border border-gray-100 text-emerald-400 hover:scale-110 transition-transform"
+      class="w-16 h-16 flex items-center justify-center rounded-full bg-white dark:bg-gray-700 shadow-lg border border-gray-100 dark:border-gray-600 text-emerald-400 hover:scale-110 transition-transform"
     >
       <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
         <path
@@ -43,7 +43,7 @@
       </svg>
     </button>
     <button
-      class="w-12 h-12 flex items-center justify-center rounded-full bg-white shadow-lg border border-gray-100 text-purple-500 hover:scale-110 transition-transform"
+      class="w-12 h-12 flex items-center justify-center rounded-full bg-white dark:bg-gray-700 shadow-lg border border-gray-100 dark:border-gray-600 text-purple-500 hover:scale-110 transition-transform"
     >
       <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
         <path
