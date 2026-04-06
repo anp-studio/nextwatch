@@ -56,7 +56,7 @@ onMounted(async () => {
     const popular = await getPopularMovies()
     movies.value = popular
   } catch {
-    // failed to load popular movies
+    // failed to load popular movies without crashing the app, just show empty state
   } finally {
     pending.value = false
   }
