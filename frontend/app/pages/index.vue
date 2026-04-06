@@ -1,162 +1,97 @@
 <template>
-  <div class="relative w-full h-full flex flex-col items-center justify-center p-4">
-    <div v-if="moviesError" class="text-center">
-      <h2 class="text-2xl font-bold mb-2">Unable to load movies</h2>
-      <p class="text-gray-400">{{ moviesError }}</p>
-      <button @click="reset" class="mt-4 text-red-500 hover:underline">Retry</button>
-    </div>
-
-    <div v-else-if="!movies || currentIndex >= movies.length" class="text-center">
-      <h2 class="text-2xl font-bold mb-2">No more movies!</h2>
-      <p class="text-gray-400">Come back later for more titles.</p>
-      <button @click="reset" class="mt-4 text-red-500 hover:underline">Refresh</button>
-    </div>
-
-    <div v-else class="relative w-full max-w-sm aspect-[2/3]">
-      <div
-        v-for="(movie, index) in reversedMovies"
-        :key="movie.id"
-        class="absolute inset-0 w-full h-full bg-gray-800 rounded-3xl shadow-2xl overflow-hidden cursor-pointer transition-all duration-300"
-        :style="getCardStyle(index)"
-        @click="openDetails(movie)"
-      >
-        <img :src="movie.poster" class="w-full h-full object-cover" />
-
-        <div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
-
-        <div class="absolute bottom-0 left-0 w-full p-6 pb-24">
-          <h1 class="text-3xl font-bold text-white drop-shadow-md">{{ movie.title }}</h1>
-          <div class="flex items-center gap-2 text-gray-200 mt-2">
-            <span class="bg-red-600 px-2 py-0.5 rounded text-xs font-bold"
-              >{{ movie.rating }} TMDB</span
-            >
-            <span class="text-sm">{{ movie.genres.join(', ') }}</span>
-          </div>
-        </div>
+  <div class="h-full flex flex-col bg-gray-50 dark:bg-gray-900 relative overflow-hidden">
+    <div class="flex-1 relative w-full px-6 py-4 flex flex-col items-center justify-center mt-4">
+      <div v-if="pending" class="flex flex-col items-center text-gray-400 dark:text-gray-500">
+        <LoadingSpinner size="h-10 w-10" class="mb-4" />
+        <p>Finding movies...</p>
       </div>
 
-      <div class="absolute -bottom-8 left-0 w-full flex justify-center gap-8 z-50">
-        <button
-          @click.stop="handleSwipe('left')"
-          class="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center text-red-500 shadow-lg border border-gray-700 hover:scale-110 transition-transform"
-        >
-          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            ></path>
-          </svg>
-        </button>
+      <div v-else-if="movies.length === 0" class="text-center text-gray-500 dark:text-gray-400">
+        <p class="text-xl font-medium mb-2">You're all caught up!</p>
+        <p class="text-sm">Check back later for more movies.</p>
+      </div>
 
-        <button
-          class="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center text-white shadow-lg hover:scale-110 hover:bg-red-500 transition-transform"
-          @click.stop="handleSwipe('right')"
-        >
-          <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-            <path
-              d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-            />
-          </svg>
-        </button>
+      <div v-else class="w-full max-w-sm h-[65vh] relative mx-auto">
+        <MovieCard
+          :movie="currentMovieFormatted"
+          @dislike="handleDislike"
+          @watched="handleLike"
+          @to-watch="handleLike"
+        />
       </div>
     </div>
 
-    <MovieDetails
-      v-if="selectedMovie"
-      :is-open="!!selectedMovie"
-      :movie="selectedMovie"
-      @close="selectedMovie = null"
-    />
+    <LoginPromptModal :is-open="showLoginModal" @close="handleModalClose" />
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, computed } from 'vue'
-import type { Movie, MoviePreview } from '~/types/movie'
-const { getPopularMovies, getMovieDetails, markAsWatched, queuePendingWatchedMovie } = useMovies()
+<script setup>
+import { ref, computed, onMounted } from 'vue'
 
-const moviesError = ref('')
-const { data: movies, refresh } = await useAsyncData<MoviePreview[]>(
-  'popular-movies',
-  async () => {
-    try {
-      moviesError.value = ''
-      return await getPopularMovies()
-    } catch (error) {
-      console.error('Failed to load home movies:', error)
-      moviesError.value = 'Unable to load movies right now. Check the TMDB API configuration.'
-      return []
-    }
-  },
-  {
-    default: () => [],
+const { getPopularMovies } = useMovieDetails()
+const { markAsWatched, queuePendingWatchedMovie, removePendingWatchedMovie } = useWatchedMovies()
+const { isAuthenticated } = useAuth()
+
+const movies = ref([])
+const pending = ref(true)
+const showLoginModal = ref(false)
+const pendingModalMovieId = ref(null)
+
+const currentMovie = computed(() => movies.value[0] || null)
+
+const currentMovieFormatted = computed(() => {
+  const movie = movies.value[0]
+  if (!movie) return null
+
+  return {
+    ...movie,
+    image: movie.poster || posterUrl(movie.poster_path),
+    genre: movie.genres?.join(', ') || 'Unknown Genre',
+    director: movie.director || null,
   }
-)
-
-const selectedMovie = ref<Movie | null>(null)
-const currentIndex = ref(0)
-
-const reversedMovies = computed(() => {
-  if (!movies.value) return []
-  return movies.value.slice(currentIndex.value, currentIndex.value + 2).reverse()
 })
 
-const getCardStyle = (index: number) => {
-  const isTop = index === reversedMovies.value.length - 1
-  return {
-    transform: isTop ? 'scale(1) translateY(0)' : 'scale(0.95) translateY(10px)',
-    opacity: isTop ? 1 : 0.5,
-    zIndex: isTop ? 10 : 0,
-  }
-}
-
-const handleSwipe = async (direction: 'left' | 'right') => {
-  if (!movies.value || currentIndex.value >= movies.value.length) return
-  const currentMovie = movies.value[currentIndex.value]
-  if (!currentMovie) return
-
-  if (direction === 'right') {
-    const markResult = await markAsWatched({
-      id: currentMovie.id,
-      title: currentMovie.title,
-      year: currentMovie.year,
-      poster: currentMovie.poster,
-    })
-
-    if (markResult === 'unauthorized') {
-      queuePendingWatchedMovie({
-        id: currentMovie.id,
-        title: currentMovie.title,
-        year: currentMovie.year,
-        poster: currentMovie.poster,
-      })
-      await navigateTo('/login')
-      return
-    }
-
-    if (markResult !== 'ok') return
-    // dodati animaciju? (trigger)
-  } else {
-    // preskakanje?
-  }
-
-  currentIndex.value++
-}
-
-const openDetails = async (movie: MoviePreview) => {
+onMounted(async () => {
   try {
-    const details = await getMovieDetails(movie.id)
-    selectedMovie.value = details
-  } catch (error) {
-    console.error('Failed to load movie details:', error)
+    const popular = await getPopularMovies()
+    movies.value = popular
+  } catch {
+    // failed to load popular movies without crashing the app, just show empty state
+  } finally {
+    pending.value = false
+  }
+})
+
+const handleDislike = () => {
+  if (movies.value.length > 0) {
+    movies.value.shift()
   }
 }
 
-const reset = async () => {
-  currentIndex.value = 0
-  await refresh()
+const handleLike = async () => {
+  if (!currentMovie.value) return
+
+  const movieToSave = currentMovie.value
+
+  movies.value.shift()
+
+  if (isAuthenticated.value) {
+    const status = await markAsWatched(movieToSave)
+    if (status === 'unauthorized' || status === 'error') {
+      queuePendingWatchedMovie(movieToSave)
+    }
+  } else {
+    queuePendingWatchedMovie(movieToSave)
+    pendingModalMovieId.value = movieToSave.id
+    showLoginModal.value = true
+  }
+}
+
+const handleModalClose = () => {
+  showLoginModal.value = false
+  if (!isAuthenticated.value && pendingModalMovieId.value !== null) {
+    removePendingWatchedMovie(pendingModalMovieId.value)
+  }
+  pendingModalMovieId.value = null
 }
 </script>
-

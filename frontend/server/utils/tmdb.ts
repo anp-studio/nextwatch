@@ -11,7 +11,7 @@ export async function fetchTmdb(
   query: TmdbQuery = {}
 ): Promise<unknown> {
   const config = useRuntimeConfig()
-  const apiKey = config.tmdbApiKey || process.env.NUXT_TMDB_API_KEY
+  const apiKey = config.tmdbApiKey
 
   if (!apiKey) {
     throw createError({

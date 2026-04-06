@@ -6,8 +6,7 @@ import type {
   TMDBGenreListResponse,
   TMDBGenre,
 } from '~/types/movie'
-
-const IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
+import { IMAGE_BASE } from '~/constants'
 const TMDB_ERROR_MESSAGE = 'TMDB data is unavailable right now. Check NUXT_TMDB_API_KEY.'
 
 export const useMovieDetails = () => {
@@ -21,8 +20,7 @@ export const useMovieDetails = () => {
       const movie = await $fetch<Movie>(`/api/movies/${movieId}`)
       movieCache.value[movieId] = movie
       return movie
-    } catch (error) {
-      console.error(`Failed to load movie details for ${movieId}:`, error)
+    } catch {
       throw new Error(TMDB_ERROR_MESSAGE)
     }
   }
@@ -49,8 +47,7 @@ export const useMovieDetails = () => {
           description: movie.overview,
         }))
         .slice(0, 20)
-    } catch (error) {
-      console.error('Failed to load popular movies:', error)
+    } catch {
       throw new Error(TMDB_ERROR_MESSAGE)
     }
   }

@@ -13,7 +13,7 @@ let pendingAuthSyncTimeout: ReturnType<typeof setTimeout> | null = null
 export const useAuth = () => {
   const supabase = useSupabase()
   const { syncWatchedMoviesFromSupabase, processPendingWatchedMovies, clearWatchedMovies } =
-    useMovies()
+    useWatchedMovies()
 
   const isAuthenticated = computed(() => !!user.value)
   const userEmail = computed(() => user.value?.email || '')
@@ -35,9 +35,11 @@ export const useAuth = () => {
       return
     }
 
-    await syncWatchedMoviesFromSupabase()
-    await processPendingWatchedMovies()
-    await syncWatchedMoviesFromSupabase()
+    await syncWatchedMoviesFromSupabase(accessToken)
+    const processed = await processPendingWatchedMovies(accessToken)
+    if (processed > 0) {
+      await syncWatchedMoviesFromSupabase(accessToken)
+    }
   }
 
   const login = async (email: string, password: string) => {
@@ -56,30 +58,29 @@ export const useAuth = () => {
 
       return { user: data.user }
     } catch (error) {
-      console.error('Login error:', error)
       return { user: null, error: error as AuthError }
     }
   }
 
-  const signup = async (email: string, password: string) => {
+  const signup = async (email: string, password: string, username?: string) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: username ? { data: { full_name: username } } : undefined,
       })
 
       if (error) throw error
 
-      if (data.user) {
+      if (data.session) {
         user.value = data.user
         session.value = data.session
       }
 
-      await syncWatchedStateAfterAuth(data.session?.access_token)
+      await syncWatchedStateAfterAuth(data.session?.access_token ?? undefined)
 
       return { user: data.user }
     } catch (error) {
-      console.error('Signup error:', error)
       return { user: null, error: error as AuthError }
     }
   }
@@ -94,7 +95,7 @@ export const useAuth = () => {
       session.value = null
       clearWatchedMovies()
     } catch (error) {
-      console.error('Logout error:', error)
+      // logout failed silently
     }
   }
 
@@ -108,7 +109,6 @@ export const useAuth = () => {
 
       return { error: null }
     } catch (error) {
-      console.error('Reset Password error:', error)
       return { error: error as AuthError }
     }
   }
@@ -121,7 +121,6 @@ export const useAuth = () => {
       if (error) throw error
       return { user: data.user }
     } catch (error) {
-      console.error('Update Password error:', error)
       return { user: null, error: error as AuthError }
     }
   }
@@ -154,9 +153,8 @@ export const useAuth = () => {
       }
 
       hasInitializedAuth = true
-    } catch (error) {
+    } catch {
       hasInitializedAuth = false
-      console.error('Error initializing auth:', error)
     } finally {
       loading.value = false
     }
@@ -173,8 +171,8 @@ export const useAuth = () => {
       if (error) throw error
 
       return { user: data }
-    } catch (error) {
-      console.error('Google Sign-In error:', error)
+    } catch {
+      // Google sign-in failed
     }
   }
 
