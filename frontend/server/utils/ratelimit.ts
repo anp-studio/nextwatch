@@ -1,24 +1,12 @@
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
-const noopLimiter = {
-  limit: async (_key: string) => ({ success: true, limit: 0, remaining: 0, reset: 0 }),
-}
-
 export function createRateLimiter() {
   const config = useRuntimeConfig()
-  const { redisUrl, redisToken } = config.upstash
-
-  if (!redisUrl || !redisToken) {
-    return {
-      tmdbLimiter: noopLimiter,
-      recommednationLimiter: noopLimiter,
-    }
-  }
 
   const redis = new Redis({
-    url: redisUrl,
-    token: redisToken,
+    url: config.upstash.redisUrl,
+    token: config.upstash.redisToken,
   })
 
   const tmdbLimiter = new Ratelimit({
