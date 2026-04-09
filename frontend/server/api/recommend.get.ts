@@ -43,6 +43,26 @@ async function getCachedRecommendations(
   return isFresh ? row.recommendations : null
 }
 
+async function getCachedRecommendationsRaw(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<RecommendationWithId[]> {
+  const { data, error } = await supabase
+    .from(RECOMMENDATIONS_TABLE)
+    .select('recommendations')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error) {
+    throw createError({ statusCode: 500, statusMessage: error.message })
+  }
+
+  if (!data) return []
+
+  const row = data as Pick<CachedRow, 'recommendations'>
+  return row.recommendations
+}
+
 async function storeCachedRecommendations(
   supabase: SupabaseClient,
   userId: string,
@@ -63,6 +83,8 @@ async function storeCachedRecommendations(
 
 export default defineEventHandler(async (event) => {
   const { supabase, user } = await getAuthorizedUser(event)
+  const { refresh } = getQuery(event)
+  const isRefresh = refresh === 'true' || refresh === '1'
 
   const watchedMovies = await fetchWatchedMovies(supabase, user.id)
 
@@ -75,12 +97,18 @@ export default defineEventHandler(async (event) => {
 
   const watchedHash = computeWatchedHash(watchedMovies)
 
-  const cached = await getCachedRecommendations(supabase, user.id, watchedHash)
-  if (cached) {
-    return { recommendations: cached, cached: true }
+  if (!isRefresh) {
+    const cached = await getCachedRecommendations(supabase, user.id, watchedHash)
+    if (cached) {
+      return { recommendations: cached, cached: true }
+    }
   }
 
-  const recommendations = await getRecommendationsFromGemini(watchedMovies, user.id, event)
+  const excludedMovies = isRefresh
+    ? await getCachedRecommendationsRaw(supabase, user.id)
+    : []
+
+  const recommendations = await getRecommendationsFromGemini(watchedMovies, user.id, event, excludedMovies)
 
   await storeCachedRecommendations(supabase, user.id, recommendations, watchedHash)
 

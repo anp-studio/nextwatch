@@ -94,7 +94,7 @@ export const useAuth = () => {
       user.value = null
       session.value = null
       clearWatchedMovies()
-    } catch (error) {
+    } catch {
       // logout failed silently
     }
   }
