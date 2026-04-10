@@ -109,7 +109,7 @@ export async function fetchWatchedMovies(
 
 export function buildUserMessage(
   movies: Array<{ title: string; year: number }>,
-  excludedMovies: Array<{ name: string; year: number }> = []
+  excludedMovies: Array<{ name: string; originalName?: string; year: number }> = []
 ): string {
   const watchedList = movies
     .slice(0, MAX_WATCHED_FOR_PROMPT)
@@ -121,10 +121,14 @@ export function buildUserMessage(
   }
 
   const excludedList = excludedMovies
-    .map((m) => `- ${m.name} (${m.year})`)
+    .map((m) => {
+      const originalLabel =
+        m.originalName && m.originalName !== m.name ? ` / ${m.originalName}` : ''
+      return `- ${m.name}${originalLabel} (${m.year})`
+    })
     .join('\n')
 
-  return `I have watched the following movies:\n${watchedList}\n\nThe following movies were previously recommended to me but I was not interested in them right now — please suggest something different and avoid recommending them:\n${excludedList}\n\nRecommend 10 different movies I would enjoy.`
+  return `I have watched the following movies:\n${watchedList}\n\nThese exact movies were already recommended to me recently. Do not include any of them again (same movie, alternate title, sequel variant, punctuation variant, or localized title):\n${excludedList}\n\nRecommend exactly 10 different movies I would enjoy that are not in the blocked list.`
 }
 
 export async function appendTmdbIds(

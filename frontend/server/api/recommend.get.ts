@@ -13,6 +13,24 @@ interface CachedRow {
   expires_at: string
 }
 
+const QUERY_TRUE = ['true', '1']
+
+function isQueryFlagEnabled(value: unknown): boolean {
+  return typeof value === 'string' && QUERY_TRUE.includes(value)
+}
+
+function hasTmdbId(
+  recommendation: RecommendationWithId
+): recommendation is RecommendationWithId & { tmdbId: number } {
+  return recommendation.tmdbId !== null
+}
+
+function filterValidRecommendations(
+  recommendations: RecommendationWithId[]
+): RecommendationWithId[] {
+  return recommendations.filter(hasTmdbId)
+}
+
 function computeWatchedHash(movies: WatchedMovieRecord[]): string {
   const sorted = [...movies]
     .sort((a, b) => a.tmdbId - b.tmdbId)
@@ -40,7 +58,7 @@ async function getCachedRecommendations(
   const row = data as CachedRow
   const isFresh = new Date(row.expires_at) > new Date() && row.watched_hash === watchedHash
 
-  return isFresh ? row.recommendations : null
+  return isFresh ? filterValidRecommendations(row.recommendations) : null
 }
 
 async function getCachedRecommendationsRaw(
@@ -60,7 +78,7 @@ async function getCachedRecommendationsRaw(
   if (!data) return []
 
   const row = data as Pick<CachedRow, 'recommendations'>
-  return row.recommendations
+  return filterValidRecommendations(row.recommendations)
 }
 
 async function storeCachedRecommendations(
@@ -69,9 +87,11 @@ async function storeCachedRecommendations(
   recommendations: RecommendationWithId[],
   watchedHash: string
 ): Promise<void> {
+  const validRecommendations = filterValidRecommendations(recommendations)
+
   const { error } = await supabase.from(RECOMMENDATIONS_TABLE).upsert({
     user_id: userId,
-    recommendations,
+    recommendations: validRecommendations,
     watched_hash: watchedHash,
     expires_at: new Date(Date.now() + TTL_MS).toISOString(),
   })
@@ -83,10 +103,12 @@ async function storeCachedRecommendations(
 
 export default defineEventHandler(async (event) => {
   const { supabase, user } = await getAuthorizedUser(event)
-  const { refresh } = getQuery(event)
-  const isRefresh = refresh === 'true' || refresh === '1'
+  const { getNew, refresh } = getQuery(event)
+  const isGetNew = isQueryFlagEnabled(getNew)
+  const isRefresh = !isGetNew && isQueryFlagEnabled(refresh)
 
   const watchedMovies = await fetchWatchedMovies(supabase, user.id)
+  let excludedMovies: RecommendationWithId[] = []
 
   if (watchedMovies.length === 0) {
     throw createError({
@@ -97,18 +119,25 @@ export default defineEventHandler(async (event) => {
 
   const watchedHash = computeWatchedHash(watchedMovies)
 
-  if (!isRefresh) {
+  if (!isGetNew && !isRefresh) {
     const cached = await getCachedRecommendations(supabase, user.id, watchedHash)
     if (cached) {
       return { recommendations: cached, cached: true }
     }
   }
 
-  const excludedMovies = isRefresh
-    ? await getCachedRecommendationsRaw(supabase, user.id)
-    : []
+  if (isGetNew) {
+    excludedMovies = await getCachedRecommendationsRaw(supabase, user.id)
+  }
 
-  const recommendations = await getRecommendationsFromGemini(watchedMovies, user.id, event, excludedMovies)
+  const generatedRecommendations = await getRecommendationsFromGemini(
+    watchedMovies,
+    user.id,
+    event,
+    excludedMovies
+  )
+
+  const recommendations = filterValidRecommendations(generatedRecommendations)
 
   await storeCachedRecommendations(supabase, user.id, recommendations, watchedHash)
 

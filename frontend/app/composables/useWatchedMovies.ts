@@ -124,8 +124,7 @@ export const useWatchedMovies = () => {
             },
           },
         })
-      } catch (fetchError) {
-        // Revert the optimistic push if the API call failed
+      } catch {
         if (!alreadyInState) {
           watchedMovies.value = watchedMovies.value.filter((m) => m.tmdbId !== movie.id)
         }
