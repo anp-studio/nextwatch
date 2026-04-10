@@ -34,10 +34,6 @@ Developer documentation for the current Movie Recommender codebase.
   :::
 ::
 
-::callout{type="info"}
-These docs track the active code in `app/` and are written for the current API and data model.
-::
-
 ::u-page-section
 #title
 Documentation
