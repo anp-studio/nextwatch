@@ -187,9 +187,9 @@
 
 /* ===== Theme switch (temporary global transition) ===== */
 html.theme-transitioning,
-html.theme-transitioning *,
-html.theme-transitioning *::before,
-html.theme-transitioning *::after {
+html.theme-transitioning *:not(.theme-toggle):not(.theme-toggle *),
+html.theme-transitioning *:not(.theme-toggle):not(.theme-toggle *)::before,
+html.theme-transitioning *:not(.theme-toggle):not(.theme-toggle *)::after {
   transition: background-color 300ms ease, color 300ms ease,
               border-color 300ms ease, fill 300ms ease !important;
 }

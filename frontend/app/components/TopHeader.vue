@@ -4,7 +4,7 @@
       <span class="text-xl font-bold text-gray-800 dark:text-white tracking-tight">recc</span>
       <button
         @click="toggleDark()"
-        class="btn-press text-gray-400 dark:text-gray-500 transition-colors hover:text-rose-400"
+        class="theme-toggle btn-press text-gray-400 dark:text-gray-500 transition-colors hover:text-rose-400"
       >
         <Transition name="icon-spin" mode="out-in">
           <svg v-if="isDark" key="sun" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
