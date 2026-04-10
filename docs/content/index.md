@@ -34,6 +34,10 @@ Developer documentation for the current Movie Recommender codebase.
   :::
 ::
 
+::callout{type="info"}
+These docs track the active code in `app/` and are written for the current API and data model.
+::
+
 ::u-page-section
 #title
 Documentation
@@ -60,7 +64,7 @@ Documentation
   Backend API
 
   #description
-  TMDB proxy and watched-movies authenticated endpoints
+  Recommendations, TMDB proxy, watched-movies, and admin import endpoints
   :::
 
   :::u-page-feature
