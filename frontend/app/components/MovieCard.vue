@@ -29,7 +29,10 @@
           </svg>
           <span>{{ movie.genre }}</span>
         </div>
-        <div v-if="movie.director" class="flex items-center gap-2 mt-1 text-sm opacity-90 drop-shadow-md">
+        <div
+          v-if="movie.director"
+          class="flex items-center gap-2 mt-1 text-sm opacity-90 drop-shadow-md"
+        >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               stroke-linecap="round"
@@ -118,7 +121,7 @@ const openDetails = async () => {
   isDetailsOpen.value = true
   try {
     detailedMovie.value = await getMovieDetails(props.movie.id)
-  } catch (error) {
+  } catch {
     isDetailsOpen.value = false
   }
 }

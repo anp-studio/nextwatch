@@ -34,10 +34,7 @@
             ></path>
           </svg>
         </button>
-        <button
-          @click="cancelEdit"
-          class="text-gray-400 hover:text-rose-500 p-1 transition-colors"
-        >
+        <button @click="cancelEdit" class="text-gray-400 hover:text-rose-500 p-1 transition-colors">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               stroke-linecap="round"
@@ -116,7 +113,7 @@ const saveName = async () => {
 
     user.value = data.user
     isEditingName.value = false
-  } catch (error) {
+  } catch {
     // update failed
   } finally {
     isSavingName.value = false

@@ -8,6 +8,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
-  const result = await runTask('tmdb-import', { payload: {} })
+  const result = await runTmdbImport()
   return result
 })

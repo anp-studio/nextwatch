@@ -18,6 +18,8 @@ export const useAuth = () => {
   const isAuthenticated = computed(() => !!user.value)
   const userEmail = computed(() => user.value?.email || '')
 
+  // used for fixing error on supabase side
+  // will leave it in case it happens again
   const scheduleWatchedStateSyncAfterAuth = (accessToken?: string) => {
     if (pendingAuthSyncTimeout) {
       clearTimeout(pendingAuthSyncTimeout)
@@ -94,7 +96,7 @@ export const useAuth = () => {
       user.value = null
       session.value = null
       clearWatchedMovies()
-    } catch (error) {
+    } catch {
       // logout failed silently
     }
   }
@@ -140,13 +142,12 @@ export const useAuth = () => {
 
       session.value = currentSession
       user.value = currentSession?.user || null
-      await syncWatchedStateAfterAuth(currentSession?.access_token)
+      await scheduleWatchedStateSyncAfterAuth(currentSession?.access_token)
 
       if (!authStateSubscription) {
         const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
           session.value = newSession
           user.value = newSession?.user || null
-          scheduleWatchedStateSyncAfterAuth(newSession?.access_token)
         })
 
         authStateSubscription = data.subscription

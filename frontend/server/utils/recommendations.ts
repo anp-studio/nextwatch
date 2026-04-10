@@ -7,10 +7,9 @@ const MAX_WATCHED_FOR_PROMPT = 50
 const MAX_RECOMMENDATIONS = 20
 
 const SYSTEM_PROMPT = `You are a movie recommendation engine.
-Based on the user's watch history, recommend exactly 10 movies they have not yet seen.
-Return movie titles in their original release language and script exactly as TMDB original titles.
-Do not transliterate, anglicize, or use localized variants.
-For example, use ゴジラ-1.0 instead of Godzilla Minus One.
+Analyze the user's watch history to infer their taste: preferred genres, directors, eras, themes, and tone.
+Recommend exactly 10 movies they have not yet seen, aiming for variety across genres and release decades while staying true to their taste profile.
+Return movie titles in their original release language and script exactly as TMDB original titles — do not transliterate, anglicize, or use localized variants (e.g. use ゴジラ-1.0 not Godzilla Minus One).
 Respond ONLY with valid JSON — no explanation, no markdown, no code fences.`
 
 const RECOMMENDATION_SCHEMA: Schema = {
@@ -108,12 +107,28 @@ export async function fetchWatchedMovies(
   return Array.isArray(data?.movies) ? (data.movies as WatchedMovieRecord[]) : []
 }
 
-export function buildUserMessage(movies: Array<{ title: string; year: number }>): string {
-  const list = movies
+export function buildUserMessage(
+  movies: Array<{ title: string; year: number }>,
+  excludedMovies: Array<{ name: string; originalName?: string; year: number }> = []
+): string {
+  const watchedList = movies
     .slice(0, MAX_WATCHED_FOR_PROMPT)
     .map((m) => `- ${m.title} (${m.year})`)
     .join('\n')
-  return `I have watched the following movies:\n${list}\n\nRecommend 10 movies I would enjoy.`
+
+  if (excludedMovies.length === 0) {
+    return `I have watched the following movies:\n${watchedList}\n\nRecommend 10 movies I would enjoy.`
+  }
+
+  const excludedList = excludedMovies
+    .map((m) => {
+      const originalLabel =
+        m.originalName && m.originalName !== m.name ? ` / ${m.originalName}` : ''
+      return `- ${m.name}${originalLabel} (${m.year})`
+    })
+    .join('\n')
+
+  return `I have watched the following movies:\n${watchedList}\n\nThese exact movies were already recommended to me recently. Do not include any of them again (same movie, alternate title, sequel variant, punctuation variant, or localized title):\n${excludedList}\n\nRecommend exactly 10 different movies I would enjoy that are not in the blocked list.`
 }
 
 export async function appendTmdbIds(
@@ -159,11 +174,12 @@ export async function appendTmdbIds(
 export async function getRecommendationsFromGemini(
   watchedMovies: Array<{ title: string; year: number }>,
   userId?: string,
-  event?: import('h3').H3Event
+  event?: import('h3').H3Event,
+  excludedMovies: RecommendationWithId[] = []
 ): Promise<RecommendationWithId[]> {
   const raw = await askGemini({
     systemPrompt: SYSTEM_PROMPT,
-    userMessage: buildUserMessage(watchedMovies),
+    userMessage: buildUserMessage(watchedMovies, excludedMovies),
     schema: RECOMMENDATION_SCHEMA,
     userId,
     event,
