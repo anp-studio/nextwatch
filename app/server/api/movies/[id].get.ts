@@ -97,12 +97,13 @@ export default defineEventHandler(async (event): Promise<MovieResponse> => {
   const actors = data.credits.cast.slice(0, 5).map((actor) => actor.name)
   const directors = data.credits.crew.filter((c) => c.job === 'Director').map((c) => c.name)
   const trailerKey = trailer?.key ?? null
+  const voteAverage = data.vote_average > 0 ? data.vote_average : 5
 
   db.execute({
     sql: `INSERT OR REPLACE INTO movies_metadata
-      (tmdb_id, title, overview, poster_path, backdrop_path, release_date, runtime,
-       vote_average, vote_count, genres, cast, directors, trailer_key, cached_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (tmdb_id, title, overview, poster_path, backdrop_path, release_date, runtime,
+         vote_average, vote_count, genres, cast, directors, trailer_key, cached_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       data.id,
       data.title,
@@ -111,7 +112,7 @@ export default defineEventHandler(async (event): Promise<MovieResponse> => {
       data.backdrop_path,
       data.release_date,
       data.runtime,
-      data.vote_average,
+      voteAverage,
       data.vote_count,
       JSON.stringify(genres),
       JSON.stringify(actors),
@@ -125,7 +126,7 @@ export default defineEventHandler(async (event): Promise<MovieResponse> => {
     id: data.id,
     title: data.title,
     poster: data.poster_path ? `${IMAGE_BASE}${data.poster_path}` : '',
-    rating: Math.round(data.vote_average * 10) / 10,
+    rating: Math.round(voteAverage * 10) / 10,
     year: parseInt(data.release_date?.split('-')[0] || '0'),
     duration: data.runtime ? `${Math.floor(data.runtime / 60)}h ${data.runtime % 60}m` : 'N/A',
     runtime: data.runtime ?? null,
