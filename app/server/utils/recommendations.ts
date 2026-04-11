@@ -134,41 +134,34 @@ export function buildUserMessage(
 export async function appendTmdbIds(
   recommendations: Recommendation[]
 ): Promise<RecommendationWithId[]> {
-  const enriched: RecommendationWithId[] = []
+  const limited = recommendations.slice(0, MAX_RECOMMENDATIONS)
 
-  for (const recommendation of recommendations.slice(0, MAX_RECOMMENDATIONS)) {
-    try {
-      const searchCandidates = getSearchCandidates(recommendation)
-      let fallbackId: number | null = null
-      let matched = false
+  const allCandidates = [...new Set(limited.flatMap(getSearchCandidates))]
 
-      for (const candidate of searchCandidates) {
-        const results = await searchMovies(candidate)
-        const tmdbId = pickBestMatchId(results, searchCandidates)
-
-        if (tmdbId !== null) {
-          enriched.push({ ...recommendation, tmdbId })
-          matched = true
-          break
-        }
-
-        if (fallbackId === null) {
-          const firstResult = results[0]
-          fallbackId = firstResult ? firstResult.tmdb_id : null
-        }
-      }
-
-      if (!matched) {
-        enriched.push({ ...recommendation, tmdbId: fallbackId })
-      }
-    } catch {
-      enriched.push({ ...recommendation, tmdbId: null })
-    }
-
-    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+  let searchMap: Map<string, MovieSearchResult[]>
+  try {
+    searchMap = await searchMoviesBatch(allCandidates)
+  } catch {
+    return limited.map((rec) => ({ ...rec, tmdbId: null }))
   }
 
-  return enriched
+  return limited.map((recommendation) => {
+    const candidates = getSearchCandidates(recommendation)
+    let fallbackId: number | null = null
+
+    for (const candidate of candidates) {
+      const results = searchMap.get(candidate) ?? []
+      const tmdbId = pickBestMatchId(results, candidates)
+
+      if (tmdbId !== null) return { ...recommendation, tmdbId }
+
+      if (fallbackId === null) {
+        fallbackId = results[0]?.tmdb_id ?? null
+      }
+    }
+
+    return { ...recommendation, tmdbId: fallbackId }
+  })
 }
 
 export async function getRecommendationsFromGemini(
