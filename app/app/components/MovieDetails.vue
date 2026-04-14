@@ -77,11 +77,12 @@
         <div v-if="showAddButton" class="mt-6">
           <button
             v-if="isWatched"
-            disabled
-            class="w-full py-3 bg-gray-100 dark:bg-gray-700 text-gray-400 rounded-xl text-sm font-bold flex justify-center items-center gap-2 cursor-not-allowed"
+            @click="$emit('remove')"
+            class="group btn-press w-full py-3 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-red-500 hover:text-white rounded-xl text-sm font-bold flex justify-center items-center gap-2 transition-colors"
+            title="Remove from watched"
           >
             <svg
-              class="w-5 h-5 text-green-500"
+              class="w-5 h-5 text-green-500 group-hover:hidden"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -93,7 +94,21 @@
                 d="M5 13l4 4L19 7"
               />
             </svg>
-            Already Watched
+            <svg
+              class="w-5 h-5 hidden group-hover:inline"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+            <span class="group-hover:hidden">Already Watched</span>
+            <span class="hidden group-hover:inline">Remove from Watched</span>
           </button>
           <button
             v-else
@@ -136,7 +151,7 @@ const props = defineProps<{
   isWatched?: boolean
 }>()
 
-const emit = defineEmits(['close', 'add'])
+const emit = defineEmits(['close', 'add', 'remove'])
 
 const showPanel = ref(false)
 

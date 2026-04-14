@@ -39,12 +39,12 @@
 
       <button
         v-if="isWatched"
-        disabled
-        @click.stop
-        class="w-full py-2 bg-gray-100 dark:bg-gray-700 text-gray-400 rounded-lg text-xs font-bold flex justify-center items-center gap-1 cursor-not-allowed"
+        @click.stop="$emit('remove', movie)"
+        class="group w-full py-2 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-red-500 hover:text-white transition-colors rounded-lg text-xs font-bold flex justify-center items-center gap-1"
+        title="Remove from watched"
       >
         <svg
-          class="w-4 h-4 text-green-500"
+          class="w-4 h-4 text-green-500 group-hover:hidden"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -56,7 +56,21 @@
             d="M5 13l4 4L19 7"
           ></path>
         </svg>
-        Watched
+        <svg
+          class="w-4 h-4 hidden group-hover:inline"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M6 18L18 6M6 6l12 12"
+          ></path>
+        </svg>
+        <span class="group-hover:hidden">Watched</span>
+        <span class="hidden group-hover:inline">Remove</span>
       </button>
       <button
         v-else
@@ -82,5 +96,5 @@ defineProps({
   movie: { type: Object, required: true },
   isWatched: { type: Boolean, required: true },
 })
-defineEmits(['add', 'details'])
+defineEmits(['add', 'remove', 'details'])
 </script>

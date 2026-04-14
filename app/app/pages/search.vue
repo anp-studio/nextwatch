@@ -84,6 +84,7 @@
           :movie="movie"
           :is-watched="isAlreadyWatched(movie.id)"
           @add="addToWatched"
+          @remove="removeFromWatchedList"
           @details="openDetails"
         />
       </TransitionGroup>
@@ -96,6 +97,7 @@
       :is-watched="selectedMovie ? isAlreadyWatched(selectedMovie.id) : false"
       @close="closeDetails"
       @add="addToWatchedFromModal"
+      @remove="removeFromWatchedFromModal"
     />
 
     <LoginPromptModal :is-open="showLoginModal" @close="handleModalClose" />
@@ -106,7 +108,7 @@
 import { ref } from 'vue'
 
 const { user, isAuthenticated } = useAuth()
-const { markAsWatched, queuePendingWatchedMovie, removePendingWatchedMovie, watchedMovies } = useWatchedMovies()
+const { markAsWatched, removeFromWatched, queuePendingWatchedMovie, removePendingWatchedMovie, watchedMovies } = useWatchedMovies()
 const { getMovieDetails } = useMovieDetails()
 
 const onBeforeEnter = (el) => {
@@ -231,6 +233,16 @@ const handleModalClose = () => {
     removePendingWatchedMovie(pendingModalMovieId.value)
   }
   pendingModalMovieId.value = null
+}
+
+const removeFromWatchedList = async (movie) => {
+  if (!user.value) return
+  await removeFromWatched(movie.id)
+}
+
+const removeFromWatchedFromModal = async () => {
+  if (!selectedMovie.value || !user.value) return
+  await removeFromWatched(selectedMovie.value.id)
 }
 
 const addToWatchedFromModal = async () => {
