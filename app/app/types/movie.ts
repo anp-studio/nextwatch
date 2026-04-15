@@ -96,3 +96,10 @@ export interface PendingWatchedMovie {
   year: number
   posterPath: string
 }
+
+export interface MyListMovie {
+  tmdbId: number
+  title: string
+  year: number
+  posterPath: string
+}

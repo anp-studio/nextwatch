@@ -63,6 +63,15 @@
           </span>
         </div>
 
+        <div v-if="movie.directors?.length" class="mb-4">
+          <h3
+            class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1"
+          >
+            {{ movie.directors.length > 1 ? 'Directors' : 'Director' }}
+          </h3>
+          <p class="text-gray-600 dark:text-gray-300 text-sm">{{ movie.directors.join(', ') }}</p>
+        </div>
+
         <div v-if="movie.actors?.length" class="mb-4">
           <h3
             class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1"

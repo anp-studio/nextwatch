@@ -20,24 +20,87 @@
         </button>
       </div>
 
-      <div v-else-if="movies.length === 0" class="text-center text-gray-500 dark:text-gray-400">
-        <p class="text-xl font-medium mb-2">You're all caught up!</p>
-        <p class="text-sm mb-6">Ready for another round?</p>
+      <div v-else-if="errorState === 'unavailable'" class="text-center text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+        <AlertMessage
+          type="error"
+          message="Recommendations are temporarily unavailable. Gemini is experiencing high demand — please try again in a moment."
+        />
+        <button
+          class="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-semibold rounded-full transition-colors"
+          :disabled="pending"
+          @click="refreshMovies"
+        >
+          Try again
+        </button>
+      </div>
+
+      <div v-else-if="errorState === 'limit-reached'" class="text-center text-gray-500 dark:text-gray-400">
+        <p class="text-2xl font-semibold mb-2">Daily limit reached!</p>
+        <p class="text-base mb-6">Try again tomorrow.</p>
         <div class="flex items-center justify-center gap-3">
           <button
-            class="inline-flex items-center gap-2 px-4 py-3 border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-50 font-semibold rounded-full transition-colors"
+            class="inline-flex items-center gap-2 px-3 py-2 text-sm border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-50 font-semibold rounded-full transition-colors"
+            :disabled="pending"
+            @click="resetMovies"
+          >
+            Start Over
+          </button>
+          <button
+            class="inline-flex items-center gap-2 px-3 py-2 text-sm border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-50 font-semibold rounded-full transition-colors"
             :disabled="pending"
             @click="refreshMovies"
           >
             Refresh
           </button>
           <button
-            class="inline-flex items-center gap-2 px-6 py-3 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-semibold rounded-full transition-colors"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-semibold rounded-full transition-colors"
             :disabled="pending"
             @click="getNewMovies"
           >
             <svg
-              class="w-5 h-5"
+              class="w-4 h-4"
+              :class="{ 'animate-spin': pending }"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            Load New Movies
+          </button>
+        </div>
+      </div>
+
+      <div v-else-if="movies.length === 0" class="text-center text-gray-500 dark:text-gray-400">
+        <p class="text-2xl font-semibold mb-2">You're all caught up!</p>
+        <p class="text-base mb-6">Ready for another round?</p>
+        <div class="flex items-center justify-center gap-3">
+          <button
+            class="inline-flex items-center gap-2 px-3 py-2 text-sm border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-50 font-semibold rounded-full transition-colors"
+            :disabled="pending"
+            @click="resetMovies"
+          >
+            Start Over
+          </button>
+          <button
+            class="inline-flex items-center gap-2 px-3 py-2 text-sm border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-50 font-semibold rounded-full transition-colors"
+            :disabled="pending"
+            @click="refreshMovies"
+          >
+            Refresh
+          </button>
+          <button
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-semibold rounded-full transition-colors"
+            :disabled="pending"
+            @click="getNewMovies"
+          >
+            <svg
+              class="w-4 h-4"
               :class="{ 'animate-spin': pending }"
               fill="none"
               viewBox="0 0 24 24"
@@ -56,20 +119,14 @@
       </div>
 
       <div v-else class="w-full max-w-sm h-[65vh] relative mx-auto">
-        <button
-          class="absolute -top-12 right-0 inline-flex items-center gap-1 rounded-full border border-rose-200 bg-white/90 px-3 py-1.5 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-400/40 dark:bg-gray-900/90 dark:text-rose-300 dark:hover:bg-gray-800"
-          :disabled="pending"
-          @click="refreshMovies"
-        >
-          Refresh List
-        </button>
         <Transition name="card" mode="out-in">
           <MovieCard
             :key="currentMovieFormatted?.id"
             :movie="currentMovieFormatted"
             @dislike="handleDislike"
             @watched="handleLike"
-            @to-watch="handleLike"
+            @to-watch="handleAddToList"
+            @refresh="refreshMovies"
           />
         </Transition>
       </div>
@@ -83,16 +140,19 @@
 import { ref, computed, watch } from 'vue'
 
 const { markAsWatched, queuePendingWatchedMovie, removePendingWatchedMovie } = useWatchedMovies()
+const { addToMyList } = useMyList()
 const { isAuthenticated, loading: authLoading } = useAuth()
 const { getMovieDetails } = useMovieDetails()
 const supabase = useSupabase()
 
 const movies = useState('discovery-movies', () => [])
+const originalMovies = useState('discovery-original-movies', () => [])
 const hasLoaded = useState('discovery-has-loaded', () => false)
 const recommendationsPending = ref(true)
 const detailsPending = ref(false)
 const pending = computed(() => recommendationsPending.value || detailsPending.value)
 const showLoginModal = ref(false)
+const errorState = ref(null)
 const pendingModalMovieId = ref(null)
 const currentMovieDetails = useState('discovery-current-movie-details', () => null)
 const detailsRequestId = ref(0)
@@ -155,8 +215,24 @@ watch(
   { immediate: true }
 )
 
+const getErrorStatusCode = (err) =>
+  err?.statusCode ?? err?.status ?? err?.response?.status
+
+const isUnavailableError = (err) => {
+  if (getErrorStatusCode(err) === 503) return true
+  const message = `${err?.data?.statusMessage ?? ''} ${err?.message ?? ''}`.toLowerCase()
+  return message.includes('503') || message.includes('service unavailable') || message.includes('high demand')
+}
+
+const isLimitReachedError = (err) => {
+  if (getErrorStatusCode(err) === 429) return true
+  const message = `${err?.data?.statusMessage ?? ''} ${err?.message ?? ''}`.toLowerCase()
+  return message.includes('daily recommendation limit') || message.includes('429')
+}
+
 const fetchRecommendations = async (mode = FETCH_MODE.DEFAULT) => {
   recommendationsPending.value = true
+  errorState.value = null
   try {
     const {
       data: { session },
@@ -178,9 +254,14 @@ const fetchRecommendations = async (mode = FETCH_MODE.DEFAULT) => {
     currentMovieDetails.value = null
 
     movies.value = recommendations
-  } catch {
-    // failed to load recommendations without crashing the app
-    // @pmackovic - consider showing this error to user
+    originalMovies.value = recommendations
+  } catch (err) {
+    console.error('[recommend] fetch failed', err)
+    if (isLimitReachedError(err)) {
+      errorState.value = 'limit-reached'
+    } else if (isUnavailableError(err)) {
+      errorState.value = 'unavailable'
+    }
   } finally {
     hasLoaded.value = true
     recommendationsPending.value = false
@@ -189,6 +270,15 @@ const fetchRecommendations = async (mode = FETCH_MODE.DEFAULT) => {
 
 const getNewMovies = () => fetchRecommendations(FETCH_MODE.GET_NEW)
 const refreshMovies = () => fetchRecommendations(FETCH_MODE.REFRESH)
+const { myList } = useMyList()
+const resetMovies = () => {
+  if (originalMovies.value.length === 0) {
+    return fetchRecommendations(FETCH_MODE.DEFAULT)
+  }
+  const myListIds = new Set(myList.value.map((m) => m.tmdbId))
+  movies.value = originalMovies.value.filter((m) => !myListIds.has(m.tmdbId))
+  currentMovieDetails.value = null
+}
 
 // wait for auth to finish initializing before deciding whether to fetch.
 // onMounted fires before initialize() resolves, so isAuthenticated is not yet reliable there.
@@ -238,6 +328,28 @@ const handleLike = async () => {
   } else {
     queuePendingWatchedMovie(movieToSave)
     pendingModalMovieId.value = movieToSave.id
+    showLoginModal.value = true
+  }
+}
+
+const handleAddToList = async () => {
+  if (!currentMovie.value) return
+
+  const rawMovie = currentMovie.value
+  const details = currentMovieDetails.value
+
+  movies.value.shift()
+
+  const movieToSave = {
+    id: details?.id ?? rawMovie.tmdbId ?? 0,
+    title: details?.title ?? rawMovie.name,
+    year: details?.year ?? rawMovie.year,
+    poster: details?.poster ?? '',
+  }
+
+  if (isAuthenticated.value) {
+    await addToMyList(movieToSave)
+  } else {
     showLoginModal.value = true
   }
 }

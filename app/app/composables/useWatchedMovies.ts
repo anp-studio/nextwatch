@@ -4,6 +4,7 @@ const PENDING_WATCHED_STORAGE_KEY = 'movie-recommender-pending-watched'
 
 export const useWatchedMovies = () => {
   const supabase = useSupabase()
+  const { myList, removeFromMyList } = useMyList()
 
   const watchedMovies = useState<WatchedMovie[]>('watched', () => [])
   const pendingWatchedMovies = useState<PendingWatchedMovie[]>('pending-watched', () => [])
@@ -135,6 +136,14 @@ export const useWatchedMovies = () => {
           watchedMovies.value = watchedMovies.value.filter((m) => m.tmdbId !== movie.id)
         }
         return 'error'
+      }
+
+      if (myList.value.some((m) => m.tmdbId === movie.id)) {
+        try {
+          await removeFromMyList(movie.id)
+        } catch {
+          // best-effort move; watched succeeded so don't fail the whole call
+        }
       }
     } catch {
       return 'error'

@@ -1,8 +1,17 @@
 <template>
-  <div class="p-4 pt-10 pb-20 text-gray-900 dark:text-white h-full overflow-y-auto">
+  <div class="p-4 pt-6 pb-20 text-gray-900 dark:text-white h-full overflow-y-auto">
     <!-- Header -->
+    <NuxtLink
+      to="/profile"
+      class="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-rose-500 dark:hover:text-rose-500 transition-colors mb-6"
+    >
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+      Back to Profile
+    </NuxtLink>
     <div class="flex justify-between items-end mb-4">
-      <h1 class="text-3xl font-bold">Already Watched</h1>
+      <h1 class="text-3xl font-bold">Watched Movies</h1>
       <span class="text-gray-400 text-sm">
         <template v-if="hasActiveFilters">
           {{ filteredMovies.length }} of {{ watchedMovies.length }} movies
@@ -47,7 +56,7 @@
       <!-- Filter / Sort row -->
       <div class="flex flex-wrap gap-2 mb-3">
         <!-- Genre dropdown -->
-        <div class="relative">
+        <div class="relative dropdown-wrapper">
           <button
             @click="toggleDropdown('genre')"
             class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border transition-colors"
@@ -96,7 +105,7 @@
         </div>
 
         <!-- Length dropdown -->
-        <div class="relative">
+        <div class="relative dropdown-wrapper">
           <button
             @click="toggleDropdown('length')"
             class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border transition-colors"
@@ -136,7 +145,7 @@
         </div>
 
         <!-- Sort dropdown -->
-        <div class="relative">
+        <div class="relative dropdown-wrapper">
           <button
             @click="toggleDropdown('sort')"
             class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border transition-colors"
@@ -314,7 +323,7 @@ const sortLabels: Record<SortOption, string> = {
 // Close dropdowns when clicking outside
 const closeDropdowns = (e: MouseEvent) => {
   const target = e.target as HTMLElement
-  if (!target.closest('.relative')) {
+  if (!target.closest('.dropdown-wrapper')) {
     openDropdown.value = null
   }
 }

@@ -14,6 +14,7 @@ export const useAuth = () => {
   const supabase = useSupabase()
   const { syncWatchedMoviesFromSupabase, processPendingWatchedMovies, clearWatchedMovies } =
     useWatchedMovies()
+  const { syncMyListFromSupabase, clearMyList } = useMyList()
 
   const isAuthenticated = computed(() => !!user.value)
   const userEmail = computed(() => user.value?.email || '')
@@ -34,6 +35,7 @@ export const useAuth = () => {
   const syncWatchedStateAfterAuth = async (accessToken?: string) => {
     if (!accessToken) {
       clearWatchedMovies()
+      clearMyList()
       return
     }
 
@@ -42,6 +44,7 @@ export const useAuth = () => {
     if (processed > 0) {
       await syncWatchedMoviesFromSupabase(accessToken)
     }
+    await syncMyListFromSupabase(accessToken)
   }
 
   const login = async (email: string, password: string, captchaToken?: string) => {
@@ -100,6 +103,7 @@ export const useAuth = () => {
       user.value = null
       session.value = null
       clearWatchedMovies()
+      clearMyList()
     } catch {
       // logout failed silently
     }
