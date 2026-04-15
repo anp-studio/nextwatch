@@ -10,7 +10,7 @@ const isLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
-const handlePasswordUpdate = async () => {
+const _handlePasswordUpdate = async () => {
   errorMessage.value = ''
   successMessage.value = ''
 

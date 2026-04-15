@@ -97,6 +97,13 @@ export interface PendingWatchedMovie {
   posterPath: string
 }
 
+export interface PendingMyListMovie {
+  id: number
+  title: string
+  year: number
+  posterPath: string
+}
+
 export interface MyListMovie {
   tmdbId: number
   title: string

@@ -1,4 +1,4 @@
-import type { WatchedMovie, Movie } from '~/types/movie'
+import type { WatchedMovie } from '~/types/movie'
 
 export type SortOption = 'default' | 'title-asc' | 'title-desc' | 'year-desc' | 'year-asc'
 

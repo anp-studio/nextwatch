@@ -1,7 +1,5 @@
-import { getMethod } from 'h3'
 import { getAuthorizedUser } from '../../utils/auth'
 
-// Canonical type: app/types/movie.ts — keep in sync
 interface WatchedMovie {
   tmdbId: number
   title: string
@@ -16,7 +14,7 @@ interface WatchBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const method = getMethod(event)
+  const method = event.method
   const { supabase, user } = await getAuthorizedUser(event)
 
   if (method === 'GET') {

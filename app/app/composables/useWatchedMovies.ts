@@ -2,9 +2,24 @@ import type { WatchedMovie, PendingWatchedMovie, MoviePreview } from '~/types/mo
 
 const PENDING_WATCHED_STORAGE_KEY = 'movie-recommender-pending-watched'
 
+const isPendingWatchedMovie = (movie: unknown): movie is PendingWatchedMovie => {
+  if (!movie || typeof movie !== 'object') {
+    return false
+  }
+
+  const pendingMovie = movie as Record<string, unknown>
+
+  return (
+    typeof pendingMovie.id === 'number' &&
+    typeof pendingMovie.title === 'string' &&
+    typeof pendingMovie.year === 'number' &&
+    typeof pendingMovie.posterPath === 'string'
+  )
+}
+
 export const useWatchedMovies = () => {
   const supabase = useSupabase()
-  const { myList, removeFromMyList } = useMyList()
+  const { myList, removeFromMyList, removePendingMyListMovie } = useMyList()
 
   const watchedMovies = useState<WatchedMovie[]>('watched', () => [])
   const pendingWatchedMovies = useState<PendingWatchedMovie[]>('pending-watched', () => [])
@@ -19,16 +34,13 @@ export const useWatchedMovies = () => {
         return
       }
 
-      const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed)) {
-        pendingWatchedMovies.value = parsed.filter(
-          (movie): movie is PendingWatchedMovie =>
-            typeof movie?.id === 'number' &&
-            typeof movie?.title === 'string' &&
-            typeof movie?.year === 'number' &&
-            typeof movie?.posterPath === 'string'
-        )
+      const parsed: unknown = JSON.parse(raw)
+      if (!Array.isArray(parsed)) {
+        pendingWatchedMovies.value = []
+        return
       }
+
+      pendingWatchedMovies.value = parsed.filter(isPendingWatchedMovie)
     } catch {
       pendingWatchedMovies.value = []
     }
@@ -86,8 +98,25 @@ export const useWatchedMovies = () => {
     }
   }
 
+  const syncMyListAfterWatchingMovie = async (movieId: number) => {
+    removePendingMyListMovie(movieId)
+
+    if (!myList.value.some((movie) => movie.tmdbId === movieId)) {
+      return
+    }
+
+    try {
+      await removeFromMyList(movieId)
+    } catch {
+      // best-effort move; watched succeeded so don't fail the whole call
+    }
+  }
+
   const markAsWatched = async (
-    movie: Pick<MoviePreview, 'id' | 'title' | 'year' | 'poster'> & { genres?: string[]; runtime?: number | null }
+    movie: Pick<MoviePreview, 'id' | 'title' | 'year' | 'poster'> & {
+      genres?: string[]
+      runtime?: number | null
+    }
   ): Promise<'ok' | 'unauthorized' | 'error'> => {
     try {
       const {
@@ -108,8 +137,6 @@ export const useWatchedMovies = () => {
           year: movie.year,
           posterPath: path,
         }
-        if (movie.genres?.length) entry.genres = movie.genres
-        if (typeof movie.runtime === 'number') entry.runtime = movie.runtime
         watchedMovies.value.push(entry)
       }
 
@@ -138,13 +165,7 @@ export const useWatchedMovies = () => {
         return 'error'
       }
 
-      if (myList.value.some((m) => m.tmdbId === movie.id)) {
-        try {
-          await removeFromMyList(movie.id)
-        } catch {
-          // best-effort move; watched succeeded so don't fail the whole call
-        }
-      }
+      await syncMyListAfterWatchingMovie(movie.id)
     } catch {
       return 'error'
     }
@@ -182,6 +203,8 @@ export const useWatchedMovies = () => {
   const queuePendingWatchedMovie = (
     movie: Pick<MoviePreview, 'id' | 'title' | 'year' | 'poster'>
   ) => {
+    removePendingMyListMovie(movie.id)
+
     if (pendingWatchedMovies.value.some((pendingMovie) => pendingMovie.id === movie.id)) {
       return
     }
@@ -230,10 +253,8 @@ export const useWatchedMovies = () => {
 
       for (const movie of queueSnapshot) {
         if (watchedMovies.value.some((s) => s.tmdbId === movie.id)) {
-          pendingWatchedMovies.value = pendingWatchedMovies.value.filter(
-            (pendingMovie) => pendingMovie.id !== movie.id
-          )
-          persistPendingWatchedToStorage()
+          await syncMyListAfterWatchingMovie(movie.id)
+          removePendingWatchedMovie(movie.id)
           processedCount++
           continue
         }
@@ -263,11 +284,8 @@ export const useWatchedMovies = () => {
             })
           }
 
-          pendingWatchedMovies.value = pendingWatchedMovies.value.filter(
-            (pendingMovie) => pendingMovie.id !== movie.id
-          )
-
-          persistPendingWatchedToStorage()
+          await syncMyListAfterWatchingMovie(movie.id)
+          removePendingWatchedMovie(movie.id)
           processedCount++
         } catch {
           // failed to process pending movie

@@ -14,25 +14,25 @@ export const useAuth = () => {
   const supabase = useSupabase()
   const { syncWatchedMoviesFromSupabase, processPendingWatchedMovies, clearWatchedMovies } =
     useWatchedMovies()
-  const { syncMyListFromSupabase, clearMyList } = useMyList()
+  const { syncMyListFromSupabase, processPendingMyListMovies, clearMyList } = useMyList()
 
   const isAuthenticated = computed(() => !!user.value)
   const userEmail = computed(() => user.value?.email || '')
 
   // used for fixing error on supabase side
   // will leave it in case it happens again
-  const scheduleWatchedStateSyncAfterAuth = (accessToken?: string) => {
+  const scheduleSavedMovieStateSyncAfterAuth = (accessToken?: string) => {
     if (pendingAuthSyncTimeout) {
       clearTimeout(pendingAuthSyncTimeout)
     }
 
     pendingAuthSyncTimeout = setTimeout(() => {
       pendingAuthSyncTimeout = null
-      void syncWatchedStateAfterAuth(accessToken)
+      void syncSavedMovieStateAfterAuth(accessToken)
     }, AUTH_SYNC_DEFER_MS)
   }
 
-  const syncWatchedStateAfterAuth = async (accessToken?: string) => {
+  const syncSavedMovieStateAfterAuth = async (accessToken?: string) => {
     if (!accessToken) {
       clearWatchedMovies()
       clearMyList()
@@ -40,11 +40,17 @@ export const useAuth = () => {
     }
 
     await syncWatchedMoviesFromSupabase(accessToken)
-    const processed = await processPendingWatchedMovies(accessToken)
-    if (processed > 0) {
-      await syncWatchedMoviesFromSupabase(accessToken)
-    }
     await syncMyListFromSupabase(accessToken)
+
+    const processedWatchedMovies = await processPendingWatchedMovies(accessToken)
+    const processedMyListMovies = await processPendingMyListMovies(accessToken)
+    const didProcessPendingMovies =
+      processedWatchedMovies > 0 || processedMyListMovies > 0
+
+    if (didProcessPendingMovies) {
+      await syncWatchedMoviesFromSupabase(accessToken)
+      await syncMyListFromSupabase(accessToken)
+    }
   }
 
   const login = async (email: string, password: string, captchaToken?: string) => {
@@ -60,7 +66,7 @@ export const useAuth = () => {
       user.value = data.user
       session.value = data.session
 
-      await syncWatchedStateAfterAuth(data.session?.access_token)
+      await syncSavedMovieStateAfterAuth(data.session?.access_token)
 
       return { user: data.user }
     } catch (error) {
@@ -86,7 +92,7 @@ export const useAuth = () => {
         session.value = data.session
       }
 
-      await syncWatchedStateAfterAuth(data.session?.access_token ?? undefined)
+      await syncSavedMovieStateAfterAuth(data.session?.access_token ?? undefined)
 
       return { user: data.user }
     } catch (error) {
@@ -150,7 +156,7 @@ export const useAuth = () => {
 
       session.value = currentSession
       user.value = currentSession?.user || null
-      await scheduleWatchedStateSyncAfterAuth(currentSession?.access_token)
+      scheduleSavedMovieStateSyncAfterAuth(currentSession?.access_token)
 
       if (!authStateSubscription) {
         const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {

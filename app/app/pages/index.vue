@@ -20,7 +20,10 @@
         </button>
       </div>
 
-      <div v-else-if="errorState === 'unavailable'" class="text-center text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+      <div
+        v-else-if="errorState === 'unavailable'"
+        class="text-center text-gray-500 dark:text-gray-400 max-w-sm mx-auto"
+      >
         <AlertMessage
           type="error"
           message="Recommendations are temporarily unavailable. Gemini is experiencing high demand — please try again in a moment."
@@ -34,7 +37,10 @@
         </button>
       </div>
 
-      <div v-else-if="errorState === 'limit-reached'" class="text-center text-gray-500 dark:text-gray-400">
+      <div
+        v-else-if="errorState === 'limit-reached'"
+        class="text-center text-gray-500 dark:text-gray-400"
+      >
         <p class="text-2xl font-semibold mb-2">Daily limit reached!</p>
         <p class="text-base mb-6">Try again tomorrow.</p>
         <div class="flex items-center justify-center gap-3">
@@ -140,7 +146,7 @@
 import { ref, computed, watch } from 'vue'
 
 const { markAsWatched, queuePendingWatchedMovie, removePendingWatchedMovie } = useWatchedMovies()
-const { addToMyList } = useMyList()
+const { addToMyList, queuePendingMyListMovie, removePendingMyListMovie, myList } = useMyList()
 const { isAuthenticated, loading: authLoading } = useAuth()
 const { getMovieDetails } = useMovieDetails()
 const supabase = useSupabase()
@@ -153,6 +159,11 @@ const detailsPending = ref(false)
 const pending = computed(() => recommendationsPending.value || detailsPending.value)
 const showLoginModal = ref(false)
 const errorState = ref(null)
+const PENDING_MODAL_ACTION = {
+  WATCHED: 'watched',
+  MY_LIST: 'my-list',
+}
+const pendingModalAction = ref(null)
 const pendingModalMovieId = ref(null)
 const currentMovieDetails = useState('discovery-current-movie-details', () => null)
 const detailsRequestId = ref(0)
@@ -215,13 +226,16 @@ watch(
   { immediate: true }
 )
 
-const getErrorStatusCode = (err) =>
-  err?.statusCode ?? err?.status ?? err?.response?.status
+const getErrorStatusCode = (err) => err?.statusCode ?? err?.status ?? err?.response?.status
 
 const isUnavailableError = (err) => {
   if (getErrorStatusCode(err) === 503) return true
   const message = `${err?.data?.statusMessage ?? ''} ${err?.message ?? ''}`.toLowerCase()
-  return message.includes('503') || message.includes('service unavailable') || message.includes('high demand')
+  return (
+    message.includes('503') ||
+    message.includes('service unavailable') ||
+    message.includes('high demand')
+  )
 }
 
 const isLimitReachedError = (err) => {
@@ -256,7 +270,6 @@ const fetchRecommendations = async (mode = FETCH_MODE.DEFAULT) => {
     movies.value = recommendations
     originalMovies.value = recommendations
   } catch (err) {
-    console.error('[recommend] fetch failed', err)
     if (isLimitReachedError(err)) {
       errorState.value = 'limit-reached'
     } else if (isUnavailableError(err)) {
@@ -270,7 +283,6 @@ const fetchRecommendations = async (mode = FETCH_MODE.DEFAULT) => {
 
 const getNewMovies = () => fetchRecommendations(FETCH_MODE.GET_NEW)
 const refreshMovies = () => fetchRecommendations(FETCH_MODE.REFRESH)
-const { myList } = useMyList()
 const resetMovies = () => {
   if (originalMovies.value.length === 0) {
     return fetchRecommendations(FETCH_MODE.DEFAULT)
@@ -305,20 +317,33 @@ const handleDislike = () => {
   }
 }
 
-const handleLike = async () => {
-  if (!currentMovie.value) return
+const buildMovieToSave = () => {
+  if (!currentMovie.value) {
+    return null
+  }
 
   const rawMovie = currentMovie.value
   const details = currentMovieDetails.value
 
-  movies.value.shift()
-
-  const movieToSave = {
+  return {
     id: details?.id ?? rawMovie.tmdbId ?? 0,
     title: details?.title ?? rawMovie.name,
     year: details?.year ?? rawMovie.year,
     poster: details?.poster ?? '',
   }
+}
+
+const openLoginModalForPendingMovie = (action, movieId) => {
+  pendingModalAction.value = action
+  pendingModalMovieId.value = movieId
+  showLoginModal.value = true
+}
+
+const handleLike = async () => {
+  const movieToSave = buildMovieToSave()
+  if (!movieToSave) return
+
+  movies.value.shift()
 
   if (isAuthenticated.value) {
     const status = await markAsWatched(movieToSave)
@@ -327,38 +352,39 @@ const handleLike = async () => {
     }
   } else {
     queuePendingWatchedMovie(movieToSave)
-    pendingModalMovieId.value = movieToSave.id
-    showLoginModal.value = true
+    openLoginModalForPendingMovie(PENDING_MODAL_ACTION.WATCHED, movieToSave.id)
   }
 }
 
 const handleAddToList = async () => {
-  if (!currentMovie.value) return
-
-  const rawMovie = currentMovie.value
-  const details = currentMovieDetails.value
+  const movieToSave = buildMovieToSave()
+  if (!movieToSave) return
 
   movies.value.shift()
 
-  const movieToSave = {
-    id: details?.id ?? rawMovie.tmdbId ?? 0,
-    title: details?.title ?? rawMovie.name,
-    year: details?.year ?? rawMovie.year,
-    poster: details?.poster ?? '',
-  }
-
   if (isAuthenticated.value) {
-    await addToMyList(movieToSave)
+    const status = await addToMyList(movieToSave)
+    if (status === 'unauthorized' || status === 'error') {
+      queuePendingMyListMovie(movieToSave)
+    }
   } else {
-    showLoginModal.value = true
+    queuePendingMyListMovie(movieToSave)
+    openLoginModalForPendingMovie(PENDING_MODAL_ACTION.MY_LIST, movieToSave.id)
   }
 }
 
 const handleModalClose = () => {
   showLoginModal.value = false
   if (!isAuthenticated.value && pendingModalMovieId.value !== null) {
-    removePendingWatchedMovie(pendingModalMovieId.value)
+    if (pendingModalAction.value === PENDING_MODAL_ACTION.WATCHED) {
+      removePendingWatchedMovie(pendingModalMovieId.value)
+    }
+
+    if (pendingModalAction.value === PENDING_MODAL_ACTION.MY_LIST) {
+      removePendingMyListMovie(pendingModalMovieId.value)
+    }
   }
+  pendingModalAction.value = null
   pendingModalMovieId.value = null
   if (isAuthenticated.value && movies.value.length === 0) {
     fetchRecommendations(FETCH_MODE.DEFAULT)
