@@ -60,7 +60,7 @@ Documentation
   Backend API
 
   #description
-  TMDB proxy and watched-movies authenticated endpoints
+  Recommendations, TMDB proxy, watched-movies, and admin import endpoints
   :::
 
   :::u-page-feature
