@@ -14,6 +14,35 @@
         class="absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-black/95 via-black/60 to-transparent pointer-events-none z-0"
       ></div>
 
+      <!-- Status indicators -->
+      <div
+        v-if="isInMyList || isWatched"
+        class="absolute top-3 right-3 z-20 flex flex-col gap-1.5"
+      >
+        <div
+          v-if="isWatched"
+          class="w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center"
+          title="Already watched"
+        >
+          <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+        </div>
+        <div
+          v-if="isInMyList"
+          class="w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center"
+          title="In My List"
+        >
+          <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+          </svg>
+        </div>
+      </div>
+
       <div
         class="absolute bottom-0 left-0 w-full p-4 sm:p-6 text-white z-10 pointer-events-none"
       >
@@ -65,7 +94,10 @@
 
       <button
         @click.stop="$emit('watched', movie)"
-        class="btn-press w-16 h-16 rounded-full bg-rose-500 hover:bg-rose-600 flex items-center justify-center text-white hover:scale-105 transition-all shadow-xl"
+        class="btn-press w-16 h-16 rounded-full flex items-center justify-center text-white transition-all shadow-xl"
+        :class="isWatched
+          ? 'bg-rose-300 dark:bg-rose-700'
+          : 'bg-rose-500 hover:bg-rose-600 hover:scale-105'"
       >
         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -85,10 +117,21 @@
 
       <button
         @click.stop="$emit('to-watch', movie)"
-        class="btn-press w-14 h-14 rounded-full bg-white dark:bg-gray-800 flex items-center justify-center text-gray-700 dark:text-gray-200 hover:text-green-500 dark:hover:text-green-400 transition-all border border-gray-200 dark:border-gray-700 shadow-md"
+        class="btn-press w-14 h-14 rounded-full flex items-center justify-center transition-all border shadow-md"
+        :class="isInMyList
+          ? 'bg-green-500 dark:bg-green-600 border-green-500 dark:border-green-600 text-white'
+          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:text-green-500 dark:hover:text-green-400'"
       >
         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
+            v-if="isInMyList"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M5 13l4 4L19 7"
+          ></path>
+          <path
+            v-else
             stroke-linecap="round"
             stroke-linejoin="round"
             stroke-width="2"
@@ -125,6 +168,14 @@ const props = defineProps({
   movie: {
     type: Object,
     required: true,
+  },
+  isInMyList: {
+    type: Boolean,
+    default: false,
+  },
+  isWatched: {
+    type: Boolean,
+    default: false,
   },
 })
 

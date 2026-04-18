@@ -1,14 +1,5 @@
 <template>
   <div class="p-4 pt-6 pb-20 text-gray-900 dark:text-white h-full overflow-y-auto">
-    <NuxtLink
-      to="/profile"
-      class="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-rose-500 dark:hover:text-rose-500 transition-colors mb-6"
-    >
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-      </svg>
-      Back to Profile
-    </NuxtLink>
     <div class="flex justify-between items-end mb-4">
       <h1 class="text-3xl font-bold">My List</h1>
       <span class="text-gray-400 text-sm">{{ myList.length }} movies</span>
@@ -37,7 +28,7 @@
         <div class="flex flex-col justify-center gap-2 flex-shrink-0">
           <button
             @click.stop="handleMarkWatched(movie)"
-            class="px-3 py-2 text-xs font-bold border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-lg transition-colors flex items-center gap-1"
+            class="px-3 py-2 text-xs font-semibold border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-full transition-colors flex items-center gap-1"
             title="Mark as Watched"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -57,7 +48,7 @@
             Watched
           </button>
           <button
-            @click.stop="handleRemove(movie.tmdbId)"
+            @click.stop="handleRemove(movie)"
             class="px-3 py-2 text-xs font-medium text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center justify-center gap-1"
             title="Remove from My List"
           >
@@ -85,27 +76,78 @@
       :movie="selectedMovie"
       @close="selectedMovie = null"
     />
+
+    <Transition name="fade">
+      <div
+        v-if="undoAction"
+        class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-gray-800 dark:bg-gray-700 text-white rounded-full px-5 py-3 shadow-lg flex items-center gap-3 max-w-sm"
+      >
+        <span class="text-sm truncate">
+          <strong>{{ undoAction.movie.title }}</strong>
+          {{ undoAction.type === 'watched' ? 'marked as watched' : 'removed from My List' }}
+        </span>
+        <button
+          @click="handleUndo"
+          class="text-rose-400 hover:text-rose-300 font-semibold text-sm whitespace-nowrap transition-colors"
+        >
+          Undo
+        </button>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { Movie, MyListMovie } from '~/types/movie'
 
-const { myList, removeFromMyList } = useMyList()
-const { markAsWatched } = useWatchedMovies()
+const { myList, removeFromMyList, addToMyList } = useMyList()
+const { markAsWatched, removeFromWatched } = useWatchedMovies()
 const { getMovieDetails: fetchMovieDetails } = useMovieDetails()
 const selectedMovie = ref<Movie | null>(null)
+const undoAction = ref<{ movie: MyListMovie; type: 'watched' | 'removed' } | null>(null)
+let undoTimer: ReturnType<typeof setTimeout> | null = null
 
-const handleRemove = async (tmdbId: number) => {
-  await removeFromMyList(tmdbId)
+const dismissUndo = () => {
+  if (undoTimer) clearTimeout(undoTimer)
+  undoTimer = null
+  undoAction.value = null
+}
+
+const handleRemove = async (movie: MyListMovie) => {
+  dismissUndo()
+  await removeFromMyList(movie.tmdbId)
+  undoAction.value = { movie: { ...movie }, type: 'removed' }
+  undoTimer = setTimeout(dismissUndo, 5000)
 }
 
 const handleMarkWatched = async (movie: MyListMovie) => {
+  dismissUndo()
   await markAsWatched({
     id: movie.tmdbId,
     title: movie.title,
     year: movie.year,
     poster: movie.posterPath,
+  })
+  undoAction.value = { movie: { ...movie }, type: 'watched' }
+  undoTimer = setTimeout(dismissUndo, 5000)
+}
+
+const handleUndo = async () => {
+  const action = undoAction.value
+  if (!action) return
+  dismissUndo()
+
+  if (action.type === 'watched') {
+    await removeFromWatched(action.movie.tmdbId)
+  }
+
+  await addToMyList({
+    id: action.movie.tmdbId,
+    title: action.movie.title,
+    year: action.movie.year,
+    poster: action.movie.posterPath,
+    genres: action.movie.genres,
+    runtime: action.movie.runtime,
   })
 }
 
@@ -117,3 +159,14 @@ const openDetails = async (tmdbId: number) => {
   }
 }
 </script>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

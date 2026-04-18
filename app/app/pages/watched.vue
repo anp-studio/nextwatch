@@ -257,7 +257,7 @@
             </div>
           </div>
           <button
-            @click.stop="handleRemove(movie.tmdbId)"
+            @click.stop="handleRemove(movie)"
             class="self-center flex-shrink-0 text-gray-400 hover:text-red-500 transition-colors p-2"
             title="Remove from watched"
           >
@@ -275,14 +275,31 @@
       :movie="selectedMovie"
       @close="selectedMovie = null"
     />
+
+    <Transition name="fade">
+      <div
+        v-if="undoAction"
+        class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-gray-800 dark:bg-gray-700 text-white rounded-full px-5 py-3 shadow-lg flex items-center gap-3 max-w-sm"
+      >
+        <span class="text-sm truncate">
+          <strong>{{ undoAction.movie.title }}</strong> removed from Watched
+        </span>
+        <button
+          @click="handleUndo"
+          class="text-rose-400 hover:text-rose-300 font-semibold text-sm whitespace-nowrap transition-colors"
+        >
+          Undo
+        </button>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { Movie } from '~/types/movie'
+import type { Movie, WatchedMovie } from '~/types/movie'
 import type { SortOption } from '~/composables/useWatchedFilters'
 
-const { watchedMovies, removeFromWatched } = useWatchedMovies()
+const { watchedMovies, removeFromWatched, markAsWatched } = useWatchedMovies()
 const { getMovieDetails: fetchMovieDetails } = useMovieDetails()
 const selectedMovie = ref<Movie | null>(null)
 
@@ -351,8 +368,34 @@ const getMovieGenres = (movie: { tmdbId: number; genres?: string[] }): string[] 
   return movie.genres ?? []
 }
 
-const handleRemove = async (tmdbId: number) => {
-  await removeFromWatched(tmdbId)
+const undoAction = ref<{ movie: WatchedMovie } | null>(null)
+let undoTimer: ReturnType<typeof setTimeout> | null = null
+
+const dismissUndo = () => {
+  if (undoTimer) clearTimeout(undoTimer)
+  undoTimer = null
+  undoAction.value = null
+}
+
+const handleRemove = async (movie: WatchedMovie) => {
+  dismissUndo()
+  await removeFromWatched(movie.tmdbId)
+  undoAction.value = { movie: { ...movie } }
+  undoTimer = setTimeout(dismissUndo, 5000)
+}
+
+const handleUndo = async () => {
+  const action = undoAction.value
+  if (!action) return
+  dismissUndo()
+  await markAsWatched({
+    id: action.movie.tmdbId,
+    title: action.movie.title,
+    year: action.movie.year,
+    poster: action.movie.posterPath,
+    genres: action.movie.genres,
+    runtime: action.movie.runtime,
+  })
 }
 
 const openDetails = async (tmdbId: number) => {

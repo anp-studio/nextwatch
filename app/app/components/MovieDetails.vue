@@ -83,57 +83,72 @@
 
         <p class="text-gray-600 dark:text-gray-300 leading-relaxed">{{ movie.description }}</p>
 
-        <div v-if="showAddButton" class="mt-6">
-          <button
-            v-if="isWatched"
-            @click="$emit('remove')"
-            class="group btn-press w-full py-3 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-red-500 hover:text-white rounded-xl text-sm font-bold flex justify-center items-center gap-2 transition-colors"
-            title="Remove from watched"
-          >
-            <svg
-              class="w-5 h-5 text-green-500 group-hover:hidden"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+        <div v-if="showAddButton" class="mt-6 flex flex-col gap-3">
+          <div class="flex gap-3">
+            <button
+              v-if="isWatched"
+              @click="$emit('remove')"
+              class="group btn-press flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-red-500 hover:text-white rounded-xl text-sm font-bold flex justify-center items-center gap-2 transition-colors"
+              title="Remove from watched"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-            <svg
-              class="w-5 h-5 hidden group-hover:inline"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+              <svg
+                class="w-5 h-5 text-green-500 group-hover:hidden"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+              <svg
+                class="w-5 h-5 hidden group-hover:inline"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+              <span class="group-hover:hidden">Already Watched</span>
+              <span class="hidden group-hover:inline">Remove from Watched</span>
+            </button>
+            <button
+              v-else
+              @click="$emit('add')"
+              class="btn-press flex-1 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-sm font-bold flex justify-center items-center gap-2 transition-colors"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-            <span class="group-hover:hidden">Already Watched</span>
-            <span class="hidden group-hover:inline">Remove from Watched</span>
-          </button>
-          <button
-            v-else
-            @click="$emit('add')"
-            class="btn-press w-full py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-sm font-bold flex justify-center items-center gap-2 transition-colors"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            Add to Watched
-          </button>
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Add to Watched
+            </button>
+            <button
+              v-if="showMyListButton"
+              @click="$emit('toggle-mylist')"
+              class="btn-press py-3 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
+              :class="isInMyList
+                ? 'bg-rose-500 text-white hover:bg-rose-600'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 hover:text-rose-500'"
+              :title="isInMyList ? 'Remove from My List' : 'Add to My List'"
+            >
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
       </div>
@@ -158,9 +173,11 @@ const props = defineProps<{
   movie: Movie | null
   showAddButton?: boolean
   isWatched?: boolean
+  showMyListButton?: boolean
+  isInMyList?: boolean
 }>()
 
-const emit = defineEmits(['close', 'add', 'remove'])
+const emit = defineEmits(['close', 'add', 'remove', 'toggle-mylist'])
 
 const showPanel = ref(false)
 

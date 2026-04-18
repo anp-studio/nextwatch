@@ -129,6 +129,8 @@
           <MovieCard
             :key="currentMovieFormatted?.id"
             :movie="currentMovieFormatted"
+            :is-in-my-list="isInMyList"
+            :is-watched="isWatched"
             @dislike="handleDislike"
             @watched="handleLike"
             @to-watch="handleAddToList"
@@ -139,14 +141,33 @@
     </div>
 
     <LoginPromptModal :is-open="showLoginModal" @close="handleModalClose" />
+
+    <Transition name="fade">
+      <div
+        v-if="undoAction"
+        class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-gray-800 dark:bg-gray-700 text-white rounded-full px-5 py-3 shadow-lg flex items-center gap-3 max-w-sm"
+      >
+        <span class="text-sm truncate">
+          <strong>{{ undoAction.movie.title }}</strong>
+          {{ undoAction.type === 'watched' ? 'marked as watched' : 'added to My List' }}
+        </span>
+        <button
+          @click="handleUndo"
+          class="text-rose-400 hover:text-rose-300 font-semibold text-sm whitespace-nowrap transition-colors"
+        >
+          Undo
+        </button>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
 
-const { markAsWatched, queuePendingWatchedMovie, removePendingWatchedMovie } = useWatchedMovies()
-const { addToMyList, queuePendingMyListMovie, removePendingMyListMovie, myList } = useMyList()
+const { watchedMovies, markAsWatched, removeFromWatched, queuePendingWatchedMovie, removePendingWatchedMovie } =
+  useWatchedMovies()
+const { myList, addToMyList, removeFromMyList } = useMyList()
 const { isAuthenticated, loading: authLoading } = useAuth()
 const { getMovieDetails } = useMovieDetails()
 const supabase = useSupabase()
@@ -159,11 +180,6 @@ const detailsPending = ref(false)
 const pending = computed(() => recommendationsPending.value || detailsPending.value)
 const showLoginModal = ref(false)
 const errorState = ref(null)
-const PENDING_MODAL_ACTION = {
-  WATCHED: 'watched',
-  MY_LIST: 'my-list',
-}
-const pendingModalAction = ref(null)
 const pendingModalMovieId = ref(null)
 const currentMovieDetails = useState('discovery-current-movie-details', () => null)
 const detailsRequestId = ref(0)
@@ -189,6 +205,18 @@ const currentMovieFormatted = computed(() => {
     genre: details?.genres?.join(', ') ?? 'Unknown Genre',
     director: details?.directors?.[0] ?? null,
   }
+})
+
+const isInMyList = computed(() => {
+  const id = currentMovie.value?.tmdbId
+  if (!id) return false
+  return myList.value.some((m) => m.tmdbId === id)
+})
+
+const isWatched = computed(() => {
+  const id = currentMovie.value?.tmdbId
+  if (!id) return false
+  return watchedMovies.value.some((m) => m.tmdbId === id)
 })
 
 // fetch details only for the visible card to save requests
@@ -270,6 +298,7 @@ const fetchRecommendations = async (mode = FETCH_MODE.DEFAULT) => {
     movies.value = recommendations
     originalMovies.value = recommendations
   } catch (err) {
+    console.error('[recommend] fetch failed', err)
     if (isLimitReachedError(err)) {
       errorState.value = 'limit-reached'
     } else if (isUnavailableError(err)) {
@@ -317,74 +346,98 @@ const handleDislike = () => {
   }
 }
 
-const buildMovieToSave = () => {
-  if (!currentMovie.value) {
-    return null
-  }
+const handleLike = async () => {
+  if (!currentMovie.value) return
 
   const rawMovie = currentMovie.value
   const details = currentMovieDetails.value
 
-  return {
+  movies.value.shift()
+
+  const movieToSave = {
     id: details?.id ?? rawMovie.tmdbId ?? 0,
     title: details?.title ?? rawMovie.name,
     year: details?.year ?? rawMovie.year,
     poster: details?.poster ?? '',
   }
-}
-
-const openLoginModalForPendingMovie = (action, movieId) => {
-  pendingModalAction.value = action
-  pendingModalMovieId.value = movieId
-  showLoginModal.value = true
-}
-
-const handleLike = async () => {
-  const movieToSave = buildMovieToSave()
-  if (!movieToSave) return
-
-  movies.value.shift()
 
   if (isAuthenticated.value) {
     const status = await markAsWatched(movieToSave)
     if (status === 'unauthorized' || status === 'error') {
       queuePendingWatchedMovie(movieToSave)
+    } else {
+      showUndo(movieToSave, 'watched')
     }
   } else {
     queuePendingWatchedMovie(movieToSave)
-    openLoginModalForPendingMovie(PENDING_MODAL_ACTION.WATCHED, movieToSave.id)
+    pendingModalMovieId.value = movieToSave.id
+    showLoginModal.value = true
   }
 }
 
 const handleAddToList = async () => {
-  const movieToSave = buildMovieToSave()
-  if (!movieToSave) return
+  if (!currentMovie.value) return
+
+  const rawMovie = currentMovie.value
+  const details = currentMovieDetails.value
 
   movies.value.shift()
 
+  const movieToSave = {
+    id: details?.id ?? rawMovie.tmdbId ?? 0,
+    title: details?.title ?? rawMovie.name,
+    year: details?.year ?? rawMovie.year,
+    poster: details?.poster ?? '',
+  }
+
   if (isAuthenticated.value) {
     const status = await addToMyList(movieToSave)
-    if (status === 'unauthorized' || status === 'error') {
-      queuePendingMyListMovie(movieToSave)
+    if (status === 'ok') {
+      showUndo(movieToSave, 'my-list')
     }
   } else {
-    queuePendingMyListMovie(movieToSave)
-    openLoginModalForPendingMovie(PENDING_MODAL_ACTION.MY_LIST, movieToSave.id)
+    showLoginModal.value = true
   }
+}
+
+const undoAction = ref(null)
+let undoTimer = null
+
+const dismissUndo = () => {
+  if (undoTimer) clearTimeout(undoTimer)
+  undoTimer = null
+  undoAction.value = null
+}
+
+const showUndo = (movie, type) => {
+  dismissUndo()
+  undoAction.value = { movie, type }
+  undoTimer = setTimeout(dismissUndo, 5000)
+}
+
+const handleUndo = async () => {
+  const action = undoAction.value
+  if (!action) return
+  dismissUndo()
+
+  if (action.type === 'watched') {
+    await removeFromWatched(action.movie.id)
+  } else {
+    await removeFromMyList(action.movie.id)
+  }
+
+  movies.value.unshift({
+    tmdbId: action.movie.id,
+    name: action.movie.title,
+    year: action.movie.year,
+  })
 }
 
 const handleModalClose = () => {
   showLoginModal.value = false
   if (!isAuthenticated.value && pendingModalMovieId.value !== null) {
-    if (pendingModalAction.value === PENDING_MODAL_ACTION.WATCHED) {
-      removePendingWatchedMovie(pendingModalMovieId.value)
-    }
-
-    if (pendingModalAction.value === PENDING_MODAL_ACTION.MY_LIST) {
-      removePendingMyListMovie(pendingModalMovieId.value)
-    }
+    removePendingWatchedMovie(pendingModalMovieId.value)
   }
-  pendingModalAction.value = null
   pendingModalMovieId.value = null
   if (isAuthenticated.value && movies.value.length === 0) {
     fetchRecommendations(FETCH_MODE.DEFAULT)

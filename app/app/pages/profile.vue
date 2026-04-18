@@ -1,6 +1,6 @@
 <template>
-  <div class="p-6 h-full flex flex-col overflow-y-auto bg-gray-50 dark:bg-gray-900 relative">
-    <div v-if="user" class="flex flex-col items-center w-full min-h-full pb-20">
+  <div class="pt-6 pl-6 pb-6 h-full flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900 relative">
+    <div v-if="user" class="flex flex-col items-center w-full min-h-full overflow-y-auto pb-20 pr-6">
       <UserProfileHeader />
       <NuxtLink
         to="/mylist"
@@ -34,6 +34,23 @@
     </div>
 
     <MovieDetails :is-open="isModalOpen" :movie="selectedMovie" @close="closeMovieDetails" />
+
+    <Transition name="fade">
+      <div
+        v-if="undoAction"
+        class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-gray-800 dark:bg-gray-700 text-white rounded-full px-5 py-3 shadow-lg flex items-center gap-3 max-w-sm"
+      >
+        <span class="text-sm truncate">
+          <strong>{{ undoAction.title }}</strong> removed from Watched
+        </span>
+        <button
+          @click="handleUndo"
+          class="text-rose-400 hover:text-rose-300 font-semibold text-sm whitespace-nowrap transition-colors"
+        >
+          Undo
+        </button>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -41,7 +58,7 @@
 import { ref } from 'vue'
 
 const { user } = useAuth()
-const { watchedMovies, removeFromWatched } = useWatchedMovies()
+const { watchedMovies, removeFromWatched, markAsWatched } = useWatchedMovies()
 const { myList } = useMyList()
 const { getMovieDetails } = useMovieDetails()
 
@@ -59,8 +76,37 @@ const openMovieDetails = async (movie) => {
   }
 }
 
+const undoAction = ref(null)
+let undoTimer = null
+
+const dismissUndo = () => {
+  if (undoTimer) clearTimeout(undoTimer)
+  undoTimer = null
+  undoAction.value = null
+}
+
 const handleRemove = async (tmdbId) => {
+  dismissUndo()
+  const movie = watchedMovies.value.find((m) => m.tmdbId === tmdbId)
   await removeFromWatched(tmdbId)
+  if (movie) {
+    undoAction.value = { ...movie }
+    undoTimer = setTimeout(dismissUndo, 5000)
+  }
+}
+
+const handleUndo = async () => {
+  const movie = undoAction.value
+  if (!movie) return
+  dismissUndo()
+  await markAsWatched({
+    id: movie.tmdbId,
+    title: movie.title,
+    year: movie.year,
+    poster: movie.posterPath,
+    genres: movie.genres,
+    runtime: movie.runtime,
+  })
 }
 
 const closeMovieDetails = () => {
