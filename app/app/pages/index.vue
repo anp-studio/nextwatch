@@ -30,10 +30,10 @@
         />
         <button
           class="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-semibold rounded-full transition-colors"
-          :disabled="pending"
+          :disabled="pending || retrySecondsLeft > 0"
           @click="refreshMovies"
         >
-          Try again
+          {{ retrySecondsLeft > 0 ? `Try again (${retrySecondsLeft}s)` : 'Try again' }}
         </button>
       </div>
 
@@ -163,10 +163,15 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 
-const { watchedMovies, markAsWatched, removeFromWatched, queuePendingWatchedMovie, removePendingWatchedMovie } =
-  useWatchedMovies()
+const {
+  watchedMovies,
+  markAsWatched,
+  removeFromWatched,
+  queuePendingWatchedMovie,
+  removePendingWatchedMovie,
+} = useWatchedMovies()
 const { myList, addToMyList, removeFromMyList } = useMyList()
 const { isAuthenticated, loading: authLoading } = useAuth()
 const { getMovieDetails } = useMovieDetails()
@@ -183,6 +188,51 @@ const errorState = ref(null)
 const pendingModalMovieId = ref(null)
 const currentMovieDetails = useState('discovery-current-movie-details', () => null)
 const detailsRequestId = ref(0)
+
+// @pmackovic mozda treba da se pomeri u neki composable
+const RETRY_COOLDOWN_S = 30
+const RETRY_COOLDOWN_KEY = 'retry-cooldown-expires'
+const retrySecondsLeft = ref(0)
+let retryTimerHandle = null
+
+const resumeRetryCooldown = (expiresAt) => {
+  if (retryTimerHandle !== null) clearInterval(retryTimerHandle)
+  const tick = () => {
+    const secondsLeft = Math.ceil((expiresAt - Date.now()) / 1000)
+    if (secondsLeft <= 0) {
+      retrySecondsLeft.value = 0
+      clearInterval(retryTimerHandle)
+      retryTimerHandle = null
+      localStorage.removeItem(RETRY_COOLDOWN_KEY)
+    } else {
+      retrySecondsLeft.value = secondsLeft
+    }
+  }
+  tick()
+  retryTimerHandle = setInterval(tick, 1000)
+}
+
+const startRetryCooldown = () => {
+  const expiresAt = Date.now() + RETRY_COOLDOWN_S * 1000
+  localStorage.setItem(RETRY_COOLDOWN_KEY, String(expiresAt))
+  resumeRetryCooldown(expiresAt)
+}
+
+onMounted(() => {
+  const stored = localStorage.getItem(RETRY_COOLDOWN_KEY)
+  if (stored) {
+    const expiresAt = Number(stored)
+    if (Date.now() < expiresAt) {
+      resumeRetryCooldown(expiresAt)
+    } else {
+      localStorage.removeItem(RETRY_COOLDOWN_KEY)
+    }
+  }
+})
+
+onUnmounted(() => {
+  if (retryTimerHandle !== null) clearInterval(retryTimerHandle)
+})
 
 const FETCH_MODE = {
   DEFAULT: 'default',
@@ -302,6 +352,7 @@ const fetchRecommendations = async (mode = FETCH_MODE.DEFAULT) => {
       errorState.value = 'limit-reached'
     } else if (isUnavailableError(err)) {
       errorState.value = 'unavailable'
+      startRetryCooldown()
     }
   } finally {
     hasLoaded.value = true

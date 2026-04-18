@@ -1,6 +1,9 @@
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
+// da lakse moze da se menja
+export const RECOMMENDATION_LIMIT = 20
+
 export function createRateLimiter() {
   const config = useRuntimeConfig()
 
@@ -15,14 +18,11 @@ export function createRateLimiter() {
     analytics: true,
   })
 
-  const modelLimiter = new Ratelimit({
+  const recommednationLimiter = new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(20, '1 d'),
+    limiter: Ratelimit.slidingWindow(RECOMMENDATION_LIMIT, '1 d'),
     analytics: true,
   })
 
-  return {
-    tmdbLimiter,
-    recommednationLimiter: modelLimiter,
-  }
+  return { tmdbLimiter, recommednationLimiter }
 }
