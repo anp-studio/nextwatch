@@ -1,13 +1,13 @@
-import { gunzip } from 'node:zlib'
-import { promisify } from 'node:util'
-
-const gunzipAsync = promisify(gunzip)
+import { createGunzip } from 'node:zlib'
+import { createInterface } from 'node:readline'
+import { Readable } from 'node:stream'
+import pLimit from 'p-limit'
 
 const TMDB_EXPORT_BASE_URL = 'http://files.tmdb.org/p/exports'
-const BATCH_SIZE = 500
+const BATCH_SIZE = 2000
 const MAX_IMPORT_ATTEMPTS = 3
 const RETRY_DELAY_MS = 1500
-const MIN_POPULARITY = 0.5
+const MIN_POPULARITY = 0.25
 
 interface TmdbExportRow {
   id: number
@@ -44,14 +44,23 @@ function buildExportUrl(): string {
   return `${TMDB_EXPORT_BASE_URL}/movie_ids_${mm}_${dd}_${yyyy}.json.gz`
 }
 
-async function downloadAndDecompress(url: string): Promise<string> {
+async function downloadAndDecompress(
+  url: string, 
+  onLine: (line: string) => Promise<void>
+): Promise<void> {
   const response = await fetch(url)
   if (!response.ok) {
     throw new Error(`TMDB export download failed: ${response.status} ${response.statusText}`)
   }
-  const compressed = await response.arrayBuffer()
-  const decompressed = await gunzipAsync(Buffer.from(compressed))
-  return decompressed.toString('utf8')
+
+  const nodeStream = Readable.fromWeb(response.body as import('stream/web').ReadableStream)
+  const gunzip = createGunzip()
+  const decompressed = nodeStream.pipe(gunzip)
+
+  const rl = createInterface({ input: decompressed, crlfDelay: Infinity })
+  for await (const line of rl) {
+    await onLine(line)
+  }
 }
 
 async function importBatch(db: ReturnType<typeof useDb>, rows: TmdbExportRow[]): Promise<void> {
@@ -99,53 +108,54 @@ export async function runTmdbImport(): Promise<TmdbImportResult> {
   let lastError: Error | null = null
 
   for (let attempt = 1; attempt <= MAX_IMPORT_ATTEMPTS; attempt++) {
-    batch = []
     totalSkipped = 0
     totalAdultExcluded = 0
     totalLowPopularityExcluded = 0
 
     try {
-      const content = await downloadAndDecompress(url)
+      const limit = pLimit(5)
+      const insertPromises: Promise<void>[] = []
+      let batch: TmdbExportRow[] = []
 
-      for (const line of content.split('\n')) {
+      await downloadAndDecompress(url, async (line) => {
         const trimmed = line.trim()
-        if (!trimmed) continue
-
+        if (!trimmed) return
+        
         let parsed: unknown
         try {
           parsed = JSON.parse(trimmed)
         } catch {
           totalSkipped++
-          continue
+          return
         }
-
         if (!isTmdbExportRow(parsed)) {
           totalSkipped++
-          continue
+          return
         }
-
         if (parsed.adult) {
           totalAdultExcluded++
-          continue
+          return
         }
-
         if (parsed.popularity < MIN_POPULARITY) {
           totalLowPopularityExcluded++
-          continue
+          return
         }
 
         batch.push(parsed)
 
         if (batch.length >= BATCH_SIZE) {
-          await importBatch(db, batch)
+          const batchToInsert = batch
           batch = []
+          insertPromises.push(limit(() => importBatch(db, batchToInsert)))
         }
-      }
+      })
 
       if (batch.length > 0) {
-        await importBatch(db, batch)
+        insertPromises.push(limit(() => importBatch(db, batch)))
       }
 
+      await Promise.all(insertPromises)
+      
       lastError = null
       break
     } catch (error) {
