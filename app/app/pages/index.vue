@@ -21,68 +21,38 @@
       </div>
 
       <div
-        v-else-if="errorState === 'unavailable'"
+        v-else-if="showBlockingRecommendationFailure"
         class="text-center text-gray-500 dark:text-gray-400 max-w-sm mx-auto"
       >
-        <AlertMessage
-          type="error"
-          message="Recommendations are temporarily unavailable. Gemini is experiencing high demand — please try again in a moment."
-        />
-        <button
-          class="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-semibold rounded-full transition-colors"
-          :disabled="pending || retrySecondsLeft > 0"
-          @click="refreshMovies"
+        <p v-if="isLimitReachedFailure" class="text-2xl font-semibold mb-2">Daily limit reached!</p>
+        <AlertMessage type="error" :message="recommendationFailureMessage" />
+        <div
+          v-if="showRecommendationFailureActions"
+          class="mt-6 flex items-center justify-center gap-3"
         >
-          {{ retrySecondsLeft > 0 ? `Try again (${retrySecondsLeft}s)` : 'Try again' }}
-        </button>
-      </div>
-
-      <div
-        v-else-if="errorState === 'limit-reached'"
-        class="text-center text-gray-500 dark:text-gray-400"
-      >
-        <p class="text-2xl font-semibold mb-2">Daily limit reached!</p>
-        <p class="text-base mb-6">Try again tomorrow.</p>
-        <div class="flex items-center justify-center gap-3">
           <button
-            class="inline-flex items-center gap-2 px-3 py-2 text-sm border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-50 font-semibold rounded-full transition-colors"
+            v-if="canLoadPreviousRecommendations"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-50 font-semibold rounded-full transition-colors"
             :disabled="pending"
-            @click="resetMovies"
+            @click="loadPreviousRecommendations"
           >
-            Start Over
+            Load Previous Recommendations
           </button>
           <button
-            class="inline-flex items-center gap-2 px-3 py-2 text-sm border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-50 font-semibold rounded-full transition-colors"
-            :disabled="pending"
-            @click="refreshMovies"
+            v-if="canRetryRecommendations"
+            class="inline-flex items-center gap-2 px-6 py-3 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-semibold rounded-full transition-colors"
+            :disabled="pending || retrySecondsLeft > 0"
+            @click="retryRecommendations"
           >
-            Refresh
-          </button>
-          <button
-            class="inline-flex items-center gap-2 px-4 py-2 text-sm bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-semibold rounded-full transition-colors"
-            :disabled="pending"
-            @click="getNewMovies"
-          >
-            <svg
-              class="w-4 h-4"
-              :class="{ 'animate-spin': pending }"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            Load New Movies
+            {{ retryButtonLabel }}
           </button>
         </div>
       </div>
 
-      <div v-else-if="movies.length === 0" class="text-center text-gray-500 dark:text-gray-400">
+      <div
+        v-else-if="showRecommendationEmptyState"
+        class="text-center text-gray-500 dark:text-gray-400"
+      >
         <p class="text-2xl font-semibold mb-2">You're all caught up!</p>
         <p class="text-base mb-6">Ready for another round?</p>
         <div class="flex items-center justify-center gap-3">
@@ -124,19 +94,49 @@
         </div>
       </div>
 
-      <div v-else class="w-full max-w-sm h-[65vh] relative mx-auto">
-        <Transition name="card" mode="out-in">
-          <MovieCard
-            :key="currentMovieFormatted?.id"
-            :movie="currentMovieFormatted"
-            :is-in-my-list="isInMyList"
-            :is-watched="isWatched"
-            @dislike="handleDislike"
-            @watched="handleLike"
-            @to-watch="handleAddToList"
-            @refresh="refreshMovies"
-          />
-        </Transition>
+      <div v-else class="w-full max-w-sm mx-auto flex flex-col gap-4">
+        <div
+          v-if="showInlineRecommendationFailure"
+          class="w-full text-center text-gray-500 dark:text-gray-400"
+        >
+          <AlertMessage type="error" :message="recommendationFailureMessage" />
+          <div
+            v-if="showRecommendationFailureActions"
+            class="mt-3 flex items-center justify-center gap-3"
+          >
+            <button
+              v-if="canLoadPreviousRecommendations"
+              class="inline-flex items-center gap-2 px-4 py-2 text-sm border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-50 font-semibold rounded-full transition-colors"
+              :disabled="pending"
+              @click="loadPreviousRecommendations"
+            >
+              Load Previous Recommendations
+            </button>
+            <button
+              v-if="canRetryRecommendations"
+              class="inline-flex items-center gap-2 px-3 py-2 text-sm bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-semibold rounded-full transition-colors"
+              :disabled="pending || retrySecondsLeft > 0"
+              @click="retryRecommendations"
+            >
+              {{ retryButtonLabel }}
+            </button>
+          </div>
+        </div>
+
+        <div class="w-full h-[65vh] relative mx-auto">
+          <Transition name="card" mode="out-in">
+            <MovieCard
+              :key="currentMovieFormatted?.id"
+              :movie="currentMovieFormatted"
+              :is-in-my-list="isInMyList"
+              :is-watched="isWatched"
+              @dislike="handleDislike"
+              @watched="handleLike"
+              @to-watch="handleAddToList"
+              @refresh="refreshMovies"
+            />
+          </Transition>
+        </div>
       </div>
     </div>
 
@@ -163,7 +163,19 @@
 </template>
 
 <script setup>
+// @pmackovic mozda treba da se pomeri u neki composable
+
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+
+const FETCH_MODE = {
+  DEFAULT: 'default',
+  GET_NEW: 'getNew',
+  REFRESH: 'refresh',
+}
+
+const RETRY_COOLDOWN_S = 30
+const RETRY_COOLDOWN_KEY = 'retry-cooldown-expires'
+const FALLBACK_RECOMMENDATION_ERROR_MESSAGE = 'Recommendations are unavailable right now.'
 
 const {
   watchedMovies,
@@ -180,67 +192,144 @@ const supabase = useSupabase()
 const movies = useState('discovery-movies', () => [])
 const originalMovies = useState('discovery-original-movies', () => [])
 const hasLoaded = useState('discovery-has-loaded', () => false)
+const hasSuccessfulRecommendationLoad = useState(
+  'discovery-has-successful-recommendation-load',
+  () => false
+)
 const recommendationsPending = ref(true)
 const detailsPending = ref(false)
 const pending = computed(() => recommendationsPending.value || detailsPending.value)
 const showLoginModal = ref(false)
-const errorState = ref(null)
+const recommendationFailure = ref(null)
+const lastFetchMode = ref(FETCH_MODE.DEFAULT)
 const pendingModalMovieId = ref(null)
 const currentMovieDetails = useState('discovery-current-movie-details', () => null)
 const detailsRequestId = ref(0)
-
-// @pmackovic mozda treba da se pomeri u neki composable
-const RETRY_COOLDOWN_S = 30
-const RETRY_COOLDOWN_KEY = 'retry-cooldown-expires'
 const retrySecondsLeft = ref(0)
 let retryTimerHandle = null
 
-const resumeRetryCooldown = (expiresAt) => {
+function cloneRecommendations(recommendations) {
+  return recommendations.map((recommendation) => ({ ...recommendation }))
+}
+
+function clearRetryCooldown() {
+  retrySecondsLeft.value = 0
+  if (retryTimerHandle !== null) {
+    clearInterval(retryTimerHandle)
+    retryTimerHandle = null
+  }
+  localStorage.removeItem(RETRY_COOLDOWN_KEY)
+}
+
+function resumeRetryCooldown(expiresAt) {
   if (retryTimerHandle !== null) clearInterval(retryTimerHandle)
   const tick = () => {
     const secondsLeft = Math.ceil((expiresAt - Date.now()) / 1000)
     if (secondsLeft <= 0) {
-      retrySecondsLeft.value = 0
-      clearInterval(retryTimerHandle)
-      retryTimerHandle = null
-      localStorage.removeItem(RETRY_COOLDOWN_KEY)
-    } else {
-      retrySecondsLeft.value = secondsLeft
+      clearRetryCooldown()
+      return
     }
+    retrySecondsLeft.value = secondsLeft
   }
   tick()
   retryTimerHandle = setInterval(tick, 1000)
 }
 
-const startRetryCooldown = () => {
+function startRetryCooldown() {
   const expiresAt = Date.now() + RETRY_COOLDOWN_S * 1000
   localStorage.setItem(RETRY_COOLDOWN_KEY, String(expiresAt))
   resumeRetryCooldown(expiresAt)
 }
 
-onMounted(() => {
-  const stored = localStorage.getItem(RETRY_COOLDOWN_KEY)
-  if (stored) {
-    const expiresAt = Number(stored)
-    if (Date.now() < expiresAt) {
-      resumeRetryCooldown(expiresAt)
-    } else {
-      localStorage.removeItem(RETRY_COOLDOWN_KEY)
-    }
+function getErrorStatusCode(error) {
+  return error?.statusCode ?? error?.status ?? error?.response?.status ?? 500
+}
+
+function getErrorStatusMessage(error) {
+  const candidates = [error?.data?.statusMessage, error?.statusMessage, error?.message]
+  const message = candidates.find((c) => typeof c === 'string') ?? ''
+  return message || FALLBACK_RECOMMENDATION_ERROR_MESSAGE
+}
+
+function createRecommendationFailure({
+  statusCode,
+  statusMessage,
+  retryable = false,
+  staleRecommendations = null,
+  staleApplied = false,
+}) {
+  return {
+    statusCode,
+    statusMessage,
+    retryable,
+    staleRecommendations:
+      Array.isArray(staleRecommendations) && staleRecommendations.length > 0
+        ? cloneRecommendations(staleRecommendations)
+        : null,
+    staleApplied,
   }
-})
+}
 
-onUnmounted(() => {
-  if (retryTimerHandle !== null) clearInterval(retryTimerHandle)
-})
+function createRecommendationFailureFromError(error) {
+  const statusCode = getErrorStatusCode(error)
+  return createRecommendationFailure({
+    statusCode,
+    statusMessage: getErrorStatusMessage(error),
+    retryable: statusCode === 503,
+    staleRecommendations: error?.data?.staleRecommendations ?? null,
+  })
+}
 
-const FETCH_MODE = {
-  DEFAULT: 'default',
-  GET_NEW: 'getNew',
-  REFRESH: 'refresh',
+function setRecommendationFailure(failure) {
+  recommendationFailure.value = failure
+
+  if (failure.retryable) {
+    startRetryCooldown()
+    return
+  }
+
+  clearRetryCooldown()
+}
+
+function applyRecommendations(recommendations) {
+  const cloned = cloneRecommendations(recommendations)
+  movies.value = cloned
+  originalMovies.value = [...cloned]
+  currentMovieDetails.value = null
+  hasSuccessfulRecommendationLoad.value = true
 }
 
 const currentMovie = computed(() => movies.value[0] || null)
+const recommendationFailureMessage = computed(
+  () => recommendationFailure.value?.statusMessage ?? FALLBACK_RECOMMENDATION_ERROR_MESSAGE
+)
+const canRetryRecommendations = computed(() => recommendationFailure.value?.retryable === true)
+const canLoadPreviousRecommendations = computed(() => {
+  const staleRecommendations = recommendationFailure.value?.staleRecommendations
+  return Array.isArray(staleRecommendations) && staleRecommendations.length > 0
+})
+const isLimitReachedFailure = computed(() => recommendationFailure.value?.statusCode === 429)
+const showBlockingRecommendationFailure = computed(
+  () =>
+    recommendationFailure.value !== null &&
+    movies.value.length === 0 &&
+    !recommendationFailure.value.staleApplied
+)
+const showInlineRecommendationFailure = computed(
+  () => recommendationFailure.value !== null && movies.value.length > 0
+)
+const showRecommendationFailureActions = computed(
+  () => canRetryRecommendations.value || canLoadPreviousRecommendations.value
+)
+const showRecommendationEmptyState = computed(
+  () =>
+    hasSuccessfulRecommendationLoad.value &&
+    recommendationFailure.value === null &&
+    movies.value.length === 0
+)
+const retryButtonLabel = computed(() =>
+  retrySecondsLeft.value > 0 ? `Try again (${retrySecondsLeft.value}s)` : 'Try again'
+)
 
 const currentMovieFormatted = computed(() => {
   const movie = movies.value[0]
@@ -266,10 +355,26 @@ const isInMyList = computed(() => {
 const isWatched = computed(() => {
   const id = currentMovie.value?.tmdbId
   if (!id) return false
-  return watchedMovies.value.some((m) => m.tmdbId === id)
+  return watchedMovies.value.some((movie) => movie.tmdbId === id)
 })
 
-// fetch details only for the visible card to save requests
+onMounted(() => {
+  const stored = localStorage.getItem(RETRY_COOLDOWN_KEY)
+  if (stored) {
+    const expiresAt = Number(stored)
+    if (Date.now() < expiresAt) {
+      resumeRetryCooldown(expiresAt)
+      return
+    }
+    localStorage.removeItem(RETRY_COOLDOWN_KEY)
+  }
+})
+
+onUnmounted(() => {
+  if (retryTimerHandle !== null) clearInterval(retryTimerHandle)
+})
+
+// avoid wasting TMDB quota on movies the user may never reach in the stack
 watch(
   currentMovie,
   async (movie) => {
@@ -304,27 +409,11 @@ watch(
   { immediate: true }
 )
 
-const getErrorStatusCode = (err) => err?.statusCode ?? err?.status ?? err?.response?.status
-
-const isUnavailableError = (err) => {
-  if (getErrorStatusCode(err) === 503) return true
-  const message = `${err?.data?.statusMessage ?? ''} ${err?.message ?? ''}`.toLowerCase()
-  return (
-    message.includes('503') ||
-    message.includes('service unavailable') ||
-    message.includes('high demand')
-  )
-}
-
-const isLimitReachedError = (err) => {
-  if (getErrorStatusCode(err) === 429) return true
-  const message = `${err?.data?.statusMessage ?? ''} ${err?.message ?? ''}`.toLowerCase()
-  return message.includes('daily recommendation limit') || message.includes('429')
-}
-
 const fetchRecommendations = async (mode = FETCH_MODE.DEFAULT) => {
   recommendationsPending.value = true
-  errorState.value = null
+  recommendationFailure.value = null
+  lastFetchMode.value = mode
+
   try {
     const {
       data: { session },
@@ -338,36 +427,56 @@ const fetchRecommendations = async (mode = FETCH_MODE.DEFAULT) => {
           ? { refresh: 'true' }
           : {}
 
-    const { recommendations } = await $fetch('/api/recommend', {
+    const response = await $fetch('/api/recommend', {
       params,
       headers: { Authorization: `Bearer ${session.access_token}` },
     })
 
-    currentMovieDetails.value = null
-
-    movies.value = recommendations
-    originalMovies.value = recommendations
-  } catch (err) {
-    if (isLimitReachedError(err)) {
-      errorState.value = 'limit-reached'
-    } else if (isUnavailableError(err)) {
-      errorState.value = 'unavailable'
-      startRetryCooldown()
+    if (response.regenerationError) {
+      setRecommendationFailure(
+        createRecommendationFailure({
+          ...response.regenerationError,
+          staleRecommendations: response.staleRecommendations,
+        })
+      )
+      return
     }
+
+    if (!Array.isArray(response.recommendations)) {
+      throw new Error('Recommendations response was missing a recommendation list.')
+    }
+
+    clearRetryCooldown()
+    applyRecommendations(response.recommendations)
+  } catch (error) {
+    setRecommendationFailure(createRecommendationFailureFromError(error))
   } finally {
     hasLoaded.value = true
     recommendationsPending.value = false
   }
 }
 
+const retryRecommendations = () => fetchRecommendations(lastFetchMode.value)
 const getNewMovies = () => fetchRecommendations(FETCH_MODE.GET_NEW)
 const refreshMovies = () => fetchRecommendations(FETCH_MODE.REFRESH)
+
+const loadPreviousRecommendations = () => {
+  const staleRecommendations = recommendationFailure.value?.staleRecommendations
+  if (!Array.isArray(staleRecommendations) || staleRecommendations.length === 0) return
+
+  applyRecommendations(staleRecommendations)
+  recommendationFailure.value = {
+    ...recommendationFailure.value,
+    staleApplied: true,
+  }
+}
+
 const resetMovies = () => {
   if (originalMovies.value.length === 0) {
     return fetchRecommendations(FETCH_MODE.DEFAULT)
   }
-  const myListIds = new Set(myList.value.map((m) => m.tmdbId))
-  movies.value = originalMovies.value.filter((m) => !myListIds.has(m.tmdbId))
+  const myListIds = new Set(myList.value.map((movie) => movie.tmdbId))
+  movies.value = originalMovies.value.filter((movie) => !myListIds.has(movie.tmdbId))
   currentMovieDetails.value = null
 }
 
@@ -396,6 +505,15 @@ const handleDislike = () => {
   }
 }
 
+function buildMovieToSave(rawMovie, details) {
+  return {
+    id: details?.id ?? rawMovie.tmdbId ?? 0,
+    title: details?.title ?? rawMovie.name,
+    year: details?.year ?? rawMovie.year,
+    poster: details?.poster ?? '',
+  }
+}
+
 const handleLike = async () => {
   if (!currentMovie.value) return
 
@@ -404,12 +522,7 @@ const handleLike = async () => {
 
   movies.value.shift()
 
-  const movieToSave = {
-    id: details?.id ?? rawMovie.tmdbId ?? 0,
-    title: details?.title ?? rawMovie.name,
-    year: details?.year ?? rawMovie.year,
-    poster: details?.poster ?? '',
-  }
+  const movieToSave = buildMovieToSave(rawMovie, details)
 
   if (isAuthenticated.value) {
     const status = await markAsWatched(movieToSave)
@@ -433,12 +546,7 @@ const handleAddToList = async () => {
 
   movies.value.shift()
 
-  const movieToSave = {
-    id: details?.id ?? rawMovie.tmdbId ?? 0,
-    title: details?.title ?? rawMovie.name,
-    year: details?.year ?? rawMovie.year,
-    poster: details?.poster ?? '',
-  }
+  const movieToSave = buildMovieToSave(rawMovie, details)
 
   if (isAuthenticated.value) {
     const status = await addToMyList(movieToSave)

@@ -12,6 +12,7 @@ import type { RecommendationWithId, WatchedMovieRecord } from '../utils/recommen
 
 const RECOMMENDATIONS_TABLE = 'recommendations'
 const TTL_MS = 7 * 24 * 60 * 60 * 1000
+const QUERY_TRUE = ['true', '1']
 
 interface CachedRow {
   recommendations: RecommendationWithId[]
@@ -19,7 +20,24 @@ interface CachedRow {
   expires_at: string
 }
 
-const QUERY_TRUE = ['true', '1']
+interface RecommendationCacheState {
+  freshRecommendations: RecommendationWithId[] | null
+  storedRecommendations: RecommendationWithId[]
+}
+
+interface RegenerationErrorPayload {
+  statusCode: number
+  statusMessage: string
+  retryable: boolean
+}
+
+interface RecommendationResponse {
+  recommendations: RecommendationWithId[] | null
+  cached: boolean
+  stale: false
+  regenerationError: RegenerationErrorPayload | null
+  staleRecommendations: RecommendationWithId[] | null
+}
 
 function isQueryFlagEnabled(value: unknown): boolean {
   return typeof value === 'string' && QUERY_TRUE.includes(value)
@@ -43,11 +61,88 @@ function computeWatchedHash(movies: WatchedMovieRecord[]): string {
   return createHash('sha256').update(JSON.stringify(sorted)).digest('hex')
 }
 
-async function getCachedRecommendations(
+function cloneRecommendations(recommendations: RecommendationWithId[]): RecommendationWithId[] {
+  return recommendations.map((recommendation) => ({ ...recommendation }))
+}
+
+function buildSuccessResponse(
+  recommendations: RecommendationWithId[],
+  cached: boolean
+): RecommendationResponse {
+  return {
+    recommendations: cloneRecommendations(recommendations),
+    cached,
+    stale: false,
+    regenerationError: null,
+    staleRecommendations: null,
+  }
+}
+
+function buildFailureResponse(
+  regenerationError: RegenerationErrorPayload,
+  staleRecommendations: RecommendationWithId[]
+): RecommendationResponse {
+  return {
+    recommendations: null,
+    cached: false,
+    stale: false,
+    regenerationError,
+    staleRecommendations: cloneRecommendations(staleRecommendations),
+  }
+}
+
+function isErrorWithStatus(
+  error: unknown
+): error is { statusCode: number; statusMessage?: string } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    typeof (error as { statusCode?: unknown }).statusCode === 'number'
+  )
+}
+
+function normalizeRegenerationError(error: unknown): RegenerationErrorPayload {
+  if (isErrorWithStatus(error)) {
+    const statusCode = error.statusCode
+    const statusMessage =
+      typeof error.statusMessage === 'string' && error.statusMessage.length > 0
+        ? error.statusMessage
+        : 'Recommendation regeneration failed.'
+
+    return {
+      statusCode,
+      statusMessage,
+      retryable: statusCode === 503,
+    }
+  }
+
+  if (error instanceof Error) {
+    return {
+      statusCode: 500,
+      statusMessage: error.message || 'Recommendation regeneration failed.',
+      retryable: false,
+    }
+  }
+
+  return {
+    statusCode: 500,
+    statusMessage: 'Recommendation regeneration failed.',
+    retryable: false,
+  }
+}
+
+function createInsufficientRecommendationsError() {
+  return createError({
+    statusCode: 502,
+    statusMessage: 'Recommendation generation returned too few valid TMDB matches.',
+  })
+}
+
+async function getRecommendationCacheState(
   supabase: SupabaseClient,
   userId: string,
   watchedHash: string
-): Promise<RecommendationWithId[] | null> {
+): Promise<RecommendationCacheState> {
   const { data, error } = await supabase
     .from(RECOMMENDATIONS_TABLE)
     .select('recommendations, watched_hash, expires_at')
@@ -58,32 +153,21 @@ async function getCachedRecommendations(
     throw createError({ statusCode: 500, statusMessage: error.message })
   }
 
-  if (!data) return null
-
-  const row = data as CachedRow
-  const isFresh = new Date(row.expires_at) > new Date() && row.watched_hash === watchedHash
-
-  return isFresh ? filterValidRecommendations(row.recommendations) : null
-}
-
-async function getCachedRecommendationsRaw(
-  supabase: SupabaseClient,
-  userId: string
-): Promise<RecommendationWithId[]> {
-  const { data, error } = await supabase
-    .from(RECOMMENDATIONS_TABLE)
-    .select('recommendations')
-    .eq('user_id', userId)
-    .maybeSingle()
-
-  if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
+  if (!data) {
+    return {
+      freshRecommendations: null,
+      storedRecommendations: [],
+    }
   }
 
-  if (!data) return []
+  const row = data as CachedRow
+  const storedRecommendations = filterValidRecommendations(row.recommendations)
+  const isFresh = new Date(row.expires_at) > new Date() && row.watched_hash === watchedHash
 
-  const row = data as Pick<CachedRow, 'recommendations'>
-  return filterValidRecommendations(row.recommendations)
+  return {
+    freshRecommendations: isFresh ? storedRecommendations : null,
+    storedRecommendations,
+  }
 }
 
 async function storeCachedRecommendations(
@@ -121,35 +205,42 @@ export default defineEventHandler(async (event) => {
   }
 
   const watchedHash = computeWatchedHash(watchedMovies)
-  const cached = await getCachedRecommendations(supabase, user.id, watchedHash)
+  const cacheState = await getRecommendationCacheState(supabase, user.id, watchedHash)
 
-  if (!isGetNew && !isRefresh) {
-    if (cached) {
-      return { recommendations: cached, cached: true, stale: false }
-    }
+  if (!isGetNew && !isRefresh && cacheState.freshRecommendations) {
+    return buildSuccessResponse(cacheState.freshRecommendations, true)
   }
 
   const myListMovies = await fetchMyListMovies(supabase, user.id)
 
   if (isGetNew) {
-    excludedMovies = await getCachedRecommendationsRaw(supabase, user.id)
+    excludedMovies = cacheState.storedRecommendations
   }
 
-  const generatedRecommendations = await getRecommendationsFromGemini(
-    watchedMovies,
-    myListMovies,
-    user.id,
-    event,
-    excludedMovies
-  )
+  let recommendations: RecommendationWithId[]
+  try {
+    const generatedRecommendations = await getRecommendationsFromGemini(
+      watchedMovies,
+      myListMovies,
+      user.id,
+      event,
+      excludedMovies
+    )
 
-  const recommendations = filterValidRecommendations(generatedRecommendations)
+    recommendations = filterValidRecommendations(generatedRecommendations)
 
-  if (canStoreRecommendations(generatedRecommendations)) {
-    await storeCachedRecommendations(supabase, user.id, recommendations, watchedHash)
-  } else {
-    return { recommendations: cached, cached: true, stale: true }
+    if (!canStoreRecommendations(generatedRecommendations)) {
+      throw createInsufficientRecommendationsError()
+    }
+  } catch (error) {
+    if (cacheState.storedRecommendations.length === 0) {
+      throw error
+    }
+
+    return buildFailureResponse(normalizeRegenerationError(error), cacheState.storedRecommendations)
   }
 
-  return { recommendations, cached: false }
+  await storeCachedRecommendations(supabase, user.id, recommendations, watchedHash)
+
+  return buildSuccessResponse(recommendations, false)
 })
