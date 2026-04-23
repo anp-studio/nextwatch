@@ -1,12 +1,10 @@
 import { createGunzip } from 'node:zlib'
 import { createInterface } from 'node:readline'
 import { Readable } from 'node:stream'
-import pLimit from 'p-limit'
 
 const TMDB_EXPORT_BASE_URL = 'http://files.tmdb.org/p/exports'
-const BATCH_SIZE = 2000
-const MAX_IMPORT_ATTEMPTS = 3
-const RETRY_DELAY_MS = 1500
+const BATCH_SIZE = 5000
+const MAX_IMPORT_ATTEMPTS = 5
 const MIN_POPULARITY = 0.25
 
 interface TmdbExportRow {
@@ -45,7 +43,7 @@ function buildExportUrl(): string {
 }
 
 async function downloadAndDecompress(
-  url: string, 
+  url: string,
   onLine: (line: string) => Promise<void>
 ): Promise<void> {
   const response = await fetch(url)
@@ -73,6 +71,22 @@ async function importBatch(db: ReturnType<typeof useDb>, rows: TmdbExportRow[]):
   )
 }
 
+async function importBatchWithRetry(
+  db: ReturnType<typeof useDb>,
+  rows: TmdbExportRow[]
+): Promise<void> {
+  for (let attempt = 1; attempt <= MAX_IMPORT_ATTEMPTS; attempt++) {
+    try {
+      await importBatch(db, rows)
+      return
+    } catch (error) {
+      const msg = toError(error).message
+      if (!msg.includes('SQLITE_BUSY') || attempt === MAX_IMPORT_ATTEMPTS) throw error
+      await sleep(200 * attempt)
+    }
+  }
+}
+
 async function getMoviesIndexCount(db: ReturnType<typeof useDb>): Promise<number> {
   const result = await db.execute('SELECT COUNT(*) FROM movies_index')
   const count = result.rows[0]?.[0]
@@ -93,7 +107,7 @@ function toError(value: unknown): Error {
   return new Error(String(value))
 }
 
-async function getMaxMovieId(db: ReturnType<typeof useDb>) : Promise<number> {
+async function getMaxMovieId(db: ReturnType<typeof useDb>): Promise<number> {
   const result = await db.execute('SELECT tmdb_id FROM movies_index ORDER BY tmdb_id DESC LIMIT 1')
   const id = result.rows[0]?.[0]
   if (typeof id === 'number') return id
@@ -108,7 +122,6 @@ export async function runTmdbImport(): Promise<TmdbImportResult> {
   const existingCountBefore = await getMoviesIndexCount(db)
   const maxMovieId = await getMaxMovieId(db)
 
-  let batch: TmdbExportRow[] = []
   let totalSkipped = 0
   let totalAdultExcluded = 0
   let totalLowPopularityExcluded = 0
@@ -117,68 +130,53 @@ export async function runTmdbImport(): Promise<TmdbImportResult> {
 
   let lastError: Error | null = null
 
-  for (let attempt = 1; attempt <= MAX_IMPORT_ATTEMPTS; attempt++) {
-    totalSkipped = 0
-    totalAdultExcluded = 0
-    totalLowPopularityExcluded = 0
+  try {
+    let batch: TmdbExportRow[] = []
 
-    try {
-      const limit = pLimit(5)
-      const insertPromises: Promise<void>[] = []
-      let batch: TmdbExportRow[] = []
+    await downloadAndDecompress(url, async (line) => {
+      const trimmed = line.trim()
+      if (!trimmed) return
 
-      await downloadAndDecompress(url, async (line) => {
-        const trimmed = line.trim()
-        if (!trimmed) return
-        
-        let parsed: unknown
-        try {
-          parsed = JSON.parse(trimmed)
-        } catch {
-          totalSkipped++
-          return
-        }
-        if (!isTmdbExportRow(parsed)) {
-          totalSkipped++
-          return
-        }
-        if (parsed.id <= maxMovieId) {
-          totalSkipped++
-          return
-        }
-        if (parsed.adult) {
-          totalAdultExcluded++
-          return
-        }
-        if (parsed.popularity < MIN_POPULARITY) {
-          totalLowPopularityExcluded++
-          return
-        }
-
-        batch.push(parsed)
-
-        if (batch.length >= BATCH_SIZE) {
-          const batchToInsert = batch
-          batch = []
-          insertPromises.push(limit(() => importBatch(db, batchToInsert)))
-        }
-      })
-
-      if (batch.length > 0) {
-        insertPromises.push(limit(() => importBatch(db, batch)))
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(trimmed)
+      } catch {
+        totalSkipped++
+        return
+      }
+      if (!isTmdbExportRow(parsed)) {
+        totalSkipped++
+        return
+      }
+      if (parsed.id <= maxMovieId) {
+        totalSkipped++
+        return
+      }
+      if (parsed.adult) {
+        totalAdultExcluded++
+        return
+      }
+      if (parsed.popularity < MIN_POPULARITY) {
+        totalLowPopularityExcluded++
+        return
       }
 
-      await Promise.all(insertPromises)
-      
-      lastError = null
-      break
-    } catch (error) {
-      lastError = toError(error)
+      batch.push(parsed)
+
+      if (batch.length >= BATCH_SIZE) {
+        const batchToInsert = batch
+        batch = []
+        await importBatchWithRetry(db, batchToInsert)
+      }
+    })
+
+    if (batch.length > 0) {
+      await importBatchWithRetry(db, batch)
     }
 
-    if (attempt < MAX_IMPORT_ATTEMPTS) {
-      await sleep(RETRY_DELAY_MS)
-    }
+    lastError = null
+  } catch (error) {
+    lastError = toError(error)
   }
 
   if (lastError) {
