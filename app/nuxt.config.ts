@@ -23,14 +23,6 @@ export default defineNuxtConfig({
       redisToken: process.env.UPSTASH_REDIS_REST_TOKEN ?? '',
     },
   },
-  nitro: {
-    experimental: {
-      tasks: true,
-    },
-    scheduledTasks: {
-      '0 8 * * *': ['tmdb-import'],
-    },
-  },
   vite: {
     optimizeDeps: {
       include: [

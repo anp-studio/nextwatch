@@ -2,11 +2,11 @@
 
 ## Repository Layout
 
-```
+```text
 movie-recommender/
 ├── app/               # Nuxt 4 full-stack app (primary codebase)
 │   ├── app/           # Client code (pages, components, composables)
-│   └── server/        # Server code (API routes, tasks, utils)
+│   └── server/        # Server code (API routes, utils)
 ├── database/          # local.db (LibSQL/SQLite) + schema.sql
 └── docs/              # Docus documentation site (separate Nuxt app)
 ```
@@ -45,10 +45,10 @@ On first run the SQLite database is empty. Trigger a TMDB import manually:
 
 ```bash
 curl -X POST http://localhost:3000/api/admin/tmdb-import \
-  -H "Authorization: Bearer <ADMIN_API_TOKEN>"
+  -H "x-admin-token: <ADMIN_API_TOKEN>"
 ```
 
-The import also runs automatically every day at 08:00 UTC via a Nitro scheduled task.
+In production, scheduled imports should be triggered from GitHub Actions by calling the same admin API endpoint.
 
 ## Key locations
 
@@ -59,7 +59,6 @@ The import also runs automatically every day at 08:00 UTC via a Nitro scheduled 
 | Composables | `app/app/composables/` |
 | API routes | `app/server/api/` |
 | Server utilities | `app/server/utils/` |
-| Scheduled tasks | `app/server/tasks/` |
 | DB schema | `database/schema.sql` |
 | Docs site | `docs/` |
 

@@ -4,8 +4,7 @@
 
 CREATE TABLE IF NOT EXISTS movies_index (
     tmdb_id        INTEGER PRIMARY KEY,
-    original_title TEXT,
-    popularity     REAL
+    original_title TEXT
 );
 
 -- =====================================================
@@ -71,9 +70,6 @@ CREATE TABLE IF NOT EXISTS movies_metadata (
 -- =====================================================
 -- INDEXES FOR PERFORMANCE
 -- =====================================================
-
-CREATE INDEX IF NOT EXISTS idx_movies_popularity
-ON movies_index(popularity DESC);
 
 CREATE INDEX IF NOT EXISTS idx_metadata_cached
 ON movies_metadata(cached_at);

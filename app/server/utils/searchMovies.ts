@@ -16,7 +16,7 @@ const SEARCH_SQL = `SELECT m.tmdb_id,
           FROM movies_fts f
           JOIN movies_index m ON m.tmdb_id = f.rowid
           WHERE movies_fts MATCH ?
-          ORDER BY title_match_bucket ASC, relevance_score ASC, m.popularity DESC
+          ORDER BY title_match_bucket ASC, relevance_score ASC
           LIMIT ?`
 
 export interface MovieSearchResult {
