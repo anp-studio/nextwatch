@@ -1,5 +1,3 @@
-// https://nuxt.com/docs/api/configuration/nuxt-config
-
 export default defineNuxtConfig({
   modules: [
     "@nuxt/content",
@@ -13,8 +11,23 @@ export default defineNuxtConfig({
   },
   mdc: {
     highlight: {
-      theme: "github-dark",
-      langs: ["js", "ts", "python"],
+      theme: {
+        default: "github-light",
+        dark: "github-dark",
+      },
+      langs: [
+        "js",
+        "ts",
+        "python",
+        "powershell",
+        "bash",
+        "json",
+        "yaml",
+        "html",
+        "css",
+        "vue",
+        "sql",
+      ],
     },
   },
 });
