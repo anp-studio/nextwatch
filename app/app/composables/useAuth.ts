@@ -111,6 +111,7 @@ export const useAuth = () => {
       clearWatchedMovies()
       clearMyList()
     } catch {
+      // Logout cleanup is local best-effort.
     }
   }
 
@@ -184,6 +185,7 @@ export const useAuth = () => {
 
       return { user: data }
     } catch {
+      // OAuth sign-in errors are surfaced by the caller through an undefined result.
     }
   }
 

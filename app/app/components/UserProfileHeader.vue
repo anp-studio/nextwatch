@@ -114,6 +114,7 @@ const saveName = async () => {
     user.value = data.user
     isEditingName.value = false
   } catch {
+    // Keep the editor open so the user can retry saving the name.
   } finally {
     isSavingName.value = false
   }

@@ -1,10 +1,16 @@
+import { createServiceSupabaseClient } from '../../utils/auth'
+import { IMAGE_BASE } from '../../utils/constants'
+import { fetchTmdb } from '../../utils/tmdb'
+
 interface TMDBMovieDetails {
   id: number
+  original_title?: string
   title: string
   poster_path: string | null
   backdrop_path: string | null
   vote_average: number
   vote_count: number
+  popularity?: number
   release_date: string
   overview: string
   runtime: number | null
@@ -24,6 +30,25 @@ interface TMDBMovieDetails {
   }
 }
 
+interface MovieRow {
+  tmdb_id: number
+  original_title: string
+  title: string
+  overview: string
+  poster_path: string
+  backdrop_path: string
+  release_date: string
+  trailer_key: string
+  runtime: number
+  vote_average: number
+  vote_count: number
+  popularity: number
+  genres: string[]
+  cast: string[]
+  directors: string[]
+  cached_at: string | null
+}
+
 interface MovieResponse {
   id: number
   title: string
@@ -40,100 +65,172 @@ interface MovieResponse {
 }
 
 const CACHE_TTL_MONTHS = 3
-const CACHE_TTL_SECONDS = CACHE_TTL_MONTHS * 30 * 24 * 60 * 60
+const DAYS_PER_MONTH = 30
+const HOURS_PER_DAY = 24
+const MINUTES_PER_HOUR = 60
+const SECONDS_PER_MINUTE = 60
+const MILLISECONDS_PER_SECOND = 1000
+const CACHE_TTL_MS =
+  CACHE_TTL_MONTHS *
+  DAYS_PER_MONTH *
+  HOURS_PER_DAY *
+  MINUTES_PER_HOUR *
+  SECONDS_PER_MINUTE *
+  MILLISECONDS_PER_SECOND
 const YOUTUBE_BASE = 'https://www.youtube.com/watch?v='
+const TOP_CAST_COUNT = 5
+const DEFAULT_VOTE_AVERAGE = 5
+const DIRECTOR_JOB = 'Director'
+const YOUTUBE_SITE = 'YouTube'
+const TRAILER_TYPE = 'Trailer'
+
+function isPositiveInteger(value: number): boolean {
+  return Number.isInteger(value) && value > 0
+}
+
+function parseYear(releaseDate: string): number {
+  return parseInt(releaseDate.split('-')[0] || '0', 10)
+}
+
+function formatDuration(runtime: number): string {
+  if (runtime <= 0) {
+    return 'N/A'
+  }
+
+  return `${Math.floor(runtime / MINUTES_PER_HOUR)}h ${runtime % MINUTES_PER_HOUR}m`
+}
+
+function isCacheStale(cachedAt: string | null): boolean {
+  if (!cachedAt) {
+    return true
+  }
+
+  const cachedTime = new Date(cachedAt).getTime()
+  if (!Number.isFinite(cachedTime)) {
+    return true
+  }
+
+  return cachedTime <= Date.now() - CACHE_TTL_MS
+}
+
+function isMovieRowComplete(row: MovieRow): boolean {
+  return (
+    row.title.trim().length > 0 &&
+    row.overview.trim().length > 0 &&
+    row.poster_path.trim().length > 0 &&
+    row.release_date.trim().length > 0 &&
+    row.runtime > 0 &&
+    row.genres.length > 0 &&
+    row.cast.length > 0 &&
+    row.directors.length > 0
+  )
+}
+
+function shouldRefreshMovie(row: MovieRow | null): boolean {
+  if (!row) {
+    return true
+  }
+
+  return isCacheStale(row.cached_at) || !isMovieRowComplete(row)
+}
+
+function pickTrailer(data: TMDBMovieDetails) {
+  return data.videos.results
+    .filter((video) => video.site === YOUTUBE_SITE && video.type === TRAILER_TYPE && video.official)
+    .sort((a, b) => b.published_at.localeCompare(a.published_at))[0]
+}
+
+function toMovieResponse(row: MovieRow): MovieResponse {
+  const trailerKey = row.trailer_key || null
+  const runtime = row.runtime > 0 ? row.runtime : null
+
+  return {
+    id: row.tmdb_id,
+    title: row.title,
+    poster: row.poster_path ? `${IMAGE_BASE}${row.poster_path}` : '',
+    rating: Math.round(row.vote_average * 10) / 10,
+    year: parseYear(row.release_date),
+    duration: runtime ? formatDuration(runtime) : 'N/A',
+    runtime,
+    genres: row.genres,
+    actors: row.cast,
+    directors: row.directors,
+    description: row.overview,
+    trailer: trailerKey ? `${YOUTUBE_BASE}${trailerKey}` : null,
+  }
+}
+
+function tmdbDetailsToRow(data: TMDBMovieDetails, cachedAt: string): MovieRow {
+  const trailer = pickTrailer(data)
+  const genres = data.genres.map((genre) => genre.name)
+  const cast = data.credits.cast.slice(0, TOP_CAST_COUNT).map((actor) => actor.name)
+  const directors = data.credits.crew
+    .filter((crewMember) => crewMember.job === DIRECTOR_JOB)
+    .map((crewMember) => crewMember.name)
+  const voteAverage = data.vote_average > 0 ? data.vote_average : DEFAULT_VOTE_AVERAGE
+
+  return {
+    tmdb_id: data.id,
+    original_title: data.original_title ?? data.title,
+    title: data.title,
+    overview: data.overview,
+    poster_path: data.poster_path ?? '',
+    backdrop_path: data.backdrop_path ?? '',
+    release_date: data.release_date,
+    trailer_key: trailer?.key ?? '',
+    runtime: data.runtime ?? 0,
+    vote_average: voteAverage,
+    vote_count: data.vote_count,
+    popularity: data.popularity ?? 0,
+    genres,
+    cast,
+    directors,
+    cached_at: cachedAt,
+  }
+}
+
+async function fetchCachedMovie(
+  event: Parameters<typeof createServiceSupabaseClient>[0],
+  id: number
+) {
+  const supabase = createServiceSupabaseClient(event)
+  const { data, error } = await supabase
+    .from('movies')
+    .select(
+      'tmdb_id, original_title, title, overview, poster_path, backdrop_path, release_date, trailer_key, runtime, vote_average, vote_count, popularity, genres, cast, directors, cached_at'
+    )
+    .eq('tmdb_id', id)
+    .maybeSingle()
+
+  if (error) {
+    throw createError({ statusCode: 500, statusMessage: error.message })
+  }
+
+  return { supabase, row: data as MovieRow | null }
+}
 
 export default defineEventHandler(async (event): Promise<MovieResponse> => {
   const id = parseInt(getRouterParam(event, 'id') ?? '', 10)
 
-  if (!Number.isInteger(id) || id <= 0) {
+  if (!isPositiveInteger(id)) {
     throw createError({ statusCode: 400, message: 'Invalid movie id' })
   }
 
-  const db = useDb()
-  const now = Math.floor(Date.now() / 1000)
-  const freshThreshold = now - CACHE_TTL_SECONDS
+  const { supabase, row } = await fetchCachedMovie(event, id)
 
-  const cached = await db.execute({
-    sql: 'SELECT * FROM movies_metadata WHERE tmdb_id = ? AND cached_at > ?',
-    args: [id, freshThreshold],
-  })
-
-  const [row] = cached.rows
-
-  if (row) {
-    const genres = row.genres ? (JSON.parse(row.genres as string) as string[]) : []
-    const actors = row.cast ? (JSON.parse(row.cast as string) as string[]) : []
-    const directors = row.directors ? (JSON.parse(row.directors as string) as string[]) : []
-    const trailerKey = row.trailer_key as string | null
-
-    return {
-      id: row.tmdb_id as number,
-      title: row.title as string,
-      poster: row.poster_path ? `${IMAGE_BASE}${row.poster_path as string}` : '',
-      rating: Math.round((row.vote_average as number) * 10) / 10,
-      year: parseInt(((row.release_date as string) ?? '').split('-')[0] || '0'),
-      duration: row.runtime
-        ? `${Math.floor((row.runtime as number) / 60)}h ${(row.runtime as number) % 60}m`
-        : 'N/A',
-      runtime: (row.runtime as number | null) ?? null,
-      genres,
-      actors,
-      directors,
-      description: (row.overview as string) ?? '',
-      trailer: trailerKey ? `${YOUTUBE_BASE}${trailerKey}` : null,
-    }
+  if (!shouldRefreshMovie(row) && row) {
+    return toMovieResponse(row)
   }
 
   const data = (await fetchTmdb(event, `/movie/${id}`, {
     append_to_response: 'credits,videos',
   })) as TMDBMovieDetails
+  const movieRow = tmdbDetailsToRow(data, new Date().toISOString())
+  const { error } = await supabase.from('movies').upsert(movieRow, { onConflict: 'tmdb_id' })
 
-  const trailer = data.videos.results
-    .filter((v) => v.site === 'YouTube' && v.type === 'Trailer' && v.official)
-    .sort((a, b) => b.published_at.localeCompare(a.published_at))[0]
-
-  const genres = data.genres.map((g) => g.name)
-  const actors = data.credits.cast.slice(0, 5).map((actor) => actor.name)
-  const directors = data.credits.crew.filter((c) => c.job === 'Director').map((c) => c.name)
-  const trailerKey = trailer?.key ?? null
-  const voteAverage = data.vote_average > 0 ? data.vote_average : 5
-
-  db.execute({
-    sql: `INSERT OR REPLACE INTO movies_metadata
-        (tmdb_id, title, overview, poster_path, backdrop_path, release_date, runtime,
-         vote_average, vote_count, genres, cast, directors, trailer_key, cached_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [
-      data.id,
-      data.title,
-      data.overview,
-      data.poster_path,
-      data.backdrop_path,
-      data.release_date,
-      data.runtime,
-      voteAverage,
-      data.vote_count,
-      JSON.stringify(genres),
-      JSON.stringify(actors),
-      JSON.stringify(directors),
-      trailerKey,
-      now,
-    ],
-  }).catch(() => {})
-
-  return {
-    id: data.id,
-    title: data.title,
-    poster: data.poster_path ? `${IMAGE_BASE}${data.poster_path}` : '',
-    rating: Math.round(voteAverage * 10) / 10,
-    year: parseInt(data.release_date?.split('-')[0] || '0'),
-    duration: data.runtime ? `${Math.floor(data.runtime / 60)}h ${data.runtime % 60}m` : 'N/A',
-    runtime: data.runtime ?? null,
-    genres,
-    actors,
-    directors,
-    description: data.overview,
-    trailer: trailerKey ? `${YOUTUBE_BASE}${trailerKey}` : null,
+  if (error) {
+    throw createError({ statusCode: 500, statusMessage: error.message })
   }
+
+  return toMovieResponse(movieRow)
 })

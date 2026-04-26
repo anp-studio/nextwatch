@@ -1,6 +1,6 @@
 import { getAuthorizedUser } from '../../utils/auth'
 
-interface MyListMovie {
+interface HydratedMovie {
   tmdbId: number
   title: string
   year: number
@@ -9,17 +9,121 @@ interface MyListMovie {
   runtime?: number | null
 }
 
-interface MyListBody {
-  movie?: Partial<MyListMovie>
+interface MovieRow {
+  tmdb_id: number
+  title: string
+  poster_path: string
+  release_date: string
+  runtime: number
+  genres: string[]
 }
 
-interface MyListPatchBody {
-  tmdbId?: number
-  genres?: string[]
-  runtime?: number | null
-  posterPath?: string
-  title?: string
-  year?: number
+const USER_MY_LIST_TABLE = 'user_my_list'
+const MOVIES_TABLE = 'movies'
+const APPEND_MY_LIST_RPC = 'append_my_list'
+const REMOVE_MY_LIST_RPC = 'remove_my_list'
+const SUPPORTED_METHODS = ['GET', 'POST', 'DELETE']
+
+function parseYear(releaseDate: string): number {
+  return parseInt(releaseDate.split('-')[0] || '0', 10)
+}
+
+// can send boyh tmdbId or full movie object with tmdbId property
+function extractTmdbId(body: unknown): number | null {
+  if (!body || typeof body !== 'object') {
+    return null
+  }
+
+  const record = body as Record<string, unknown>
+  if (typeof record.tmdbId === 'number') {
+    return record.tmdbId
+  }
+
+  if (!record.movie || typeof record.movie !== 'object') {
+    return null
+  }
+
+  const movie = record.movie as Record<string, unknown>
+  return typeof movie.tmdbId === 'number' ? movie.tmdbId : null
+}
+
+function validateTmdbId(tmdbId: number | null): number {
+  if (typeof tmdbId !== 'number' || !Number.isInteger(tmdbId) || tmdbId <= 0) {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid tmdbId' })
+  }
+
+  return tmdbId
+}
+
+function toHydratedMovie(row: MovieRow): HydratedMovie {
+  const movie: HydratedMovie = {
+    tmdbId: row.tmdb_id,
+    title: row.title,
+    year: parseYear(row.release_date),
+    posterPath: row.poster_path,
+  }
+
+  if (row.genres.length > 0) {
+    movie.genres = row.genres
+  }
+
+  if (row.runtime > 0) {
+    movie.runtime = row.runtime
+  }
+
+  return movie
+}
+
+async function hydrateMovies(
+  supabase: Awaited<ReturnType<typeof getAuthorizedUser>>['supabase'],
+  tmdbIds: number[]
+): Promise<HydratedMovie[]> {
+  if (tmdbIds.length === 0) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from(MOVIES_TABLE)
+    .select('tmdb_id, title, poster_path, release_date, runtime, genres')
+    .in('tmdb_id', tmdbIds)
+
+  if (error) {
+    throw createError({ statusCode: 500, statusMessage: error.message })
+  }
+
+  const rows = (data ?? []) as MovieRow[]
+  const rowById = new Map(rows.map((row) => [row.tmdb_id, row]))
+
+  return tmdbIds.map((tmdbId) => {
+    const row = rowById.get(tmdbId)
+
+    if (row) {
+      return toHydratedMovie(row)
+    }
+
+    return {
+      tmdbId,
+      title: '',
+      year: 0,
+      posterPath: '',
+    }
+  })
+}
+
+async function callMyListRpc(
+  supabase: Awaited<ReturnType<typeof getAuthorizedUser>>['supabase'],
+  name: string,
+  userId: string,
+  tmdbId: number
+) {
+  const { error } = await supabase.rpc(name, {
+    target_user_id: userId,
+    target_tmdb_id: tmdbId,
+  })
+
+  if (error) {
+    throw createError({ statusCode: 500, statusMessage: error.message })
+  }
 }
 
 export default defineEventHandler(async (event) => {
@@ -27,193 +131,47 @@ export default defineEventHandler(async (event) => {
   const { supabase, user } = await getAuthorizedUser(event)
 
   if (method === 'GET') {
-    const { data: existing, error: selectError } = await supabase
-      .from('my_list_movies')
-      .select('movies')
+    const { data, error } = await supabase
+      .from(USER_MY_LIST_TABLE)
+      .select('tmdb_ids')
       .eq('user_id', user.id)
       .limit(1)
       .maybeSingle()
 
-    if (selectError) {
-      throw createError({ statusCode: 500, statusMessage: selectError.message })
+    if (error) {
+      throw createError({ statusCode: 500, statusMessage: error.message })
     }
 
-    const myList = Array.isArray(existing?.movies) ? (existing.movies as MyListMovie[]) : []
+    const tmdbIds = Array.isArray(data?.tmdb_ids) ? (data.tmdb_ids as number[]) : []
 
     return {
       success: true,
-      movies: myList,
+      movies: await hydrateMovies(supabase, tmdbIds),
     }
   }
 
   if (method === 'POST') {
-    const body = await readBody<MyListBody>(event)
-    const movie = body.movie
-
-    if (
-      !movie ||
-      typeof movie.tmdbId !== 'number' ||
-      !movie.title ||
-      typeof movie.year !== 'number' ||
-      typeof movie.posterPath !== 'string'
-    ) {
-      throw createError({ statusCode: 400, statusMessage: 'Invalid movie payload' })
-    }
-
-    const { data: existing, error: selectError } = await supabase
-      .from('my_list_movies')
-      .select('movies')
-      .eq('user_id', user.id)
-      .limit(1)
-      .maybeSingle()
-
-    if (selectError) {
-      throw createError({ statusCode: 500, statusMessage: selectError.message })
-    }
-
-    const myList = Array.isArray(existing?.movies) ? (existing.movies as MyListMovie[]) : []
-
-    const alreadyInList = myList.some((listMovie) => listMovie.tmdbId === movie.tmdbId)
-
-    if (!alreadyInList) {
-      const entry: MyListMovie = {
-        tmdbId: movie.tmdbId,
-        title: movie.title,
-        year: movie.year,
-        posterPath: movie.posterPath,
-      }
-      if (Array.isArray(movie.genres) && movie.genres.length > 0) {
-        entry.genres = movie.genres
-      }
-      if (typeof movie.runtime === 'number') {
-        entry.runtime = movie.runtime
-      }
-      myList.push(entry)
-    }
-
-    const updatedAt = new Date().toISOString()
-
-    if (existing) {
-      const { error: updateError } = await supabase
-        .from('my_list_movies')
-        .update({
-          movies: myList,
-          updated_at: updatedAt,
-        })
-        .eq('user_id', user.id)
-
-      if (updateError) {
-        throw createError({ statusCode: 500, statusMessage: updateError.message })
-      }
-    } else {
-      const { error: insertError } = await supabase.from('my_list_movies').insert({
-        user_id: user.id,
-        movies: myList,
-        updated_at: updatedAt,
-      })
-
-      if (insertError) {
-        throw createError({ statusCode: 500, statusMessage: insertError.message })
-      }
-    }
+    const tmdbId = validateTmdbId(extractTmdbId(await readBody<unknown>(event)))
+    await callMyListRpc(supabase, APPEND_MY_LIST_RPC, user.id, tmdbId)
 
     return {
       success: true,
-      myListCount: myList.length,
+      myListCount: null,
     }
   }
 
   if (method === 'DELETE') {
-    const body = await readBody<{ tmdbId?: number }>(event)
-
-    if (typeof body.tmdbId !== 'number') {
-      throw createError({ statusCode: 400, statusMessage: 'Invalid tmdbId' })
-    }
-
-    const { data: existing, error: selectError } = await supabase
-      .from('my_list_movies')
-      .select('movies')
-      .eq('user_id', user.id)
-      .limit(1)
-      .maybeSingle()
-
-    if (selectError) {
-      throw createError({ statusCode: 500, statusMessage: selectError.message })
-    }
-
-    if (!existing) {
-      return {
-        success: true,
-        myListCount: 0,
-      }
-    }
-
-    const myList = Array.isArray(existing.movies) ? (existing.movies as MyListMovie[]) : []
-    const filtered = myList.filter((m) => m.tmdbId !== body.tmdbId)
-
-    const { error: updateError } = await supabase
-      .from('my_list_movies')
-      .update({
-        movies: filtered,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', user.id)
-
-    if (updateError) {
-      throw createError({ statusCode: 500, statusMessage: updateError.message })
-    }
+    const tmdbId = validateTmdbId(extractTmdbId(await readBody<unknown>(event)))
+    await callMyListRpc(supabase, REMOVE_MY_LIST_RPC, user.id, tmdbId)
 
     return {
       success: true,
-      myListCount: filtered.length,
+      myListCount: null,
     }
   }
 
-  if (method === 'PATCH') {
-    const body = await readBody<MyListPatchBody>(event)
-
-    if (typeof body.tmdbId !== 'number') {
-      throw createError({ statusCode: 400, statusMessage: 'Invalid tmdbId' })
-    }
-
-    const { data: existing, error: selectError } = await supabase
-      .from('my_list_movies')
-      .select('movies')
-      .eq('user_id', user.id)
-      .limit(1)
-      .maybeSingle()
-
-    if (selectError) {
-      throw createError({ statusCode: 500, statusMessage: selectError.message })
-    }
-
-    if (!existing) {
-      throw createError({ statusCode: 404, statusMessage: 'No list found' })
-    }
-
-    const myList = Array.isArray(existing.movies) ? (existing.movies as MyListMovie[]) : []
-    const updated = myList.map((m) => {
-      if (m.tmdbId !== body.tmdbId) return m
-      const patched = { ...m }
-      if (Array.isArray(body.genres)) patched.genres = body.genres
-      if (body.runtime !== undefined) patched.runtime = body.runtime
-      if (body.posterPath) patched.posterPath = body.posterPath
-      if (body.title) patched.title = body.title
-      if (typeof body.year === 'number') patched.year = body.year
-      return patched
-    })
-
-    const { error: updateError } = await supabase
-      .from('my_list_movies')
-      .update({ movies: updated, updated_at: new Date().toISOString() })
-      .eq('user_id', user.id)
-
-    if (updateError) {
-      throw createError({ statusCode: 500, statusMessage: updateError.message })
-    }
-
-    return { success: true }
-  }
-
-  throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed' })
+  throw createError({
+    statusCode: 405,
+    statusMessage: `Method must be one of: ${SUPPORTED_METHODS.join(', ')}`,
+  })
 })

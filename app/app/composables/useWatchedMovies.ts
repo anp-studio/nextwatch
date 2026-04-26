@@ -2,8 +2,8 @@ import type {
   WatchedMovie,
   PendingWatchedMovie,
   MoviePreview,
+  Movie,
 } from '~/types/movie'
-import { enrichAndPatchMovies } from '~/utils/enrichMovies'
 
 const PENDING_WATCHED_STORAGE_KEY = 'movie-recommender-pending-watched'
 
@@ -20,6 +20,44 @@ const isPendingWatchedMovie = (movie: unknown): movie is PendingWatchedMovie => 
     typeof pendingMovie.year === 'number' &&
     typeof pendingMovie.posterPath === 'string'
   )
+}
+
+const hasWatchedMovieDetails = (
+  movie: Pick<WatchedMovie, 'title' | 'year' | 'posterPath'> & {
+    genres?: string[]
+    runtime?: number | null
+  }
+) =>
+  movie.title.trim().length > 0 &&
+  movie.year > 0 &&
+  movie.posterPath.trim().length > 0 &&
+  Array.isArray(movie.genres) &&
+  movie.genres.length > 0 &&
+  movie.runtime !== undefined
+
+const applyDetailsToWatchedMovie = (movie: WatchedMovie, details: Movie) => {
+  movie.title = details.title
+  movie.year = details.year
+  movie.posterPath = posterPath(details.poster)
+  movie.genres = details.genres
+  movie.runtime = details.runtime
+}
+
+const hydrateMissingWatchedMovieDetails = async (movies: WatchedMovie[]) => {
+  const { getMovieDetails } = useMovieDetails()
+
+  for (const movie of movies) {
+    if (hasWatchedMovieDetails(movie)) {
+      continue
+    }
+
+    try {
+      const details = await getMovieDetails(movie.tmdbId)
+      applyDetailsToWatchedMovie(movie, details)
+    } catch {
+      // Cache warming is best-effort; list sync should still succeed.
+    }
+  }
 }
 
 export const useWatchedMovies = () => {
@@ -53,10 +91,9 @@ export const useWatchedMovies = () => {
       })
 
       watchedMovies.value = response.movies
-
-      const { getMovieDetails } = useMovieDetails()
-      await enrichAndPatchMovies(watchedMovies.value, token, '/api/watched', getMovieDetails)
+      await hydrateMissingWatchedMovieDetails(watchedMovies.value)
     } catch {
+      // Watched sync is best-effort; callers handle empty state.
     }
   }
 
@@ -90,35 +127,47 @@ export const useWatchedMovies = () => {
       }
 
       const path = posterPath(movie.poster)
+      let details: Movie | null = null
+
+      if (
+        !hasWatchedMovieDetails({
+          title: movie.title,
+          year: movie.year,
+          posterPath: path,
+          genres: movie.genres,
+          runtime: movie.runtime,
+        })
+      ) {
+        try {
+          const { getMovieDetails } = useMovieDetails()
+          details = await getMovieDetails(movie.id)
+        } catch {
+          // Cache warming is best-effort; adding watched should still use the ID.
+        }
+      }
 
       const alreadyInState = watchedMovies.value.some((s) => s.tmdbId === movie.id)
       if (!alreadyInState) {
         const entry: WatchedMovie = {
           tmdbId: movie.id,
-          title: movie.title,
-          year: movie.year,
-          posterPath: path,
+          title: details?.title ?? movie.title,
+          year: details?.year ?? movie.year,
+          posterPath: details ? posterPath(details.poster) : path,
         }
+        if (details?.genres.length) entry.genres = details.genres
+        if (details) entry.runtime = details.runtime
+        if (!details && movie.genres?.length) entry.genres = movie.genres
+        if (!details && typeof movie.runtime === 'number') entry.runtime = movie.runtime
         watchedMovies.value.push(entry)
       }
 
       try {
-        const body: Record<string, unknown> = {
-          movie: {
-            tmdbId: movie.id,
-            title: movie.title,
-            year: movie.year,
-            posterPath: path,
-            ...(movie.genres?.length ? { genres: movie.genres } : {}),
-            ...(typeof movie.runtime === 'number' ? { runtime: movie.runtime } : {}),
-          },
-        }
         await $fetch('/api/watched', {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
-          body,
+          body: { tmdbId: movie.id },
         })
       } catch {
         if (!alreadyInState) {
@@ -220,12 +269,7 @@ export const useWatchedMovies = () => {
               Authorization: `Bearer ${token}`,
             },
             body: {
-              movie: {
-                tmdbId: movie.id,
-                title: movie.title,
-                year: movie.year,
-                posterPath: movie.posterPath,
-              },
+              tmdbId: movie.id,
             },
           })
 
@@ -242,6 +286,7 @@ export const useWatchedMovies = () => {
           removePendingWatchedMovie(movie.id)
           processedCount++
         } catch {
+          // Keep processing the pending queue after a single failed insert.
         }
       }
 

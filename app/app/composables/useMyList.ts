@@ -1,10 +1,10 @@
 import type {
   MyListMovie,
+  Movie,
   MoviePreview,
   PendingMyListMovie,
   WatchedMovie,
 } from '~/types/movie'
-import { enrichAndPatchMovies } from '~/utils/enrichMovies'
 
 const PENDING_MY_LIST_STORAGE_KEY = 'movie-recommender-pending-my-list'
 
@@ -21,6 +21,44 @@ const isPendingMyListMovie = (movie: unknown): movie is PendingMyListMovie => {
     typeof pendingMovie.year === 'number' &&
     typeof pendingMovie.posterPath === 'string'
   )
+}
+
+const hasMyListMovieDetails = (
+  movie: Pick<MyListMovie, 'title' | 'year' | 'posterPath'> & {
+    genres?: string[]
+    runtime?: number | null
+  }
+) =>
+  movie.title.trim().length > 0 &&
+  movie.year > 0 &&
+  movie.posterPath.trim().length > 0 &&
+  Array.isArray(movie.genres) &&
+  movie.genres.length > 0 &&
+  movie.runtime !== undefined
+
+const applyDetailsToMyListMovie = (movie: MyListMovie, details: Movie) => {
+  movie.title = details.title
+  movie.year = details.year
+  movie.posterPath = posterPath(details.poster)
+  movie.genres = details.genres
+  movie.runtime = details.runtime
+}
+
+const hydrateMissingMyListMovieDetails = async (movies: MyListMovie[]) => {
+  const { getMovieDetails } = useMovieDetails()
+
+  for (const movie of movies) {
+    if (hasMyListMovieDetails(movie)) {
+      continue
+    }
+
+    try {
+      const details = await getMovieDetails(movie.tmdbId)
+      applyDetailsToMyListMovie(movie, details)
+    } catch {
+      // Cache warming is best-effort; list sync should still succeed.
+    }
+  }
 }
 
 export const useMyList = () => {
@@ -54,10 +92,9 @@ export const useMyList = () => {
       })
 
       myList.value = response.movies
-
-      const { getMovieDetails } = useMovieDetails()
-      await enrichAndPatchMovies(myList.value, token, '/api/mylist', getMovieDetails)
+      await hydrateMissingMyListMovieDetails(myList.value)
     } catch {
+      // My List sync is best-effort; callers handle empty state.
     }
   }
 
@@ -77,17 +114,37 @@ export const useMyList = () => {
       }
 
       const path = posterPath(movie.poster)
+      let details: Movie | null = null
+
+      if (
+        !hasMyListMovieDetails({
+          title: movie.title,
+          year: movie.year,
+          posterPath: path,
+          genres: movie.genres,
+          runtime: movie.runtime,
+        })
+      ) {
+        try {
+          const { getMovieDetails } = useMovieDetails()
+          details = await getMovieDetails(movie.id)
+        } catch {
+          // Cache warming is best-effort; adding to the list should still use the ID.
+        }
+      }
 
       const alreadyInState = myList.value.some((m) => m.tmdbId === movie.id)
       if (!alreadyInState) {
         const entry: MyListMovie = {
           tmdbId: movie.id,
-          title: movie.title,
-          year: movie.year,
-          posterPath: path,
+          title: details?.title ?? movie.title,
+          year: details?.year ?? movie.year,
+          posterPath: details ? posterPath(details.poster) : path,
         }
-        if (movie.genres?.length) entry.genres = movie.genres
-        if (typeof movie.runtime === 'number') entry.runtime = movie.runtime
+        if (details?.genres.length) entry.genres = details.genres
+        if (details) entry.runtime = details.runtime
+        if (!details && movie.genres?.length) entry.genres = movie.genres
+        if (!details && typeof movie.runtime === 'number') entry.runtime = movie.runtime
         myList.value.push(entry)
       }
 
@@ -98,14 +155,7 @@ export const useMyList = () => {
             Authorization: `Bearer ${session.access_token}`,
           },
           body: {
-            movie: {
-              tmdbId: movie.id,
-              title: movie.title,
-              year: movie.year,
-              posterPath: path,
-              ...(movie.genres?.length ? { genres: movie.genres } : {}),
-              ...(typeof movie.runtime === 'number' ? { runtime: movie.runtime } : {}),
-            },
+            tmdbId: movie.id,
           },
         })
       } catch {
@@ -215,14 +265,7 @@ export const useMyList = () => {
               Authorization: `Bearer ${token}`,
             },
             body: {
-              movie: {
-                tmdbId: movie.id,
-                title: movie.title,
-                year: movie.year,
-                posterPath: movie.posterPath,
-                ...(movie.genres?.length ? { genres: movie.genres } : {}),
-                ...(typeof movie.runtime === 'number' ? { runtime: movie.runtime } : {}),
-              },
+              tmdbId: movie.id,
             },
           })
 
@@ -241,6 +284,7 @@ export const useMyList = () => {
           removePendingMyListMovie(movie.id)
           processedCount++
         } catch {
+          // Keep processing the pending queue after a single failed insert.
         }
       }
 

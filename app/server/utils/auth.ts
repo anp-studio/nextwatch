@@ -38,3 +38,23 @@ export async function getAuthorizedUser(event: H3Event): Promise<AuthorizedUser>
 
   return { supabase, user }
 }
+
+export function createServiceSupabaseClient(event: H3Event): SupabaseClient {
+  const config = useRuntimeConfig(event)
+  const { supabaseUrl } = config.public
+  const serviceRoleKey = config.supabaseServiceRoleKey
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Supabase service role is not configured.',
+    })
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  })
+}
