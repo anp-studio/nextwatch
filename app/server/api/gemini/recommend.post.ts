@@ -7,6 +7,7 @@ import {
 } from '../../utils/recommendations'
 
 const MAX_WATCHED_FOR_PROMPT = 50
+const NON_PRODUCTION_NODE_ENV = 'production'
 
 interface RecommendBody {
   movies?: Array<{ id: number; title: string; year: number }>
@@ -57,5 +58,17 @@ export default defineEventHandler(async (event) => {
     event
   )
 
-  return { recommendations: recommendations.filter(hasValidTmdbId).map((movie) => movie.tmdbId) }
+  const validRecommendations = recommendations.filter(hasValidTmdbId)
+  const isDevelopmentMode =
+    import.meta.dev || process.env.NODE_ENV !== NON_PRODUCTION_NODE_ENV
+
+  return {
+    recommendations: isDevelopmentMode
+      ? validRecommendations.map(({ tmdbId, originalName, year }) => ({
+          tmdbId,
+          originalName,
+          year,
+        }))
+      : validRecommendations.map((movie) => movie.tmdbId),
+  }
 })

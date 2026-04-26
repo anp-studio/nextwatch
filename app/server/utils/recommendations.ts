@@ -1,6 +1,7 @@
 import { SchemaType } from '@google/generative-ai'
 import type { Schema } from '@google/generative-ai'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { searchMoviesBatch } from './searchMovies'
 
 export const WATCHED_MOVIES_TABLE = 'user_watched_movies'
 export const MY_LIST_TABLE = 'user_my_list'
@@ -93,10 +94,6 @@ export function isRecommendationArray(value: unknown): value is Recommendation[]
   )
 }
 
-function normalizeTitle(value: string): string {
-  return value.trim().toLowerCase()
-}
-
 function getSearchCandidates(recommendation: Recommendation): string[] {
   const candidates = [recommendation.originalName, recommendation.name]
     .map((title) => title.trim())
@@ -105,15 +102,12 @@ function getSearchCandidates(recommendation: Recommendation): string[] {
   return [...new Set(candidates)]
 }
 
-function pickBestMatchId(results: MovieSearchResult[], searchCandidates: string[]): number | null {
+function pickBestMatchId(results: MovieSearchResult[], recommendationYear: number): number | null {
   if (results.length === 0) return null
 
-  const normalizedCandidates = new Set(searchCandidates.map(normalizeTitle))
-  const exactTitleMatch = results.find((result) =>
-    normalizedCandidates.has(normalizeTitle(result.original_title))
-  )
+  const yearMatchedResult = results.find((result) => result.year === recommendationYear)
 
-  if (exactTitleMatch) return exactTitleMatch.tmdb_id
+  if (yearMatchedResult) return yearMatchedResult.tmdb_id
 
   const firstResult = results[0]
   if (!firstResult) return null
@@ -295,7 +289,7 @@ export async function appendTmdbIds(
 
     for (const candidate of candidates) {
       const results = searchMap.get(candidate) ?? []
-      const tmdbId = pickBestMatchId(results, candidates)
+      const tmdbId = pickBestMatchId(results, recommendation.year)
 
       if (tmdbId !== null) return { ...recommendation, tmdbId }
 
