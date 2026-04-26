@@ -59,8 +59,7 @@ export default defineEventHandler(async (event) => {
   )
 
   const validRecommendations = recommendations.filter(hasValidTmdbId)
-  const isDevelopmentMode =
-    import.meta.dev || process.env.NODE_ENV !== NON_PRODUCTION_NODE_ENV
+  const isDevelopmentMode = import.meta.dev || process.env.NODE_ENV !== NON_PRODUCTION_NODE_ENV
 
   return {
     recommendations: isDevelopmentMode

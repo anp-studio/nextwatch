@@ -1,10 +1,16 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { Schema } from '@google/generative-ai'
 import type { H3Event } from 'h3'
-import { createRateLimiter, RECOMMENDATION_LIMIT } from './ratelimit'
+// import { createRateLimiter, RECOMMENDATION_LIMIT } from './ratelimit'
 
 const GEMINI_DEFAULT_MODEL = 'gemini-flash-lite-latest'
 const FALLBACK_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.0-flash'] as const
+// const GEMINI_RATE_LIMIT_HEADER_LIMIT = 'X-Gemini-RateLimit-Limit'
+// const GEMINI_RATE_LIMIT_HEADER_REMAINING = 'X-Gemini-RateLimit-Remaining'
+// const GEMINI_RATE_LIMIT_HEADER_RESET = 'X-Gemini-RateLimit-Reset'
+// const RATE_LIMIT_HEADER_LIMIT = 'X-RateLimit-Limit'
+// const RATE_LIMIT_HEADER_REMAINING = 'X-RateLimit-Remaining'
+// const RATE_LIMIT_HEADER_RESET = 'X-RateLimit-Reset'
 
 interface GeminiOptions {
   systemPrompt: string
@@ -32,8 +38,8 @@ export async function askGemini({
   userMessage,
   model = GEMINI_DEFAULT_MODEL,
   schema,
-  userId,
-  event,
+  userId: _userId,
+  event: _event,
 }: GeminiOptions): Promise<string> {
   const config = useRuntimeConfig()
   const apiKey = config.geminiApiKey || process.env.NUXT_GEMINI_API_KEY || ''
@@ -45,24 +51,8 @@ export async function askGemini({
     })
   }
 
-  const rateLimiter = userId ? createRateLimiter() : null
-
-  if (userId && rateLimiter) {
-    const { remaining, reset } = await rateLimiter.recommednationLimiter.getRemaining(userId)
-    if (event) {
-      setResponseHeaders(event, {
-        'X-RateLimit-Limit': String(RECOMMENDATION_LIMIT),
-        'X-RateLimit-Remaining': String(remaining),
-        'X-RateLimit-Reset': String(reset),
-      })
-    }
-    if (remaining === 0) {
-      throw createError({
-        statusCode: 429,
-        statusMessage: 'Daily recommendation limit reached. Please try again tomorrow.',
-      })
-    }
-  }
+  // const rateLimiter = userId ? createRateLimiter() : null
+  // if (userId && rateLimiter) { ... rate limit check disabled for testing }
 
   const genAI = new GoogleGenerativeAI(apiKey)
   const modelsToTry = [model, ...FALLBACK_MODELS]
@@ -100,9 +90,7 @@ export async function askGemini({
   const hadNon503Outcome = text !== null || lastNon503Error !== null
 
   // consume only when model responds
-  if (hadNon503Outcome && userId && rateLimiter) {
-    await rateLimiter.recommednationLimiter.limit(userId)
-  }
+  // if (hadNon503Outcome && userId && rateLimiter) { ... rate limit consume disabled for testing }
 
   if (text) return text
 

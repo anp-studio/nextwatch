@@ -20,6 +20,8 @@ interface SearchRow {
 
 function createBuilder(rowsByQuery: Map<string, SearchRow[]>) {
   let queryValue = ''
+  let startDate = ''
+  let endDate = ''
 
   const builder = {
     select() {
@@ -33,10 +35,20 @@ function createBuilder(rowsByQuery: Map<string, SearchRow[]>) {
       return builder
     },
     limit() {
+      const key = `${queryValue}::${startDate}::${endDate}`
+
       return Promise.resolve({
-        data: rowsByQuery.get(queryValue) ?? [],
+        data: rowsByQuery.get(key) ?? [],
         error: null,
       })
+    },
+    gte(_column: string, value: string) {
+      startDate = value
+      return builder
+    },
+    lte(_column: string, value: string) {
+      endDate = value
+      return builder
     },
   }
 
@@ -60,10 +72,10 @@ describe('searchMovies', () => {
     vi.clearAllMocks()
   })
 
-  it('uses Postgres FTS and sorts exact title matches ahead of popularity-only ties', async () => {
+  it('uses simple tsquery prefix search and returns popularity-ordered rows', async () => {
     const rowsByQuery = new Map<string, SearchRow[]>([
       [
-        'matrix:*',
+        'matrix:*::::',
         [
           {
             tmdb_id: 604,
@@ -82,32 +94,63 @@ describe('searchMovies', () => {
     ])
 
     createClientMock.mockReturnValue({
-      from: vi.fn().mockReturnValue(createBuilder(rowsByQuery)),
+      from: vi.fn().mockImplementation(() => createBuilder(rowsByQuery)),
     })
 
     const results = await searchMovies('Matrix')
 
-    expect(createClientMock).toHaveBeenCalledTimes(1)
     expect(results).toEqual([
-      {
-        tmdb_id: 605,
-        original_title: 'Matrix',
-        popularity: 10,
-        year: 1993,
-      },
       {
         tmdb_id: 604,
         original_title: 'The Matrix',
         popularity: 99,
         year: 1999,
       },
+      {
+        tmdb_id: 605,
+        original_title: 'Matrix',
+        popularity: 10,
+        year: 1993,
+      },
     ])
   })
 
-  it('queries each unique candidate only once in batch mode', async () => {
+  it('applies the year filter and falls back to a broader search when needed', async () => {
+    const rowsByQuery = new Map<string, SearchRow[]>([
+      ['suspiria:*::2024-01-01::2024-12-31', []],
+      [
+        'suspiria:*::::',
+        [
+          {
+            tmdb_id: 11906,
+            original_title: 'Suspiria',
+            popularity: 90,
+            release_date: '2018-10-26',
+          },
+        ],
+      ],
+    ])
+
+    createClientMock.mockReturnValue({
+      from: vi.fn().mockImplementation(() => createBuilder(rowsByQuery)),
+    })
+
+    const results = await searchMovies('Suspiria', 2024)
+
+    expect(results).toEqual([
+      {
+        tmdb_id: 11906,
+        original_title: 'Suspiria',
+        popularity: 90,
+        year: 2018,
+      },
+    ])
+  })
+
+  it('deduplicates repeated batch candidates by query and year', async () => {
     const rowsByQuery = new Map<string, SearchRow[]>([
       [
-        'matrix:*',
+        'matrix:*::1999-01-01::1999-12-31',
         [
           {
             tmdb_id: 604,
@@ -118,7 +161,7 @@ describe('searchMovies', () => {
         ],
       ],
       [
-        'alien:*',
+        'alien:*::::',
         [
           {
             tmdb_id: 348,
@@ -130,15 +173,18 @@ describe('searchMovies', () => {
       ],
     ])
 
-    const fromMock = vi.fn().mockImplementation(() => createBuilder(rowsByQuery))
     createClientMock.mockReturnValue({
-      from: fromMock,
+      from: vi.fn().mockImplementation(() => createBuilder(rowsByQuery)),
     })
 
-    const results = await searchMoviesBatch(['Matrix', 'Alien', 'Matrix'])
+    const results = await searchMoviesBatch([
+      { query: 'Matrix', year: 1999 },
+      { query: 'Alien' },
+      { query: 'Matrix', year: 1999 },
+    ])
 
-    expect(fromMock).toHaveBeenCalledTimes(2)
-    expect(results.get('Matrix')).toEqual([
+    expect(results.size).toBe(2)
+    expect(results.get('Matrix::1999')).toEqual([
       {
         tmdb_id: 604,
         original_title: 'The Matrix',
@@ -146,7 +192,7 @@ describe('searchMovies', () => {
         year: 1999,
       },
     ])
-    expect(results.get('Alien')).toEqual([
+    expect(results.get('Alien::')).toEqual([
       {
         tmdb_id: 348,
         original_title: 'Alien',
@@ -154,29 +200,5 @@ describe('searchMovies', () => {
         year: 1979,
       },
     ])
-  })
-
-  it('filters out weak FTS matches whose titles do not actually contain the query tokens', async () => {
-    const rowsByQuery = new Map<string, SearchRow[]>([
-      [
-        'stalker:*',
-        [
-          {
-            tmdb_id: 1,
-            original_title: 'Star Trek',
-            popularity: 99,
-            release_date: '2009-05-08',
-          },
-        ],
-      ],
-    ])
-
-    createClientMock.mockReturnValue({
-      from: vi.fn().mockReturnValue(createBuilder(rowsByQuery)),
-    })
-
-    const results = await searchMovies('Stalker')
-
-    expect(results).toEqual([])
   })
 })

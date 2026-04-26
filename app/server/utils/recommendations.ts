@@ -2,6 +2,7 @@ import { SchemaType } from '@google/generative-ai'
 import type { Schema } from '@google/generative-ai'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { searchMoviesBatch } from './searchMovies'
+import { fetchTmdb } from './tmdb'
 
 export const WATCHED_MOVIES_TABLE = 'user_watched_movies'
 export const MY_LIST_TABLE = 'user_my_list'
@@ -14,15 +15,12 @@ const MAX_RECOMMENDATIONS = 20
 const SYSTEM_PROMPT = `You are a movie recommendation engine.
 Analyze the user's taste profile from their watch history: preferred genres, directors, eras, themes, and tone.
 
-Recommend exactly ${MAX_RECOMMENDATIONS} movies the user has NOT seen, following these strict rules:
-1. NEVER recommend any movie from the watched list — those are already seen.
-2. The "My List" watchlist contains movies the user is already aware of and intends to watch. Treat them as low-priority candidates:
-  - Only include a My List movie if it strongly fits the taste profile AND no comparable undiscovered alternative exists.
-  - At most 1 recommendation may come from My List.
-  - Always prefer recommending movies the user has NOT yet discovered over My List entries.
-3. Aim for variety across genres and release decades while staying true to the inferred taste profile.
-4. Return movie titles in their original release language and script exactly as TMDB original titles — do not transliterate, anglicize, or use localized variants (e.g. use ゴジラ-1.0 not Godzilla Minus One).
-5. Respond ONLY with a valid JSON array of exactly ${MAX_RECOMMENDATIONS} objects, each with keys "name", "originalName", and "year". No explanation, no markdown, no code fences. Example format:
+Recommend exactly ${MAX_RECOMMENDATIONS} movies, obeying these rules:
+1. HARD PROHIBITION — watched list: Never recommend any movie from the WATCHED list. Not even sequels, remakes, or alternate cuts of those exact titles. This constraint is absolute and overrides everything else. If you are unsure whether a movie is on the watched list, do not include it.
+2. WATCHLIST (My List): The user already knows about these movies and has deliberately saved them. Your default should be 0 recommendations from this list. Only include a My List movie when it is the single best possible match for the user's taste AND no comparable undiscovered film exists. Maximum: 1. Prefer 0.
+3. Aim for variety across genres and decades while staying true to the inferred taste profile.
+4. Return movie titles in their original release language and script exactly as TMDB original_title. Do not transliterate, anglicize, or use localized variants (e.g. ゴジラ-1.0 not Godzilla Minus One).
+5. Respond ONLY with a valid JSON array of exactly ${MAX_RECOMMENDATIONS} objects with keys "name", "originalName", and "year". No explanation, no markdown, no code fences. Example:
 [{"name": "ゴジラ-1.0", "originalName": "ゴジラ-1.0", "year": 2023}]`
 
 const RECOMMENDATION_SCHEMA: Schema = {
@@ -43,6 +41,20 @@ const RECOMMENDATION_SCHEMA: Schema = {
     required: ['name', 'originalName', 'year'],
   },
 }
+
+const EXACT_ORIGINAL_TITLE_PROMPT_SUFFIX = `
+Additional hard requirements:
+- "originalName" must be the exact TMDB "original_title" value, character-for-character, in the original release language and script.
+- Never translate, localize, anglicize, transliterate, simplify accents, or substitute an alternate marketing title in "originalName".
+- Set "name" to the same exact value as "originalName". Do not use an English alias there either.
+- Example: for The Fifth Element, use "Le Cinquième Élément" if that is the TMDB original title; do not output "The Fifth Element" as "name" or "originalName".`
+
+const POPULAR_MOVIE_PROMPT_SUFFIX = `
+Additional recommendation guidance:
+- Do not avoid popular movies, mainstream movies, franchise movies, blockbuster movies, or movies from large studios when they genuinely fit the user's taste.
+- If the watched history suggests the user likes Marvel, DC, Star Wars, Pixar, Disney, DreamWorks, major action franchises, or other studio-driven movies, include matches from those spaces when appropriate.
+- Do not force obscure, arthouse, indie, or low-profile picks just to seem more sophisticated or diverse.
+- Prefer the best taste match, whether it is a major studio release or a lesser-known movie.`
 
 export interface WatchedMovieRecord {
   tmdbId: number
@@ -68,6 +80,17 @@ interface MoviePromptRow {
 
 interface RecommendationMovieRow extends MoviePromptRow {
   original_title: string
+}
+
+interface TmdbSearchMovieResult {
+  id: number
+  original_title: string
+  title: string
+  release_date?: string
+}
+
+interface TmdbSearchResponse {
+  results?: TmdbSearchMovieResult[]
 }
 
 export function hasValidTmdbId(
@@ -102,17 +125,111 @@ function getSearchCandidates(recommendation: Recommendation): string[] {
   return [...new Set(candidates)]
 }
 
-function pickBestMatchId(results: MovieSearchResult[], recommendationYear: number): number | null {
+function normalizeTitleForComparison(title: string): string {
+  return title.trim().toLowerCase()
+}
+
+function pickBestMatchId(
+  candidates: string[],
+  results: MovieSearchResult[],
+  recommendationYear: number
+): number | null {
   if (results.length === 0) return null
 
-  const yearMatchedResult = results.find((result) => result.year === recommendationYear)
+  const normalizedCandidates = candidates.map(normalizeTitleForComparison)
 
-  if (yearMatchedResult) return yearMatchedResult.tmdb_id
+  const titleAndYearMatch = results.find(
+    (r) =>
+      r.year === recommendationYear &&
+      normalizedCandidates.some((c) => c === normalizeTitleForComparison(r.original_title))
+  )
+  if (titleAndYearMatch) return titleAndYearMatch.tmdb_id
 
-  const firstResult = results[0]
-  if (!firstResult) return null
+  // Accept title-only match to handle Gemini year discrepancies
+  const titleOnlyMatch = results.find((r) =>
+    normalizedCandidates.some((c) => c === normalizeTitleForComparison(r.original_title))
+  )
+  if (titleOnlyMatch) return titleOnlyMatch.tmdb_id
 
-  return firstResult.tmdb_id
+  return null
+}
+
+function pickBestTmdbSearchResult(
+  candidates: string[],
+  results: TmdbSearchMovieResult[],
+  recommendationYear: number
+): TmdbSearchMovieResult | null {
+  if (results.length === 0) {
+    return null
+  }
+
+  const normalizedCandidates = candidates.map(normalizeTitleForComparison)
+  const exactYearMatch = results.find((result) => {
+    const resultYear = parseYear(result.release_date ?? '')
+    const normalizedOriginalTitle = normalizeTitleForComparison(result.original_title)
+    const normalizedTitle = normalizeTitleForComparison(result.title)
+
+    return (
+      resultYear === recommendationYear &&
+      normalizedCandidates.some(
+        (candidate) => candidate === normalizedOriginalTitle || candidate === normalizedTitle
+      )
+    )
+  })
+
+  if (exactYearMatch) {
+    return exactYearMatch
+  }
+
+  const yearMatchedResult = results.find(
+    (result) => parseYear(result.release_date ?? '') === recommendationYear
+  )
+  if (yearMatchedResult) {
+    return yearMatchedResult
+  }
+
+  return results[0] ?? null
+}
+
+function isErrorWithStatusCode(error: unknown, statusCode: number): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'statusCode' in error &&
+    typeof (error as { statusCode?: unknown }).statusCode === 'number' &&
+    (error as { statusCode: number }).statusCode === statusCode
+  )
+}
+
+async function searchTmdbMovieId(
+  event: import('h3').H3Event,
+  recommendation: Recommendation
+): Promise<number | null> {
+  const candidates = getSearchCandidates(recommendation)
+
+  for (const candidate of candidates) {
+    try {
+      const payload = (await fetchTmdb(event, '/search/movie', {
+        query: candidate,
+        year: recommendation.year,
+      })) as TmdbSearchResponse
+      const bestMatch = pickBestTmdbSearchResult(
+        candidates,
+        payload.results ?? [],
+        recommendation.year
+      )
+
+      if (bestMatch) {
+        return bestMatch.id
+      }
+    } catch (error) {
+      if (isErrorWithStatusCode(error, 429)) {
+        return null
+      }
+    }
+  }
+
+  return null
 }
 
 function parseYear(releaseDate: string): number {
@@ -242,11 +359,14 @@ export function buildUserMessage(
     .join('\n')
 
   if (excludedMovies.length === 0) {
-    return `I have watched the following movies (DO NOT recommend these):
-            ${watchedList}
-            I have saved the following movies to my watchlist — I am already aware of them. Only recommend one of these if no better undiscovered alternative exists:
-            ${myListList}
-            Recommend ${MAX_RECOMMENDATIONS} movies I would enjoy that I have not yet seen.`
+    return `WATCHED (FORBIDDEN — do NOT recommend any of these):
+${watchedList}
+
+WATCHLIST — I already know about these; include at most 1 only if it is an exceptional taste match, otherwise skip all of them:
+${myListList}
+
+Recommend exactly ${MAX_RECOMMENDATIONS} movies I would enjoy that do not appear in either list above.
+Before outputting, verify that every recommended movie is absent from the WATCHED list.`
   }
 
   const excludedList = excludedMovies
@@ -257,49 +377,64 @@ export function buildUserMessage(
     })
     .join('\n')
 
-  return `I have watched the following movies (DO NOT recommend these — already seen):
-          ${watchedList}
+  return `WATCHED (FORBIDDEN — do NOT recommend any of these):
+${watchedList}
 
-          I have saved the following movies to my watchlist — I am already aware of them. Only recommend one of these if no better undiscovered alternative exists:
-          ${myListList}
+WATCHLIST — I already know about these; include at most 1 only if it is an exceptional taste match, otherwise skip all of them:
+${myListList}
 
-          The following movies were recently recommended to me. Do NOT include any of them again — this applies to alternate titles, sequel variants, punctuation variants, and localized title variants:
-          ${excludedList}
+RECENTLY RECOMMENDED — do NOT repeat any of these (includes alternate titles, sequel variants, and localized title variants):
+${excludedList}
 
-          Recommend exactly ${MAX_RECOMMENDATIONS} movies I would enjoy that appear in none of the above lists.`
+Recommend exactly ${MAX_RECOMMENDATIONS} movies I would enjoy that do not appear in any of the three lists above.
+Before outputting, verify that every recommended movie is absent from the WATCHED list.`
 }
 
 export async function appendTmdbIds(
-  recommendations: Recommendation[]
-): Promise<RecommendationWithId[]> {
+  recommendations: Recommendation[],
+  event?: import('h3').H3Event
+): Promise<{ recommendations: RecommendationWithId[]; tmdbFallbackCount: number }> {
   const limited = recommendations.slice(0, MAX_RECOMMENDATIONS)
 
-  const allCandidates = [...new Set(limited.flatMap(getSearchCandidates))]
+  const allCandidates = limited.flatMap((recommendation) =>
+    getSearchCandidates(recommendation).map((query) => ({
+      query,
+      year: recommendation.year,
+    }))
+  )
 
   let searchMap: Map<string, MovieSearchResult[]>
   try {
     searchMap = await searchMoviesBatch(allCandidates)
   } catch {
-    return limited.map((rec) => ({ ...rec, tmdbId: null }))
+    return { recommendations: limited.map((rec) => ({ ...rec, tmdbId: null })), tmdbFallbackCount: 0 }
   }
 
-  return limited.map((recommendation) => {
-    const candidates = getSearchCandidates(recommendation)
-    let fallbackId: number | null = null
+  let tmdbFallbackCount = 0
 
-    for (const candidate of candidates) {
-      const results = searchMap.get(candidate) ?? []
-      const tmdbId = pickBestMatchId(results, recommendation.year)
+  const results = await Promise.all(
+    limited.map(async (recommendation) => {
+      const candidates = getSearchCandidates(recommendation)
 
-      if (tmdbId !== null) return { ...recommendation, tmdbId }
-
-      if (fallbackId === null) {
-        fallbackId = results[0]?.tmdb_id ?? null
+      for (const candidate of candidates) {
+        const searchResults = searchMap.get(`${candidate}::${recommendation.year}`) ?? []
+        const tmdbId = pickBestMatchId(candidates, searchResults, recommendation.year)
+        if (tmdbId !== null) return { ...recommendation, tmdbId }
       }
-    }
 
-    return { ...recommendation, tmdbId: fallbackId }
-  })
+      if (!event) {
+        return { ...recommendation, tmdbId: null }
+      }
+
+      tmdbFallbackCount++
+      return {
+        ...recommendation,
+        tmdbId: await searchTmdbMovieId(event, recommendation),
+      }
+    })
+  )
+
+  return { recommendations: results, tmdbFallbackCount }
 }
 
 export async function getRecommendationsFromGemini(
@@ -308,10 +443,13 @@ export async function getRecommendationsFromGemini(
   userId?: string,
   event?: import('h3').H3Event,
   excludedMovies: RecommendationWithId[] = []
-): Promise<RecommendationWithId[]> {
+): Promise<{ recommendations: RecommendationWithId[]; tmdbFallbackCount: number; systemPrompt: string; userMessage: string }> {
+  const systemPrompt = `${SYSTEM_PROMPT}\n${EXACT_ORIGINAL_TITLE_PROMPT_SUFFIX}\n${POPULAR_MOVIE_PROMPT_SUFFIX}`
+  const userMessage = buildUserMessage(watchedMovies, myListMovies, excludedMovies)
+
   const raw = await askGemini({
-    systemPrompt: SYSTEM_PROMPT,
-    userMessage: buildUserMessage(watchedMovies, myListMovies, excludedMovies),
+    systemPrompt,
+    userMessage,
     schema: RECOMMENDATION_SCHEMA,
     userId,
     event,
@@ -334,5 +472,6 @@ export async function getRecommendationsFromGemini(
     })
   }
 
-  return appendTmdbIds(parsed)
+  const result = await appendTmdbIds(parsed, event)
+  return { ...result, systemPrompt, userMessage }
 }

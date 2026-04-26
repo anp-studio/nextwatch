@@ -38,6 +38,23 @@ vi.mock('../../../server/utils/recommendations', () => ({
   fetchMyListMovies: fetchMyListMoviesMock,
   fetchWatchedMovies: fetchWatchedMoviesMock,
   getRecommendationsFromGemini: getRecommendationsFromGeminiMock,
+  MIN_RECOMMENDATIONS_TO_CACHE: 5,
+  hydrateRecommendationsByTmdbIds: (supabase: unknown, tmdbIds: number[]) =>
+    Promise.resolve(
+      [
+        ...FRESH_CACHE_RECOMMENDATIONS,
+        ...GENERATED_RECOMMENDATIONS,
+        ...STALE_RECOMMENDATIONS,
+        ...INSUFFICIENT_VALID_RECOMMENDATIONS,
+      ]
+        .filter((recommendation) => recommendation.tmdbId !== null && tmdbIds.includes(recommendation.tmdbId))
+        .map((recommendation) => ({
+          name: recommendation.name,
+          originalName: recommendation.originalName,
+          year: recommendation.year,
+          tmdbId: recommendation.tmdbId,
+        }))
+    ),
   hasEnoughRecommendationsToCache: (recommendations: Array<{ tmdbId: number | null }>) =>
     recommendations.filter((recommendation) => recommendation.tmdbId !== null).length >= 5,
   hasValidTmdbId: (recommendation: { tmdbId: number | null }) => recommendation.tmdbId !== null,
@@ -57,8 +74,14 @@ interface MockCacheRow {
   expires_at: string
 }
 
+interface MockMovieRow {
+  tmdb_id: number
+  popularity: number
+}
+
 interface MockSupabaseState {
   cachedRow: MockCacheRow | null
+  movieRows: MockMovieRow[]
   selectError: { message: string } | null
   upsertError: { message: string } | null
   upsertPayload: {
@@ -79,13 +102,29 @@ function computeWatchedHash(movies: typeof WATCHED_MOVIES): string {
 
 function createMockSupabase(state: MockSupabaseState): SupabaseClient {
   return {
-    from() {
-      const builder = {
+    from(table: string) {
+      if (table === 'movies') {
+        const movieBuilder = {
+          select() {
+            return movieBuilder
+          },
+          async in(_column: string, tmdbIds: number[]) {
+            return {
+              data: state.movieRows.filter((row) => tmdbIds.includes(row.tmdb_id)),
+              error: null,
+            }
+          },
+        }
+
+        return movieBuilder
+      }
+
+      const recommendationBuilder = {
         select() {
-          return builder
+          return recommendationBuilder
         },
         eq() {
-          return builder
+          return recommendationBuilder
         },
         async maybeSingle() {
           if (state.selectError) {
@@ -115,7 +154,7 @@ function createMockSupabase(state: MockSupabaseState): SupabaseClient {
         },
       }
 
-      return builder
+      return recommendationBuilder
     },
   } as unknown as SupabaseClient
 }
@@ -162,6 +201,12 @@ describe('/api/recommend', () => {
 
     supabaseState = {
       cachedRow: null,
+      movieRows: [
+        ...recommendationIds(FRESH_CACHE_RECOMMENDATIONS),
+        ...recommendationIds(GENERATED_RECOMMENDATIONS),
+        ...recommendationIds(STALE_RECOMMENDATIONS),
+        ...recommendationIds(INSUFFICIENT_VALID_RECOMMENDATIONS),
+      ].map((tmdb_id) => ({ tmdb_id, popularity: 50 })),
       selectError: null,
       upsertError: null,
       upsertPayload: null,
@@ -197,7 +242,14 @@ describe('/api/recommend', () => {
     expect(body.cached).toBe(true)
     expect(body.regenerationError).toBeNull()
     expect(body.staleRecommendations).toBeNull()
-    expect(body.recommendations).toEqual(recommendationIds(FRESH_CACHE_RECOMMENDATIONS))
+    expect(body.unmatchedRecommendations).toBeNull()
+    expect(body.recommendations).toEqual(
+      FRESH_CACHE_RECOMMENDATIONS.map(({ tmdbId, originalName, year }) => ({
+        tmdbId,
+        originalName,
+        year,
+      }))
+    )
     expect(getRecommendationsFromGeminiMock).not.toHaveBeenCalled()
   })
 
@@ -215,11 +267,96 @@ describe('/api/recommend', () => {
     expect(body.cached).toBe(false)
     expect(body.regenerationError).toBeNull()
     expect(body.staleRecommendations).toBeNull()
-    expect(body.recommendations).toEqual(recommendationIds(GENERATED_RECOMMENDATIONS))
+    expect(body.unmatchedRecommendations).toEqual([])
+    expect(body.recommendations).toEqual(
+      GENERATED_RECOMMENDATIONS.map(({ tmdbId, originalName, year }) => ({
+        tmdbId,
+        originalName,
+        year,
+      }))
+    )
     expect(getRecommendationsFromGeminiMock).toHaveBeenCalledTimes(1)
     expect(supabaseState.upsertPayload?.tmdb_ids).toEqual(
       recommendationIds(GENERATED_RECOMMENDATIONS)
     )
+  })
+
+  it('deduplicates generated recommendations before returning and caching them', async () => {
+    getRecommendationsFromGeminiMock.mockResolvedValue([
+      GENERATED_RECOMMENDATIONS[0]!,
+      GENERATED_RECOMMENDATIONS[0]!,
+      GENERATED_RECOMMENDATIONS[1]!,
+      GENERATED_RECOMMENDATIONS[2]!,
+      GENERATED_RECOMMENDATIONS[3]!,
+      GENERATED_RECOMMENDATIONS[4]!,
+    ])
+
+    const response = await fetch(`${baseUrl}/api/recommend?refresh=true`)
+    const body = await readJson(response)
+
+    expect(response.status).toBe(200)
+    expect(body.recommendations).toEqual(
+      GENERATED_RECOMMENDATIONS.map(({ tmdbId, originalName, year }) => ({
+        tmdbId,
+        originalName,
+        year,
+      }))
+    )
+    expect(supabaseState.upsertPayload?.tmdb_ids).toEqual(
+      recommendationIds(GENERATED_RECOMMENDATIONS)
+    )
+  })
+
+  it('returns unmatched recommendations from Gemini when TMDB resolution fails', async () => {
+    getRecommendationsFromGeminiMock.mockResolvedValue([
+      ...cloneRecommendations(GENERATED_RECOMMENDATIONS),
+      {
+        name: 'Unknown Festival Cut',
+        originalName: 'Unknown Festival Cut',
+        year: 2024,
+        tmdbId: null,
+      },
+    ])
+
+    const response = await fetch(`${baseUrl}/api/recommend?refresh=true`)
+    const body = await readJson(response)
+
+    expect(response.status).toBe(200)
+    expect(body.recommendations).toEqual(
+      GENERATED_RECOMMENDATIONS.map(({ tmdbId, originalName, year }) => ({
+        tmdbId,
+        originalName,
+        year,
+      }))
+    )
+    expect(body.unmatchedRecommendations).toEqual([
+      {
+        name: 'Unknown Festival Cut',
+        originalName: 'Unknown Festival Cut',
+        year: 2024,
+      },
+    ])
+  })
+
+  it('returns resolved recommendations and stores the sanitized cache payload', async () => {
+    const extendedRecommendations = [
+      ...cloneRecommendations(GENERATED_RECOMMENDATIONS),
+      { ...STALE_RECOMMENDATIONS[0]! },
+    ]
+    const lowPopularityId = GENERATED_RECOMMENDATIONS[4]!.tmdbId
+    supabaseState.movieRows = supabaseState.movieRows.map((row) =>
+      row.tmdb_id === lowPopularityId ? { ...row, popularity: 1 } : row
+    )
+    getRecommendationsFromGeminiMock.mockResolvedValue(extendedRecommendations)
+
+    const response = await fetch(`${baseUrl}/api/recommend?refresh=true`)
+    const body = await readJson(response)
+
+    expect(response.status).toBe(200)
+    expect(Array.isArray(body.recommendations)).toBe(true)
+    expect((body.recommendations as Array<unknown>).length).toBeGreaterThanOrEqual(5)
+    expect(body.unmatchedRecommendations).toEqual([])
+    expect(supabaseState.upsertPayload?.tmdb_ids).toEqual(recommendationIds(extendedRecommendations))
   })
 
   it('returns stale recommendations with retryable regeneration metadata for 503 failures', async () => {
@@ -246,7 +383,14 @@ describe('/api/recommend', () => {
       statusMessage: 'Gemini is temporarily unavailable due to high demand.',
       retryable: true,
     })
-    expect(body.staleRecommendations).toEqual(recommendationIds(STALE_RECOMMENDATIONS))
+    expect(body.unmatchedRecommendations).toBeNull()
+    expect(body.staleRecommendations).toEqual(
+      STALE_RECOMMENDATIONS.map(({ tmdbId, originalName, year }) => ({
+        tmdbId,
+        originalName,
+        year,
+      }))
+    )
   })
 
   it('returns stale recommendations with non-retryable metadata for 429 failures', async () => {
@@ -271,7 +415,14 @@ describe('/api/recommend', () => {
       statusMessage: 'Daily recommendation limit reached. Please try again tomorrow.',
       retryable: false,
     })
-    expect(body.staleRecommendations).toEqual(recommendationIds(STALE_RECOMMENDATIONS))
+    expect(body.unmatchedRecommendations).toBeNull()
+    expect(body.staleRecommendations).toEqual(
+      STALE_RECOMMENDATIONS.map(({ tmdbId, originalName, year }) => ({
+        tmdbId,
+        originalName,
+        year,
+      }))
+    )
   })
 
   it('returns fallback metadata when regeneration results in too few valid recommendations', async () => {
@@ -294,7 +445,22 @@ describe('/api/recommend', () => {
       statusMessage: 'Recommendation generation returned too few valid TMDB matches.',
       retryable: false,
     })
-    expect(body.staleRecommendations).toEqual(recommendationIds(STALE_RECOMMENDATIONS))
+    expect(body.unmatchedRecommendations).toEqual(
+      INSUFFICIENT_VALID_RECOMMENDATIONS.filter(({ tmdbId }) => tmdbId === null).map(
+        ({ name, originalName, year }) => ({
+          name,
+          originalName,
+          year,
+        })
+      )
+    )
+    expect(body.staleRecommendations).toEqual(
+      STALE_RECOMMENDATIONS.map(({ tmdbId, originalName, year }) => ({
+        tmdbId,
+        originalName,
+        year,
+      }))
+    )
   })
 
   it('preserves the original error when regeneration fails without stored fallback', async () => {

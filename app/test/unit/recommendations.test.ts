@@ -9,6 +9,14 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: createClientMock,
 }))
 
+const { fetchTmdbMock } = vi.hoisted(() => ({
+  fetchTmdbMock: vi.fn(),
+}))
+
+vi.mock('../../server/utils/tmdb', () => ({
+  fetchTmdb: fetchTmdbMock,
+}))
+
 const { appendTmdbIds } = await import('../../server/utils/recommendations')
 
 interface SearchRow {
@@ -20,6 +28,8 @@ interface SearchRow {
 
 function createBuilder(rowsByQuery: Map<string, SearchRow[]>) {
   let queryValue = ''
+  let startDate = ''
+  let endDate = ''
 
   const builder = {
     select() {
@@ -34,9 +44,17 @@ function createBuilder(rowsByQuery: Map<string, SearchRow[]>) {
     },
     limit() {
       return Promise.resolve({
-        data: rowsByQuery.get(queryValue) ?? [],
+        data: rowsByQuery.get(`${queryValue}::${startDate}::${endDate}`) ?? [],
         error: null,
       })
+    },
+    gte(_column: string, value: string) {
+      startDate = value
+      return builder
+    },
+    lte(_column: string, value: string) {
+      endDate = value
+      return builder
     },
   }
 
@@ -62,23 +80,28 @@ describe('appendTmdbIds', () => {
 
   it('prefers a result whose cached year matches the Gemini recommendation year', async () => {
     createClientMock.mockReturnValue({
-      from: vi.fn().mockReturnValue(
+      from: vi.fn().mockImplementation(() =>
         createBuilder(
           new Map([
             [
-              'suspiria:*',
+              'suspiria:*::1977-01-01::1977-12-31',
+              [
+                {
+                  tmdb_id: 11907,
+                  original_title: 'Suspiria',
+                  popularity: 80,
+                  release_date: '1977-02-01',
+                },
+              ],
+            ],
+            [
+              'suspiria:*::::',
               [
                 {
                   tmdb_id: 11906,
                   original_title: 'Suspiria',
                   popularity: 90,
                   release_date: '2018-10-26',
-                },
-                {
-                  tmdb_id: 11907,
-                  original_title: 'Suspiria',
-                  popularity: 80,
-                  release_date: '1977-02-01',
                 },
               ],
             ],
@@ -98,11 +121,15 @@ describe('appendTmdbIds', () => {
 
   it('falls back to the top result when no cached year matches', async () => {
     createClientMock.mockReturnValue({
-      from: vi.fn().mockReturnValue(
+      from: vi.fn().mockImplementation(() =>
         createBuilder(
           new Map([
             [
-              'suspiria:*',
+              'suspiria:*::2024-01-01::2024-12-31',
+              [],
+            ],
+            [
+              'suspiria:*::::',
               [
                 {
                   tmdb_id: 11906,
@@ -132,22 +159,13 @@ describe('appendTmdbIds', () => {
     ])
   })
 
-  it('returns null when search only finds a weak unrelated FTS match', async () => {
+  it('returns null when Supabase search does not find a match and no event is provided', async () => {
     createClientMock.mockReturnValue({
-      from: vi.fn().mockReturnValue(
+      from: vi.fn().mockImplementation(() =>
         createBuilder(
           new Map([
-            [
-              'stalker:*',
-              [
-                {
-                  tmdb_id: 77,
-                  original_title: 'Star Trek',
-                  popularity: 90,
-                  release_date: '2009-05-08',
-                },
-              ],
-            ],
+            ['stalker:*::1979-01-01::1979-12-31', []],
+            ['stalker:*::::', []],
           ])
         )
       ),
@@ -160,5 +178,57 @@ describe('appendTmdbIds', () => {
     expect(results).toEqual([
       { name: 'Stalker', originalName: 'Stalker', year: 1979, tmdbId: null },
     ])
+  })
+
+  it('falls back to TMDB search with year when Supabase search misses a movie', async () => {
+    createClientMock.mockReturnValue({
+      from: vi.fn().mockImplementation(() =>
+        createBuilder(
+          new Map([
+            ['edge:* & of:* & tomorrow:*::2014-01-01::2014-12-31', []],
+            ['edge:* & of:* & tomorrow:*::::', []],
+          ])
+        )
+      ),
+    })
+    fetchTmdbMock.mockResolvedValue({
+      results: [
+        {
+          id: 137113,
+          original_title: 'Edge of Tomorrow',
+          title: 'Edge of Tomorrow',
+          release_date: '2014-05-27',
+        },
+      ],
+    })
+
+    const results = await appendTmdbIds(
+      [{ name: 'Edge of Tomorrow', originalName: 'Edge of Tomorrow', year: 2014 }],
+      {} as import('h3').H3Event
+    )
+
+    expect(results).toEqual([
+      { name: 'Edge of Tomorrow', originalName: 'Edge of Tomorrow', year: 2014, tmdbId: 137113 },
+    ])
+    expect(fetchTmdbMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('skips a TMDB fallback movie when the TMDB rate limit is reached', async () => {
+    createClientMock.mockReturnValue({
+      from: vi.fn().mockImplementation(() =>
+        createBuilder(new Map([['stalker:*::1979-01-01::1979-12-31', []], ['stalker:*::::', []]]))
+      ),
+    })
+    fetchTmdbMock.mockRejectedValue(createError({ statusCode: 429, statusMessage: 'Rate limited' }))
+
+    const results = await appendTmdbIds(
+      [{ name: 'Stalker', originalName: 'Stalker', year: 1979 }],
+      {} as import('h3').H3Event
+    )
+
+    expect(results).toEqual([
+      { name: 'Stalker', originalName: 'Stalker', year: 1979, tmdbId: null },
+    ])
+    expect(fetchTmdbMock).toHaveBeenCalledTimes(1)
   })
 })
