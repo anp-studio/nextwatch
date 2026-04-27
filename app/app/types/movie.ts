@@ -47,17 +47,6 @@ export interface TMDBVideo {
   published_at: string
 }
 
-export interface TMDBPopularResponse {
-  page: number
-  results: TMDBMovie[]
-  total_pages: number
-  total_results: number
-}
-
-export interface TMDBGenreListResponse {
-  genres: TMDBGenre[]
-}
-
 export interface Movie {
   id: number
   title: string

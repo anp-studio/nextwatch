@@ -83,6 +83,7 @@ const DEFAULT_VOTE_AVERAGE = 5
 const DIRECTOR_JOB = 'Director'
 const YOUTUBE_SITE = 'YouTube'
 const TRAILER_TYPE = 'Trailer'
+const MOVIE_ID_PATTERN = /^\d+$/
 
 function isPositiveInteger(value: number): boolean {
   return Number.isInteger(value) && value > 0
@@ -210,7 +211,12 @@ async function fetchCachedMovie(
 }
 
 export default defineEventHandler(async (event): Promise<MovieResponse> => {
-  const id = parseInt(getRouterParam(event, 'id') ?? '', 10)
+  const rawId = getRouterParam(event, 'id') ?? ''
+  if (!MOVIE_ID_PATTERN.test(rawId)) {
+    throw createError({ statusCode: 400, message: 'Invalid movie id' })
+  }
+
+  const id = Number(rawId)
 
   if (!isPositiveInteger(id)) {
     throw createError({ statusCode: 400, message: 'Invalid movie id' })

@@ -1,11 +1,4 @@
-import type {
-  Movie,
-  MoviePreview,
-  TMDBMovie,
-  TMDBPopularResponse,
-  TMDBGenreListResponse,
-  TMDBGenre,
-} from '~/types/movie'
+import type { Movie } from '~/types/movie'
 import { IMAGE_BASE } from '~/constants'
 const TMDB_ERROR_MESSAGE = 'TMDB data is unavailable right now. Check NUXT_TMDB_API_KEY.'
 
@@ -25,37 +18,9 @@ export const useMovieDetails = () => {
     }
   }
 
-  const getPopularMovies = async (): Promise<MoviePreview[]> => {
-    try {
-      const [moviesData, genresData] = await Promise.all([
-        $fetch<TMDBPopularResponse>('/api/tmdb/movie/popular', { params: { page: 1 } }),
-        $fetch<TMDBGenreListResponse>('/api/tmdb/genre/movie/list'),
-      ])
-
-      const genreMap = new Map<number, string>(
-        genresData.genres.map((g: TMDBGenre) => [g.id, g.name]),
-      )
-
-      return moviesData.results
-        .map((movie: TMDBMovie) => ({
-          id: movie.id,
-          title: movie.title,
-          poster: movie.poster_path ? `${IMAGE_BASE}${movie.poster_path}` : '',
-          rating: Math.round(movie.vote_average * 10) / 10,
-          year: parseInt(movie.release_date?.split('-')[0] || '0'),
-          genres: movie.genre_ids.map((id) => genreMap.get(id) || 'Unknown').slice(0, 3),
-          description: movie.overview,
-        }))
-        .slice(0, 20)
-    } catch {
-      throw new Error(TMDB_ERROR_MESSAGE)
-    }
-  }
-
   return {
     IMAGE_BASE,
     getMovieDetails,
-    getPopularMovies,
     movieCache,
   }
 }

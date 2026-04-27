@@ -11,7 +11,9 @@ const TMDB_RATE_LIMIT_HEADER_REMAINING = 'X-TMDB-RateLimit-Remaining'
 const TMDB_RATE_LIMIT_HEADER_RESET = 'X-TMDB-RateLimit-Reset'
 const PROTOCOL_RELATIVE_PREFIX = '//'
 const ABSOLUTE_URL_PATTERN = /^[a-zA-Z][a-zA-Z\d+\-.]*:/
-const ALLOWED_TMDB_PATH_PREFIXES = ['movie/', 'search/', 'genre/'] as const
+const SEARCH_MOVIE_PATH = 'search/movie'
+const MOVIE_PATH_SEGMENT = 'movie'
+const NUMERIC_SEGMENT_PATTERN = /^\d+$/
 
 type TmdbQuery = Record<string, string | string[] | number | undefined>
 
@@ -59,7 +61,16 @@ function buildTmdbUrl(path: string): string {
   }
 
   const tmdbPath = url.pathname.slice(3) // remove the '/3/' prefix
-  const isAllowedPath = ALLOWED_TMDB_PATH_PREFIXES.some((prefix) => tmdbPath.startsWith(prefix))
+  // check if the path is either the search/movie endpoint or a movie/{id} endpoint with a numeric id
+  const pathSegments = tmdbPath.split('/')
+  const movieIdSegment = pathSegments[1]
+  const isSearchMoviePath = tmdbPath === SEARCH_MOVIE_PATH
+  const isMovieByIdPath =
+    pathSegments.length === 2 &&
+    pathSegments[0] === MOVIE_PATH_SEGMENT &&
+    typeof movieIdSegment === 'string' &&
+    NUMERIC_SEGMENT_PATTERN.test(movieIdSegment)
+  const isAllowedPath = isSearchMoviePath || isMovieByIdPath
 
   if (!isAllowedPath) {
     throw createError({
