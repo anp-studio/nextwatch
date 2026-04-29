@@ -11,6 +11,8 @@ import {
   MIN_RECOMMENDATIONS_TO_CACHE,
 } from '../utils/recommendations'
 import type { RecommendationWithId, WatchedMovieRecord } from '../utils/recommendations'
+import { acquireRecommendationLock, releaseRecommendationLock } from '../utils/recommendation-lock'
+import { createRedisClient } from '../utils/redis'
 
 const RECOMMENDATIONS_TABLE = 'recommendations'
 const MOVIES_TABLE = 'movies'
@@ -376,91 +378,105 @@ export default defineEventHandler(async (event) => {
   const isGetNew = isQueryFlagEnabled(getNew)
   const isRefresh = !isGetNew && isQueryFlagEnabled(refresh)
 
-  const watchedMovies = await fetchWatchedMovies(supabase, user.id)
-  let excludedMovies: RecommendationWithId[] = []
+  const redis = createRedisClient()
+  const lock = await acquireRecommendationLock(redis, user.id)
 
-  if (watchedMovies.length === 0) {
+  if (!lock) {
     throw createError({
-      statusCode: 400,
-      statusMessage: 'No watched movies found. Watch some movies first.',
+      statusCode: 409,
+      statusMessage: 'Recommendation request already in progress.',
     })
   }
 
-  const watchedHash = computeWatchedHash(watchedMovies)
-  const cacheState = await getRecommendationCacheState(supabase, user.id, watchedHash)
-
-  if (!isGetNew && !isRefresh && cacheState.freshRecommendationIds) {
-    return buildSuccessResponse(supabase, cacheState.freshRecommendationIds, true)
-  }
-
-  const myListMovies = await fetchMyListMovies(supabase, user.id)
-
-  if (isGetNew) {
-    excludedMovies = cacheState.storedRecommendationIds.map((tmdbId) => ({
-      name: '',
-      originalName: '',
-      year: 0,
-      tmdbId,
-    }))
-  }
-
-  let recommendations: RecommendationWithId[]
-  let unmatchedRecommendations: UnmatchedRecommendationDebugItem[] | null = null
-  let tmdbFallbackCount = 0
-  let geminiSystemPrompt = ''
-  let geminiUserMessage = ''
   try {
-    const geminiResult = await getRecommendationsFromGemini(
-      watchedMovies,
-      myListMovies,
-      user.id,
-      event,
-      excludedMovies
-    )
-    const generatedRecommendations = geminiResult.recommendations
-    tmdbFallbackCount = geminiResult.tmdbFallbackCount
-    geminiSystemPrompt = geminiResult.systemPrompt
-    geminiUserMessage = geminiResult.userMessage
-    unmatchedRecommendations = toUnmatchedRecommendationDebugItems(generatedRecommendations)
+    const watchedMovies = await fetchWatchedMovies(supabase, user.id)
+    let excludedMovies: RecommendationWithId[] = []
 
-    recommendations = await sanitizeRecommendations(supabase, generatedRecommendations)
-
-    if (
-      recommendations.length < MIN_RECOMMENDATIONS_TO_CACHE ||
-      !hasEnoughRecommendationsToCache(recommendations)
-    ) {
-      throw createInsufficientRecommendationsError()
-    }
-  } catch (error) {
-    if (cacheState.storedRecommendationIds.length === 0) {
-      throw error
+    if (watchedMovies.length === 0) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'No watched movies found. Watch some movies first.',
+      })
     }
 
-    return buildFailureResponse(
-      supabase,
-      normalizeRegenerationError(error),
-      cacheState.storedRecommendationIds,
-      unmatchedRecommendations
-    )
+    const watchedHash = computeWatchedHash(watchedMovies)
+    const cacheState = await getRecommendationCacheState(supabase, user.id, watchedHash)
+
+    if (!isGetNew && !isRefresh && cacheState.freshRecommendationIds) {
+      return buildSuccessResponse(supabase, cacheState.freshRecommendationIds, true)
+    }
+
+    const myListMovies = await fetchMyListMovies(supabase, user.id)
+
+    if (isGetNew) {
+      excludedMovies = cacheState.storedRecommendationIds.map((tmdbId) => ({
+        name: '',
+        originalName: '',
+        year: 0,
+        tmdbId,
+      }))
+    }
+
+    let recommendations: RecommendationWithId[]
+    let unmatchedRecommendations: UnmatchedRecommendationDebugItem[] | null = null
+    let tmdbFallbackCount = 0
+    let geminiSystemPrompt = ''
+    let geminiUserMessage = ''
+    try {
+      const geminiResult = await getRecommendationsFromGemini(
+        watchedMovies,
+        myListMovies,
+        user.id,
+        event,
+        excludedMovies
+      )
+      const generatedRecommendations = geminiResult.recommendations
+      tmdbFallbackCount = geminiResult.tmdbFallbackCount
+      geminiSystemPrompt = geminiResult.systemPrompt
+      geminiUserMessage = geminiResult.userMessage
+      unmatchedRecommendations = toUnmatchedRecommendationDebugItems(generatedRecommendations)
+
+      recommendations = await sanitizeRecommendations(supabase, generatedRecommendations)
+
+      if (
+        recommendations.length < MIN_RECOMMENDATIONS_TO_CACHE ||
+        !hasEnoughRecommendationsToCache(recommendations)
+      ) {
+        throw createInsufficientRecommendationsError()
+      }
+    } catch (error) {
+      if (cacheState.storedRecommendationIds.length === 0) {
+        throw error
+      }
+
+      return buildFailureResponse(
+        supabase,
+        normalizeRegenerationError(error),
+        cacheState.storedRecommendationIds,
+        unmatchedRecommendations
+      )
+    }
+
+    await storeCachedRecommendations(supabase, user.id, recommendations, watchedHash)
+
+    if (isDevelopmentMode()) {
+      return {
+        recommendations: toRecommendationDebugItems(recommendations),
+        cached: false,
+        stale: false,
+        regenerationError: null,
+        staleRecommendations: null,
+        unmatchedRecommendations,
+        tmdbFallbackCount,
+        geminiPrompt: {
+          system: geminiSystemPrompt,
+          user: geminiUserMessage,
+        },
+      }
+    }
+
+    return buildSuccessResponse(supabase, toRecommendationIds(recommendations), false)
+  } finally {
+    await releaseRecommendationLock(redis, lock)
   }
-
-  await storeCachedRecommendations(supabase, user.id, recommendations, watchedHash)
-
-  if (isDevelopmentMode()) {
-    return {
-      recommendations: toRecommendationDebugItems(recommendations),
-      cached: false,
-      stale: false,
-      regenerationError: null,
-      staleRecommendations: null,
-      unmatchedRecommendations,
-      tmdbFallbackCount,
-      geminiPrompt: {
-        system: geminiSystemPrompt,
-        user: geminiUserMessage,
-      },
-    }
-  }
-
-  return buildSuccessResponse(supabase, toRecommendationIds(recommendations), false)
 })

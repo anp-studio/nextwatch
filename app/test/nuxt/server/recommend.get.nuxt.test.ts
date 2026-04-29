@@ -23,11 +23,15 @@ const {
   fetchWatchedMoviesMock,
   getAuthorizedUserMock,
   getRecommendationsFromGeminiMock,
+  acquireRecommendationLockMock,
+  releaseRecommendationLockMock,
 } = vi.hoisted(() => ({
   fetchMyListMoviesMock: vi.fn(),
   fetchWatchedMoviesMock: vi.fn(),
   getAuthorizedUserMock: vi.fn(),
   getRecommendationsFromGeminiMock: vi.fn(),
+  acquireRecommendationLockMock: vi.fn(),
+  releaseRecommendationLockMock: vi.fn(),
 }))
 
 vi.mock('../../../server/utils/auth', () => ({
@@ -58,6 +62,15 @@ vi.mock('../../../server/utils/recommendations', () => ({
   hasEnoughRecommendationsToCache: (recommendations: Array<{ tmdbId: number | null }>) =>
     recommendations.filter((recommendation) => recommendation.tmdbId !== null).length >= 5,
   hasValidTmdbId: (recommendation: { tmdbId: number | null }) => recommendation.tmdbId !== null,
+}))
+
+vi.mock('../../../server/utils/recommendation-lock', () => ({
+  acquireRecommendationLock: acquireRecommendationLockMock,
+  releaseRecommendationLock: releaseRecommendationLockMock,
+}))
+
+vi.mock('../../../server/utils/redis', () => ({
+  createRedisClient: () => ({}),
 }))
 
 Object.assign(globalThis, {
@@ -216,6 +229,11 @@ describe('/api/recommend', () => {
       supabase: createMockSupabase(supabaseState),
       user: { id: TEST_USER_ID },
     })
+    acquireRecommendationLockMock.mockResolvedValue({
+      key: `recommendation-lock:${TEST_USER_ID}`,
+      value: 'lock-token',
+    })
+    releaseRecommendationLockMock.mockResolvedValue(true)
     fetchWatchedMoviesMock.mockResolvedValue(cloneWatchedMovies(WATCHED_MOVIES))
     fetchMyListMoviesMock.mockResolvedValue(cloneWatchedMovies(MY_LIST_MOVIES))
     getRecommendationsFromGeminiMock.mockResolvedValue({

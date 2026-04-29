@@ -1,16 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { Schema } from '@google/generative-ai'
 import type { H3Event } from 'h3'
-// import { createRateLimiter, RECOMMENDATION_LIMIT } from './ratelimit'
+import { createRateLimiter, RECOMMENDATION_LIMIT } from './ratelimit'
 
 const GEMINI_DEFAULT_MODEL = 'gemini-flash-lite-latest'
 const FALLBACK_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.0-flash'] as const
-// const GEMINI_RATE_LIMIT_HEADER_LIMIT = 'X-Gemini-RateLimit-Limit'
-// const GEMINI_RATE_LIMIT_HEADER_REMAINING = 'X-Gemini-RateLimit-Remaining'
-// const GEMINI_RATE_LIMIT_HEADER_RESET = 'X-Gemini-RateLimit-Reset'
-// const RATE_LIMIT_HEADER_LIMIT = 'X-RateLimit-Limit'
-// const RATE_LIMIT_HEADER_REMAINING = 'X-RateLimit-Remaining'
-// const RATE_LIMIT_HEADER_RESET = 'X-RateLimit-Reset'
 
 interface GeminiOptions {
   systemPrompt: string
@@ -21,16 +15,30 @@ interface GeminiOptions {
   event?: H3Event
 }
 
-function is503(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-  const e = error as Record<string, unknown>
-  if (e.statusCode === 503 || e.status === 503 || e.httpErrorCode === 503) return true
-  const msg = String(e.message ?? '').toLowerCase()
-  return msg.includes('503') || msg.includes('service unavailable') || msg.includes('overloaded')
-}
-
 function isH3Error(error: unknown): error is { statusCode: number; statusMessage?: string } {
   return !!error && typeof error === 'object' && 'statusCode' in (error as object)
+}
+
+function getErrorStatusCode(error: unknown): number | null {
+  if (!error || typeof error !== 'object') return null
+
+  const statusCodeCandidates = [
+    (error as { statusCode?: unknown }).statusCode,
+    (error as { status?: unknown }).status,
+    (error as { httpErrorCode?: unknown }).httpErrorCode,
+  ]
+
+  for (const statusCodeCandidate of statusCodeCandidates) {
+    if (
+      typeof statusCodeCandidate === 'number' &&
+      statusCodeCandidate >= 100 &&
+      statusCodeCandidate <= 599
+    ) {
+      return statusCodeCandidate
+    }
+  }
+
+  return null
 }
 
 export async function askGemini({
@@ -38,8 +46,8 @@ export async function askGemini({
   userMessage,
   model = GEMINI_DEFAULT_MODEL,
   schema,
-  userId: _userId,
-  event: _event,
+  userId,
+  event,
 }: GeminiOptions): Promise<string> {
   const config = useRuntimeConfig()
   const apiKey = config.geminiApiKey || process.env.NUXT_GEMINI_API_KEY || ''
@@ -51,13 +59,29 @@ export async function askGemini({
     })
   }
 
-  // const rateLimiter = userId ? createRateLimiter() : null
-  // if (userId && rateLimiter) { ... rate limit check disabled for testing }
+  const rateLimiter = userId ? createRateLimiter() : null
+
+  if (userId && rateLimiter) {
+    const { success, remaining, reset } = await rateLimiter.recommednationLimiter.limit(userId)
+    if (event) {
+      setResponseHeaders(event, {
+        'X-RateLimit-Limit': String(RECOMMENDATION_LIMIT),
+        'X-RateLimit-Remaining': String(remaining),
+        'X-RateLimit-Reset': String(reset),
+      })
+    }
+    if (!success) {
+      throw createError({
+        statusCode: 429,
+        statusMessage: 'Daily recommendation limit reached. Please try again tomorrow.',
+      })
+    }
+  }
 
   const genAI = new GoogleGenerativeAI(apiKey)
   const modelsToTry = [model, ...FALLBACK_MODELS]
   let text: string | null = null
-  let lastNon503Error: unknown = null
+  let lastError: unknown = null
 
   for (const modelName of modelsToTry) {
     try {
@@ -74,38 +98,33 @@ export async function askGemini({
       const result = await geminiModel.generateContent(userMessage)
       text = result.response.text() || null
       if (!text) {
-        lastNon503Error = createError({
+        lastError = createError({
           statusCode: 500,
           statusMessage: 'Gemini returned an empty response.',
         })
+        continue
       }
       break
     } catch (error: unknown) {
-      if (is503(error)) continue
-      lastNon503Error = error
-      break
+      lastError = error
     }
   }
 
-  const hadNon503Outcome = text !== null || lastNon503Error !== null
-
-  // consume only when model responds
-  // if (hadNon503Outcome && userId && rateLimiter) { ... rate limit consume disabled for testing }
-
   if (text) return text
 
-  if (!hadNon503Outcome) {
+  if (!lastError) {
     throw createError({
-      statusCode: 503,
-      statusMessage:
-        'Gemini is temporarily unavailable due to high demand. Please try again in a moment.',
+      statusCode: 500,
+      statusMessage: 'Failed to get a response from Gemini.',
     })
   }
 
-  if (isH3Error(lastNon503Error)) throw lastNon503Error
+  if (isH3Error(lastError)) throw lastError
+  const statusCode = getErrorStatusCode(lastError)
   const statusMessage =
-    lastNon503Error instanceof Error
-      ? lastNon503Error.message
-      : 'Failed to get a response from Gemini.'
-  throw createError({ statusCode: 500, statusMessage })
+    lastError instanceof Error ? lastError.message : 'Failed to get a response from Gemini.'
+  throw createError({
+    statusCode: statusCode === 503 ? 503 : 500,
+    statusMessage,
+  })
 }
