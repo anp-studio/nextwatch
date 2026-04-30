@@ -1,4 +1,6 @@
+import type { H3Event } from 'h3'
 import { getAuthorizedUser } from '../../utils/auth'
+import { throwSupabaseError } from '../../utils/api-error'
 
 interface HydratedMovie {
   tmdbId: number
@@ -22,6 +24,8 @@ const USER_WATCHED_MOVIES_TABLE = 'user_watched_movies'
 const MOVIES_TABLE = 'movies'
 const WATCHED_CONFLICT_TARGET = 'user_id,tmdb_id'
 const SUPPORTED_METHODS = ['GET', 'POST', 'DELETE']
+const LOAD_WATCHED_MOVIES_MESSAGE = 'Unable to load watched movies.'
+const UPDATE_WATCHED_MOVIES_MESSAGE = 'Unable to update watched movies.'
 
 function parseYear(releaseDate: string): number {
   return parseInt(releaseDate.split('-')[0] || '0', 10)
@@ -73,6 +77,7 @@ function toHydratedMovie(row: MovieRow): HydratedMovie {
 }
 
 async function hydrateMovies(
+  event: H3Event,
   supabase: Awaited<ReturnType<typeof getAuthorizedUser>>['supabase'],
   tmdbIds: number[]
 ): Promise<HydratedMovie[]> {
@@ -86,7 +91,14 @@ async function hydrateMovies(
     .in('tmdb_id', tmdbIds)
 
   if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
+    throwSupabaseError(event, error, {
+      event: 'watched.hydrate_movies_failed',
+      publicMessage: LOAD_WATCHED_MOVIES_MESSAGE,
+      extra: {
+        table: MOVIES_TABLE,
+        operation: 'select',
+      },
+    })
   }
 
   const rows = (data ?? []) as MovieRow[]
@@ -119,14 +131,22 @@ export default defineEventHandler(async (event) => {
       .eq('user_id', user.id)
 
     if (error) {
-      throw createError({ statusCode: 500, statusMessage: error.message })
+      throwSupabaseError(event, error, {
+        event: 'watched.list_failed',
+        userId: user.id,
+        publicMessage: LOAD_WATCHED_MOVIES_MESSAGE,
+        extra: {
+          table: USER_WATCHED_MOVIES_TABLE,
+          operation: 'select',
+        },
+      })
     }
 
     const tmdbIds = ((data ?? []) as Array<{ tmdb_id: number }>).map((movie) => movie.tmdb_id)
 
     return {
       success: true,
-      movies: await hydrateMovies(supabase, tmdbIds),
+      movies: await hydrateMovies(event, supabase, tmdbIds),
     }
   }
 
@@ -144,7 +164,16 @@ export default defineEventHandler(async (event) => {
     )
 
     if (error) {
-      throw createError({ statusCode: 500, statusMessage: error.message })
+      throwSupabaseError(event, error, {
+        event: 'watched.upsert_failed',
+        userId: user.id,
+        tmdbId,
+        publicMessage: UPDATE_WATCHED_MOVIES_MESSAGE,
+        extra: {
+          table: USER_WATCHED_MOVIES_TABLE,
+          operation: 'upsert',
+        },
+      })
     }
 
     return {
@@ -162,7 +191,16 @@ export default defineEventHandler(async (event) => {
       .eq('tmdb_id', tmdbId)
 
     if (error) {
-      throw createError({ statusCode: 500, statusMessage: error.message })
+      throwSupabaseError(event, error, {
+        event: 'watched.delete_failed',
+        userId: user.id,
+        tmdbId,
+        publicMessage: UPDATE_WATCHED_MOVIES_MESSAGE,
+        extra: {
+          table: USER_WATCHED_MOVIES_TABLE,
+          operation: 'delete',
+        },
+      })
     }
 
     return {

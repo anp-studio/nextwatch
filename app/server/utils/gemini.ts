@@ -2,9 +2,11 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { Schema } from '@google/generative-ai'
 import type { H3Event } from 'h3'
 import { createRateLimiter, RECOMMENDATION_LIMIT } from './ratelimit'
+import { logPrivateError, throwConfigError, throwGeminiError } from './api-error'
 
 const GEMINI_DEFAULT_MODEL = 'gemini-flash-lite-latest'
 const FALLBACK_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.0-flash'] as const
+const GENERATE_RECOMMENDATIONS_MESSAGE = 'Unable to generate recommendations right now.'
 
 interface GeminiOptions {
   systemPrompt: string
@@ -53,9 +55,24 @@ export async function askGemini({
   const apiKey = config.geminiApiKey || process.env.NUXT_GEMINI_API_KEY || ''
 
   if (!apiKey) {
+    if (event) {
+      throwConfigError(event, new Error('Missing Gemini API key'), {
+        event: 'recommendation.gemini_misconfigured',
+        userId,
+      })
+    }
+
+    logPrivateError({
+      cause: new Error('Missing Gemini API key'),
+      event: 'recommendation.gemini_misconfigured',
+      source: 'config',
+      statusCode: 503,
+      userId,
+    })
+
     throw createError({
-      statusCode: 500,
-      statusMessage: 'Gemini API key is not configured. Set NUXT_GEMINI_API_KEY.',
+      statusCode: 503,
+      statusMessage: 'Service is temporarily unavailable.',
     })
   }
 
@@ -121,10 +138,35 @@ export async function askGemini({
 
   if (isH3Error(lastError)) throw lastError
   const statusCode = getErrorStatusCode(lastError)
-  const statusMessage =
-    lastError instanceof Error ? lastError.message : 'Failed to get a response from Gemini.'
+  const normalizedStatusCode = statusCode === 503 ? 503 : 500
+
+  if (event) {
+    throwGeminiError(event, lastError, {
+      event: 'recommendation.gemini_failed',
+      userId,
+      publicMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
+      statusCode: normalizedStatusCode,
+      extra: {
+        model,
+        fallbackModels: [...FALLBACK_MODELS],
+      },
+    })
+  }
+
+  logPrivateError({
+    cause: lastError,
+    event: 'recommendation.gemini_failed',
+    source: 'gemini',
+    statusCode: normalizedStatusCode,
+    userId,
+    extra: {
+      model,
+      fallbackModels: [...FALLBACK_MODELS],
+    },
+  })
+
   throw createError({
-    statusCode: statusCode === 503 ? 503 : 500,
-    statusMessage,
+    statusCode: normalizedStatusCode,
+    statusMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
   })
 }

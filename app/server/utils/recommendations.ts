@@ -1,8 +1,10 @@
 import { SchemaType } from '@google/generative-ai'
 import type { Schema } from '@google/generative-ai'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { H3Event } from 'h3'
 import { searchMoviesBatch } from './searchMovies'
 import { fetchTmdb } from './tmdb'
+import { logPrivateError, throwGeminiError, throwSupabaseError } from './api-error'
 
 export const WATCHED_MOVIES_TABLE = 'user_watched_movies'
 export const MY_LIST_TABLE = 'user_my_list'
@@ -11,6 +13,8 @@ export const MIN_RECOMMENDATIONS_TO_CACHE = 5
 const MAX_WATCHED_FOR_PROMPT = 100
 const MAX_MY_LIST_FOR_PROMPT = 100
 const MAX_RECOMMENDATIONS = 20
+const LOAD_RECOMMENDATIONS_MESSAGE = 'Unable to load recommendations right now.'
+const GENERATE_RECOMMENDATIONS_MESSAGE = 'Unable to generate recommendations right now.'
 
 const SYSTEM_PROMPT = `You are a movie recommendation engine.
 Analyze the user's taste profile from their watch history: preferred genres, directors, eras, themes, and tone.
@@ -93,6 +97,44 @@ interface TmdbSearchResponse {
   results?: TmdbSearchMovieResult[]
 }
 
+interface RecommendationErrorContext {
+  event?: H3Event
+  userId?: string
+}
+
+function throwRecommendationSupabaseError(
+  cause: unknown,
+  publicMessage: string,
+  logEvent: string,
+  extra: Record<string, unknown>,
+  context: RecommendationErrorContext = {}
+): never {
+  const { event, userId } = context
+
+  if (event) {
+    throwSupabaseError(event, cause, {
+      event: logEvent,
+      userId,
+      publicMessage,
+      extra,
+    })
+  }
+
+  logPrivateError({
+    cause,
+    event: logEvent,
+    source: 'supabase',
+    statusCode: 500,
+    userId,
+    extra,
+  })
+
+  throw createError({
+    statusCode: 500,
+    statusMessage: publicMessage,
+  })
+}
+
 export function hasValidTmdbId(
   recommendation: RecommendationWithId
 ): recommendation is RecommendationWithId & { tmdbId: number } {
@@ -145,7 +187,7 @@ function pickBestMatchId(
   )
   if (titleAndYearMatch) return titleAndYearMatch.tmdb_id
 
-  // Accept title-only match to handle Gemini year discrepancies
+  // accept only titles if no year match
   const titleOnlyMatch = results.find((r) =>
     normalizedCandidates.some((c) => c === normalizeTitleForComparison(r.original_title))
   )
@@ -239,7 +281,8 @@ function parseYear(releaseDate: string): number {
 async function fetchMovieRowsByIds<T extends MoviePromptRow>(
   supabase: SupabaseClient,
   tmdbIds: number[],
-  columns: string
+  columns: string,
+  context: RecommendationErrorContext = {}
 ): Promise<T[]> {
   if (tmdbIds.length === 0) {
     return []
@@ -248,7 +291,16 @@ async function fetchMovieRowsByIds<T extends MoviePromptRow>(
   const { data, error } = await supabase.from(MOVIES_TABLE).select(columns).in('tmdb_id', tmdbIds)
 
   if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
+    throwRecommendationSupabaseError(
+      error,
+      LOAD_RECOMMENDATIONS_MESSAGE,
+      'recommendation.movie_rows_fetch_failed',
+      {
+        table: MOVIES_TABLE,
+        operation: 'select',
+      },
+      context
+    )
   }
 
   return (data ?? []) as unknown as T[]
@@ -256,12 +308,14 @@ async function fetchMovieRowsByIds<T extends MoviePromptRow>(
 
 async function hydratePromptMovies(
   supabase: SupabaseClient,
-  tmdbIds: number[]
+  tmdbIds: number[],
+  context: RecommendationErrorContext = {}
 ): Promise<WatchedMovieRecord[]> {
   const rows = await fetchMovieRowsByIds<MoviePromptRow>(
     supabase,
     tmdbIds,
-    'tmdb_id, title, release_date'
+    'tmdb_id, title, release_date',
+    context
   )
   const rowById = new Map(rows.map((row) => [row.tmdb_id, row]))
 
@@ -284,12 +338,14 @@ async function hydratePromptMovies(
 
 export async function hydrateRecommendationsByTmdbIds(
   supabase: SupabaseClient,
-  tmdbIds: number[]
+  tmdbIds: number[],
+  context: RecommendationErrorContext = {}
 ): Promise<RecommendationWithId[]> {
   const rows = await fetchMovieRowsByIds<RecommendationMovieRow>(
     supabase,
     tmdbIds,
-    'tmdb_id, title, original_title, release_date'
+    'tmdb_id, title, original_title, release_date',
+    context
   )
   const rowById = new Map(rows.map((row) => [row.tmdb_id, row]))
 
@@ -309,7 +365,8 @@ export async function hydrateRecommendationsByTmdbIds(
 
 export async function fetchWatchedMovies(
   supabase: SupabaseClient,
-  userId: string
+  userId: string,
+  context: RecommendationErrorContext = {}
 ): Promise<WatchedMovieRecord[]> {
   const { data, error } = await supabase
     .from(WATCHED_MOVIES_TABLE)
@@ -317,16 +374,32 @@ export async function fetchWatchedMovies(
     .eq('user_id', userId)
 
   if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
+    throwRecommendationSupabaseError(
+      error,
+      LOAD_RECOMMENDATIONS_MESSAGE,
+      'recommendation.watched_fetch_failed',
+      {
+        table: WATCHED_MOVIES_TABLE,
+        operation: 'select',
+      },
+      {
+        ...context,
+        userId,
+      }
+    )
   }
 
   const tmdbIds = ((data ?? []) as Array<{ tmdb_id: number }>).map((movie) => movie.tmdb_id)
-  return hydratePromptMovies(supabase, tmdbIds)
+  return hydratePromptMovies(supabase, tmdbIds, {
+    ...context,
+    userId,
+  })
 }
 
 export async function fetchMyListMovies(
   supabase: SupabaseClient,
-  userId: string
+  userId: string,
+  context: RecommendationErrorContext = {}
 ): Promise<WatchedMovieRecord[]> {
   const { data, error } = await supabase
     .from(MY_LIST_TABLE)
@@ -336,11 +409,26 @@ export async function fetchMyListMovies(
     .maybeSingle()
 
   if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
+    throwRecommendationSupabaseError(
+      error,
+      LOAD_RECOMMENDATIONS_MESSAGE,
+      'recommendation.my_list_fetch_failed',
+      {
+        table: MY_LIST_TABLE,
+        operation: 'select',
+      },
+      {
+        ...context,
+        userId,
+      }
+    )
   }
 
   const tmdbIds = Array.isArray(data?.tmdb_ids) ? (data.tmdb_ids as number[]) : []
-  return hydratePromptMovies(supabase, tmdbIds)
+  return hydratePromptMovies(supabase, tmdbIds, {
+    ...context,
+    userId,
+  })
 }
 
 export function buildUserMessage(
@@ -406,8 +494,22 @@ export async function appendTmdbIds(
   let searchMap: Map<string, MovieSearchResult[]>
   try {
     searchMap = await searchMoviesBatch(allCandidates)
-  } catch {
-    return { recommendations: limited.map((rec) => ({ ...rec, tmdbId: null })), tmdbFallbackCount: 0 }
+  } catch (error) {
+    logPrivateError({
+      cause: error,
+      event: 'recommendation.search_batch_failed',
+      source: 'supabase',
+      statusCode: 500,
+      extra: {
+        candidates: allCandidates,
+        candidateCount: allCandidates.length,
+      },
+    })
+
+    return {
+      recommendations: limited.map((rec) => ({ ...rec, tmdbId: null })),
+      tmdbFallbackCount: 0,
+    }
   }
 
   let tmdbFallbackCount = 0
@@ -443,7 +545,12 @@ export async function getRecommendationsFromGemini(
   userId?: string,
   event?: import('h3').H3Event,
   excludedMovies: RecommendationWithId[] = []
-): Promise<{ recommendations: RecommendationWithId[]; tmdbFallbackCount: number; systemPrompt: string; userMessage: string }> {
+): Promise<{
+  recommendations: RecommendationWithId[]
+  tmdbFallbackCount: number
+  systemPrompt: string
+  userMessage: string
+}> {
   const systemPrompt = `${SYSTEM_PROMPT}\n${EXACT_ORIGINAL_TITLE_PROMPT_SUFFIX}\n${POPULAR_MOVIE_PROMPT_SUFFIX}`
   const userMessage = buildUserMessage(watchedMovies, myListMovies, excludedMovies)
 
@@ -458,17 +565,55 @@ export async function getRecommendationsFromGemini(
   let parsed: unknown
   try {
     parsed = JSON.parse(raw)
-  } catch {
+  } catch (error) {
+    if (event) {
+      throwGeminiError(event, error, {
+        event: 'recommendation.gemini_parse_failed',
+        userId,
+        publicMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
+        statusCode: 502,
+      })
+    }
+
+    logPrivateError({
+      cause: error,
+      event: 'recommendation.gemini_parse_failed',
+      source: 'gemini',
+      statusCode: 502,
+      userId,
+    })
+
     throw createError({
       statusCode: 502,
-      statusMessage: 'Gemini returned a response that could not be parsed as JSON.',
+      statusMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
     })
   }
 
   if (!isRecommendationArray(parsed)) {
+    const schemaError = new Error(
+      'Gemini response did not match the expected recommendation schema.'
+    )
+
+    if (event) {
+      throwGeminiError(event, schemaError, {
+        event: 'recommendation.gemini_schema_failed',
+        userId,
+        publicMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
+        statusCode: 502,
+      })
+    }
+
+    logPrivateError({
+      cause: schemaError,
+      event: 'recommendation.gemini_schema_failed',
+      source: 'gemini',
+      statusCode: 502,
+      userId,
+    })
+
     throw createError({
       statusCode: 502,
-      statusMessage: 'Gemini response did not match the expected recommendation schema.',
+      statusMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
     })
   }
 

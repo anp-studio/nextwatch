@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3'
 import { createRateLimiter } from './ratelimit'
+import { throwConfigError, throwTmdbError } from './api-error'
 
 const TMDB_API_ORIGIN = 'https://api.themoviedb.org'
 const TMDB_API_URL = 'https://api.themoviedb.org/3/'
@@ -14,6 +15,7 @@ const ABSOLUTE_URL_PATTERN = /^[a-zA-Z][a-zA-Z\d+\-.]*:/
 const SEARCH_MOVIE_PATH = 'search/movie'
 const MOVIE_PATH_SEGMENT = 'movie'
 const NUMERIC_SEGMENT_PATTERN = /^\d+$/
+const TMDB_FETCH_FAILED_MESSAGE = 'Movie data is temporarily unavailable.'
 
 type TmdbQuery = Record<string, string | string[] | number | undefined>
 
@@ -91,9 +93,8 @@ export async function fetchTmdb(
   const apiKey = config.tmdbApiKey
 
   if (!apiKey) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'TMDB API key is not configured. Set NUXT_TMDB_API_KEY.',
+    throwConfigError(event, new Error('Missing TMDB API key'), {
+      event: 'tmdb.misconfigured',
     })
   }
 
@@ -140,14 +141,13 @@ export async function fetchTmdb(
       response?: { status?: number; _data?: { status_message?: string } }
     }
     const statusCode = fetchError.response?.status ?? 500
-    const statusMessage =
-      statusCode === 401
-        ? 'TMDB request unauthorized. Check NUXT_TMDB_API_KEY.'
-        : (fetchError.response?._data?.status_message ?? 'Failed to fetch data from TMDB.')
-
-    throw createError({
+    throwTmdbError(event, error, {
+      event: 'tmdb.fetch_failed',
+      publicMessage: TMDB_FETCH_FAILED_MESSAGE,
       statusCode,
-      statusMessage,
+      extra: {
+        path,
+      },
     })
   }
 }

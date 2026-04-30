@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getAuthorizedUser } from '../utils/auth'
 import {
@@ -13,6 +14,7 @@ import {
 import type { RecommendationWithId, WatchedMovieRecord } from '../utils/recommendations'
 import { acquireRecommendationLock, releaseRecommendationLock } from '../utils/recommendation-lock'
 import { createRedisClient } from '../utils/redis'
+import { throwSupabaseError } from '../utils/api-error'
 
 const RECOMMENDATIONS_TABLE = 'recommendations'
 const MOVIES_TABLE = 'movies'
@@ -20,6 +22,9 @@ const TTL_MS = 7 * 24 * 60 * 60 * 1000
 const QUERY_TRUE = ['true', '1']
 const PRODUCTION_NODE_ENV = 'production'
 const MIN_RECOMMENDATION_POPULARITY = 1
+const LOAD_RECOMMENDATIONS_MESSAGE = 'Unable to load recommendations right now.'
+const SAVE_RECOMMENDATIONS_MESSAGE = 'Unable to save recommendations right now.'
+const GENERATE_RECOMMENDATIONS_MESSAGE = 'Unable to generate recommendations right now.'
 
 interface RecommendationDebugItem {
   tmdbId: number
@@ -122,7 +127,9 @@ function dedupeRecommendations(recommendations: RecommendationWithId[]): Recomme
 }
 
 async function filterLowPopularityRecommendationIds(
+  event: H3Event,
   supabase: SupabaseClient,
+  userId: string,
   recommendationIds: number[]
 ): Promise<number[]> {
   if (recommendationIds.length === 0) {
@@ -135,13 +142,20 @@ async function filterLowPopularityRecommendationIds(
     .in('tmdb_id', recommendationIds)
 
   if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
+    throwSupabaseError(event, error, {
+      event: 'recommendation.popularity_filter_failed',
+      userId,
+      publicMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
+      extra: {
+        table: MOVIES_TABLE,
+        operation: 'select',
+      },
+    })
   }
 
   const popularityById = new Map(
     ((data ?? []) as RecommendationPopularityRow[]).map((row) => [row.tmdb_id, row.popularity])
   )
-  // Movies absent from the local DB are not penalized — only known-low-popularity movies are filtered out
   const filteredIds = recommendationIds.filter((recommendationId) => {
     const popularity = popularityById.get(recommendationId)
     return popularity === undefined || popularity >= MIN_RECOMMENDATION_POPULARITY
@@ -151,20 +165,29 @@ async function filterLowPopularityRecommendationIds(
 }
 
 async function sanitizeRecommendationIds(
+  event: H3Event,
   supabase: SupabaseClient,
+  userId: string,
   recommendationIds: number[]
 ): Promise<number[]> {
   const dedupedIds = dedupeRecommendationIds(recommendationIds)
-  return filterLowPopularityRecommendationIds(supabase, dedupedIds)
+  return filterLowPopularityRecommendationIds(event, supabase, userId, dedupedIds)
 }
 
 async function sanitizeRecommendations(
+  event: H3Event,
   supabase: SupabaseClient,
+  userId: string,
   recommendations: RecommendationWithId[]
 ): Promise<RecommendationWithId[]> {
   const dedupedRecommendations = dedupeRecommendations(filterValidRecommendations(recommendations))
   const allowedIds = new Set(
-    await sanitizeRecommendationIds(supabase, toRecommendationIds(dedupedRecommendations))
+    await sanitizeRecommendationIds(
+      event,
+      supabase,
+      userId,
+      toRecommendationIds(dedupedRecommendations)
+    )
   )
 
   return dedupedRecommendations.filter(
@@ -293,7 +316,7 @@ function normalizeRegenerationError(error: unknown): RegenerationErrorPayload {
   if (error instanceof Error) {
     return {
       statusCode: 500,
-      statusMessage: error.message || 'Recommendation regeneration failed.',
+      statusMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
       retryable: false,
     }
   }
@@ -313,6 +336,7 @@ function createInsufficientRecommendationsError() {
 }
 
 async function getRecommendationCacheState(
+  event: H3Event,
   supabase: SupabaseClient,
   userId: string,
   watchedHash: string
@@ -324,7 +348,15 @@ async function getRecommendationCacheState(
     .maybeSingle()
 
   if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
+    throwSupabaseError(event, error, {
+      event: 'recommendation.cache_read_failed',
+      userId,
+      publicMessage: LOAD_RECOMMENDATIONS_MESSAGE,
+      extra: {
+        table: RECOMMENDATIONS_TABLE,
+        operation: 'select',
+      },
+    })
   }
 
   if (!data) {
@@ -336,7 +368,9 @@ async function getRecommendationCacheState(
 
   const row = data as CachedRow
   const tmdbIds = await sanitizeRecommendationIds(
+    event,
     supabase,
+    userId,
     Array.isArray(row.tmdb_ids) ? row.tmdb_ids : []
   )
   const isFresh = new Date(row.expires_at) > new Date() && row.watched_hash === watchedHash
@@ -348,13 +382,16 @@ async function getRecommendationCacheState(
 }
 
 async function storeCachedRecommendations(
+  event: H3Event,
   supabase: SupabaseClient,
   userId: string,
   recommendations: RecommendationWithId[],
   watchedHash: string
 ): Promise<void> {
   const recommendationIds = await sanitizeRecommendationIds(
+    event,
     supabase,
+    userId,
     toRecommendationIds(recommendations)
   )
 
@@ -366,7 +403,15 @@ async function storeCachedRecommendations(
   })
 
   if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
+    throwSupabaseError(event, error, {
+      event: 'recommendation.cache_write_failed',
+      userId,
+      publicMessage: SAVE_RECOMMENDATIONS_MESSAGE,
+      extra: {
+        table: RECOMMENDATIONS_TABLE,
+        operation: 'upsert',
+      },
+    })
   }
 }
 
@@ -387,7 +432,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const watchedMovies = await fetchWatchedMovies(supabase, user.id)
+    const watchedMovies = await fetchWatchedMovies(supabase, user.id, { event })
     let excludedMovies: RecommendationWithId[] = []
 
     if (watchedMovies.length === 0) {
@@ -398,13 +443,13 @@ export default defineEventHandler(async (event) => {
     }
 
     const watchedHash = computeWatchedHash(watchedMovies)
-    const cacheState = await getRecommendationCacheState(supabase, user.id, watchedHash)
+    const cacheState = await getRecommendationCacheState(event, supabase, user.id, watchedHash)
 
     if (!isGetNew && !isRefresh && cacheState.freshRecommendationIds) {
       return buildSuccessResponse(supabase, cacheState.freshRecommendationIds, true)
     }
 
-    const myListMovies = await fetchMyListMovies(supabase, user.id)
+    const myListMovies = await fetchMyListMovies(supabase, user.id, { event })
 
     if (isGetNew) {
       excludedMovies = cacheState.storedRecommendationIds.map((tmdbId) => ({
@@ -434,7 +479,12 @@ export default defineEventHandler(async (event) => {
       geminiUserMessage = geminiResult.userMessage
       unmatchedRecommendations = toUnmatchedRecommendationDebugItems(generatedRecommendations)
 
-      recommendations = await sanitizeRecommendations(supabase, generatedRecommendations)
+      recommendations = await sanitizeRecommendations(
+        event,
+        supabase,
+        user.id,
+        generatedRecommendations
+      )
 
       if (
         recommendations.length < MIN_RECOMMENDATIONS_TO_CACHE ||
@@ -455,7 +505,7 @@ export default defineEventHandler(async (event) => {
       )
     }
 
-    await storeCachedRecommendations(supabase, user.id, recommendations, watchedHash)
+    await storeCachedRecommendations(event, supabase, user.id, recommendations, watchedHash)
 
     if (isDevelopmentMode()) {
       return {

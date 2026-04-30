@@ -1,4 +1,5 @@
 import { createServiceSupabaseClient } from '../../utils/auth'
+import { throwSupabaseError } from '../../utils/api-error'
 import { IMAGE_BASE } from '../../utils/constants'
 import { fetchTmdb } from '../../utils/tmdb'
 
@@ -84,6 +85,8 @@ const DIRECTOR_JOB = 'Director'
 const YOUTUBE_SITE = 'YouTube'
 const TRAILER_TYPE = 'Trailer'
 const MOVIE_ID_PATTERN = /^\d+$/
+const MOVIES_TABLE = 'movies'
+const MOVIE_DATA_UNAVAILABLE_MESSAGE = 'Movie data is temporarily unavailable.'
 
 function isPositiveInteger(value: number): boolean {
   return Number.isInteger(value) && value > 0
@@ -196,7 +199,7 @@ async function fetchCachedMovie(
 ) {
   const supabase = createServiceSupabaseClient(event)
   const { data, error } = await supabase
-    .from('movies')
+    .from(MOVIES_TABLE)
     .select(
       'tmdb_id, original_title, title, overview, poster_path, backdrop_path, release_date, trailer_key, runtime, vote_average, vote_count, popularity, genres, cast, directors, cached_at'
     )
@@ -204,7 +207,15 @@ async function fetchCachedMovie(
     .maybeSingle()
 
   if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
+    throwSupabaseError(event, error, {
+      event: 'movie_details.cache_read_failed',
+      tmdbId: id,
+      publicMessage: MOVIE_DATA_UNAVAILABLE_MESSAGE,
+      extra: {
+        table: MOVIES_TABLE,
+        operation: 'select',
+      },
+    })
   }
 
   return { supabase, row: data as MovieRow | null }
@@ -232,10 +243,18 @@ export default defineEventHandler(async (event): Promise<MovieResponse> => {
     append_to_response: 'credits,videos',
   })) as TMDBMovieDetails
   const movieRow = tmdbDetailsToRow(data, new Date().toISOString())
-  const { error } = await supabase.from('movies').upsert(movieRow, { onConflict: 'tmdb_id' })
+  const { error } = await supabase.from(MOVIES_TABLE).upsert(movieRow, { onConflict: 'tmdb_id' })
 
   if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
+    throwSupabaseError(event, error, {
+      event: 'movie_details.cache_write_failed',
+      tmdbId: id,
+      publicMessage: MOVIE_DATA_UNAVAILABLE_MESSAGE,
+      extra: {
+        table: MOVIES_TABLE,
+        operation: 'upsert',
+      },
+    })
   }
 
   return toMovieResponse(movieRow)

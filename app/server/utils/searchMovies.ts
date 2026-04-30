@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { logPrivateError } from './api-error'
 
 const MAX_RESULTS = 20
 const MIN_QUERY_LENGTH = 2
@@ -7,6 +8,8 @@ const MOVIES_TABLE = 'movies'
 const SEARCH_COLUMNS = 'tmdb_id, original_title, popularity, release_date'
 const TSQUERY_SUFFIX = ':*'
 const TSQUERY_SEPARATOR = ' & '
+const MOVIE_SEARCH_UNAVAILABLE_MESSAGE = 'Movie search is temporarily unavailable.'
+const SERVICE_UNAVAILABLE_MESSAGE = 'Service is temporarily unavailable.'
 
 interface MovieSearchRow {
   tmdb_id: number
@@ -33,9 +36,16 @@ function createSearchSupabaseClient(): SupabaseClient {
   const serviceRoleKey = config.supabaseServiceRoleKey
 
   if (!supabaseUrl || !serviceRoleKey) {
+    logPrivateError({
+      cause: new Error('Missing Supabase search configuration'),
+      event: 'movie_search.misconfigured',
+      source: 'config',
+      statusCode: 503,
+    })
+
     throw createError({
-      statusCode: 500,
-      statusMessage: 'Supabase service role is not configured.',
+      statusCode: 503,
+      statusMessage: SERVICE_UNAVAILABLE_MESSAGE,
     })
   }
 
@@ -88,7 +98,19 @@ async function executeSearch(
 
   const { data, error } = await builder.limit(MAX_RESULTS)
   if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
+    logPrivateError({
+      cause: error,
+      event: 'movie_search.query_failed',
+      source: 'supabase',
+      statusCode: 500,
+      extra: {
+        table: MOVIES_TABLE,
+        query,
+        year,
+      },
+    })
+
+    throw createError({ statusCode: 500, statusMessage: MOVIE_SEARCH_UNAVAILABLE_MESSAGE })
   }
 
   const rows = (data ?? []) as MovieSearchRow[]

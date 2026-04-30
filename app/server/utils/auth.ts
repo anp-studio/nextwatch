@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import type { H3Event } from 'h3'
+import { throwConfigError } from './api-error'
 
 export interface AuthorizedUser {
   supabase: SupabaseClient
@@ -12,7 +13,9 @@ export async function getAuthorizedUser(event: H3Event): Promise<AuthorizedUser>
   const { supabaseUrl, supabaseKey } = config.public
 
   if (!supabaseUrl || !supabaseKey) {
-    throw createError({ statusCode: 500, statusMessage: 'Supabase is not configured.' })
+    throwConfigError(event, new Error('Missing Supabase public configuration'), {
+      event: 'auth.public_supabase_misconfigured',
+    })
   }
 
   const authHeader = getHeader(event, 'authorization')
@@ -45,9 +48,8 @@ export function createServiceSupabaseClient(event: H3Event): SupabaseClient {
   const serviceRoleKey = config.supabaseServiceRoleKey
 
   if (!supabaseUrl || !serviceRoleKey) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'Supabase service role is not configured.',
+    throwConfigError(event, new Error('Missing Supabase service role configuration'), {
+      event: 'auth.service_supabase_misconfigured',
     })
   }
 

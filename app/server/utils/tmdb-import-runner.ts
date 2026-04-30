@@ -3,6 +3,7 @@ import { Readable } from 'node:stream'
 import { createGunzip } from 'node:zlib'
 import pLimit from 'p-limit'
 import { createServiceSupabaseClient } from './auth'
+import { throwImportError } from './api-error'
 
 const TMDB_EXPORT_BASE_URL = 'https://files.tmdb.org/p/exports'
 const MOVIES_TABLE = 'movies'
@@ -96,7 +97,7 @@ async function importBatch(
   })
 
   if (error) {
-    throw new Error(error.message)
+    throw error
   }
 }
 
@@ -188,10 +189,18 @@ export async function runTmdbImport(
   }
 
   if (lastError) {
-    throw createError({
+    throwImportError(event, lastError, {
+      event: 'tmdb_import.failed',
+      publicMessage: 'TMDB import failed',
       statusCode: 502,
-      statusMessage: 'TMDB import failed',
-      message: lastError.message,
+      extra: {
+        url,
+        parsedRowCount,
+        imported: totalImported,
+        skipped: totalSkipped,
+        adultExcluded: totalAdultExcluded,
+        lowPopularityExcluded: totalLowPopularityExcluded,
+      },
     })
   }
 
