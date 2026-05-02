@@ -48,7 +48,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // fileter out movies that don't have a poster, release date, or have a vote average of 0
+  // filter out movies that don't have a poster, release date, or have a vote average of 0
   const validMovies = payload.results.filter((movie) => {
     return movie.poster_path && movie.release_date !== null && movie.vote_average !== 0
   })
