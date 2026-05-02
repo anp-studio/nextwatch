@@ -11,10 +11,6 @@
       />
 
       <div
-        class="absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-black/95 via-black/60 to-transparent pointer-events-none z-0"
-      ></div>
-
-      <div
         v-if="isInMyList || isWatched"
         class="absolute top-3 right-3 z-20 flex flex-col gap-1.5"
       >
@@ -44,38 +40,37 @@ stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
           </svg>
         </div>
       </div>
+    </div>
 
+    <div class="shrink-0 px-1 text-gray-900 dark:text-white">
+      <h1 class="text-xl font-bold flex items-baseline gap-2 line-clamp-2">
+        {{ movie.title }}
+        <span class="text-base font-normal text-gray-500 dark:text-gray-400">{{ movie.year }}</span>
+      </h1>
+      <div class="flex items-center gap-2 mt-1 text-sm text-gray-600 dark:text-gray-400">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"
+          ></path>
+        </svg>
+        <span class="truncate">{{ movie.genre }}</span>
+      </div>
       <div
-        class="absolute bottom-0 left-0 w-full p-4 sm:p-6 text-white z-10 pointer-events-none"
+        v-if="movie.director"
+        class="flex items-center gap-2 mt-1 text-sm text-gray-600 dark:text-gray-400"
       >
-        <h1 class="text-3xl font-bold flex items-baseline gap-2 line-clamp-2 drop-shadow-md">
-          {{ movie.title }} <span class="text-xl font-normal opacity-80">{{ movie.year }}</span>
-        </h1>
-        <div class="flex items-center gap-2 mt-2 text-sm opacity-90 drop-shadow-md">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"
-            ></path>
-          </svg>
-          <span>{{ movie.genre }}</span>
-        </div>
-        <div
-          v-if="movie.director"
-          class="flex items-center gap-2 mt-1 text-sm opacity-90 drop-shadow-md"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-            ></path>
-          </svg>
-          <span>Dir. {{ movie.director }}</span>
-        </div>
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+          ></path>
+        </svg>
+        <span class="truncate">Dir. {{ movie.director }}</span>
       </div>
     </div>
 

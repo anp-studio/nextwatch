@@ -5,7 +5,7 @@
       <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Find your next movie.</p>
     </div>
     <div class="flex-1 relative w-full px-6 -mt-6 flex flex-col items-center justify-center">
-      <div v-if="pending" class="w-full max-w-sm h-[65vh] relative mx-auto">
+      <div v-if="pending" class="w-full max-w-sm md:max-w-[min(24rem,calc((65vh-12rem)*2/3))] h-[65vh] relative mx-auto">
         <SkeletonMovieCard />
       </div>
 
@@ -94,7 +94,7 @@
         </div>
       </div>
 
-      <div v-else class="w-full max-w-sm mx-auto flex flex-col gap-4">
+      <div v-else class="w-full max-w-sm md:max-w-[min(24rem,calc((65vh-12rem)*2/3))] mx-auto flex flex-col gap-4">
         <div
           v-if="showInlineRecommendationFailure"
           class="w-full text-center text-gray-500 dark:text-gray-400"

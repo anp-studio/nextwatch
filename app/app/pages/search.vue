@@ -1,6 +1,6 @@
 <template>
   <div class="pt-6 pl-6 pb-6 h-full flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
-    <div class="mb-6 flex-shrink-0">
+    <div class="mb-6 pr-6 flex-shrink-0">
       <div class="relative w-full shadow-sm rounded-2xl overflow-hidden">
         <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
           <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
