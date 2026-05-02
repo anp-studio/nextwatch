@@ -12,12 +12,91 @@ import {
 } from 'h3'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { runTmdbImportMock } = vi.hoisted(() => ({
-  runTmdbImportMock: vi.fn(),
-}))
+const MAX_BAD_TOKEN_FAILURES = 5
+const BAD_TOKEN_LOCK_TTL_S = 15 * 60
+
+const { redisState, runTmdbImportMock } = vi.hoisted(() => {
+  const keyValues = new Map<string, string>()
+  const expiryByKey = new Map<string, number>()
+
+  function clearRedisState() {
+    keyValues.clear()
+    expiryByKey.clear()
+  }
+
+  const redis = {
+    async get<T>(key: string): Promise<T | null> {
+      const value = keyValues.get(key)
+      if (value === undefined) {
+        return null
+      }
+
+      return Number(value) as T
+    },
+    async incr(key: string): Promise<number> {
+      const currentValue = Number(keyValues.get(key) ?? '0') + 1
+      keyValues.set(key, String(currentValue))
+
+      return currentValue
+    },
+    async expire(key: string, ttlSeconds: number): Promise<number> {
+      expiryByKey.set(key, ttlSeconds)
+      return keyValues.has(key) ? 1 : 0
+    },
+    async del(key: string): Promise<number> {
+      const deleted = keyValues.delete(key)
+      expiryByKey.delete(key)
+      return deleted ? 1 : 0
+    },
+    async set(
+      key: string,
+      value: string,
+      options?: { ex?: number; nx?: boolean }
+    ): Promise<'OK' | null> {
+      if (options?.nx && keyValues.has(key)) {
+        return null
+      }
+
+      keyValues.set(key, value)
+      if (options?.ex !== undefined) {
+        expiryByKey.set(key, options.ex)
+      }
+
+      return 'OK'
+    },
+    async eval(script: string, keys: string[], args: string[]): Promise<number> {
+      void script
+
+      const key = keys[0] ?? ''
+      const expectedValue = args[0] ?? ''
+
+      if (keyValues.get(key) !== expectedValue) {
+        return 0
+      }
+
+      keyValues.delete(key)
+      expiryByKey.delete(key)
+      return 1
+    },
+  }
+
+  return {
+    redisState: {
+      clear: clearRedisState,
+      getValue: (key: string) => keyValues.get(key),
+      getExpiry: (key: string) => expiryByKey.get(key),
+      redis,
+    },
+    runTmdbImportMock: vi.fn(),
+  }
+})
 
 vi.mock('../../../server/utils/tmdb-import-runner', () => ({
   runTmdbImport: runTmdbImportMock,
+}))
+
+vi.mock('../../../server/utils/redis', () => ({
+  createRedisClient: () => redisState.redis,
 }))
 
 Object.assign(globalThis, {
@@ -46,6 +125,13 @@ function deferredPromise<T>() {
 
 async function readJson(response: Response) {
   return response.json() as Promise<Record<string, unknown>>
+}
+
+function createHeaders(overrides: Record<string, string> = {}): HeadersInit {
+  return {
+    'x-admin-token': 'test-admin-token',
+    ...overrides,
+  }
 }
 
 describe('/api/admin/tmdb-import', () => {
@@ -78,6 +164,7 @@ describe('/api/admin/tmdb-import', () => {
   })
 
   beforeEach(() => {
+    redisState.clear()
     runTmdbImportMock.mockResolvedValue({
       imported: 1,
       skipped: 0,
@@ -91,12 +178,10 @@ describe('/api/admin/tmdb-import', () => {
     vi.clearAllMocks()
   })
 
-  it('accepts an empty-body trigger request', async () => {
+  it('accepts an empty-body trigger request without the Vercel forwarded IP header', async () => {
     const response = await fetch(`${baseUrl}/api/admin/tmdb-import`, {
       method: 'POST',
-      headers: {
-        'x-admin-token': 'test-admin-token',
-      },
+      headers: createHeaders(),
     })
     const body = await readJson(response)
 
@@ -109,8 +194,8 @@ describe('/api/admin/tmdb-import', () => {
     const response = await fetch(`${baseUrl}/api/admin/tmdb-import`, {
       method: 'POST',
       headers: {
+        ...createHeaders(),
         'Content-Type': 'application/json',
-        'x-admin-token': 'test-admin-token',
       },
       body: JSON.stringify({ fullRefresh: true }),
     })
@@ -131,18 +216,18 @@ describe('/api/admin/tmdb-import', () => {
 
     const firstRequest = fetch(`${baseUrl}/api/admin/tmdb-import`, {
       method: 'POST',
-      headers: {
-        'x-admin-token': 'test-admin-token',
-      },
+      headers: createHeaders({
+        'x-vercel-forwarded-for': '198.51.100.10',
+      }),
     })
 
     await Promise.resolve()
 
     const secondResponse = await fetch(`${baseUrl}/api/admin/tmdb-import`, {
       method: 'POST',
-      headers: {
-        'x-admin-token': 'test-admin-token',
-      },
+      headers: createHeaders({
+        'x-vercel-forwarded-for': '198.51.100.11',
+      }),
     })
 
     pendingImport.resolve({
@@ -156,5 +241,85 @@ describe('/api/admin/tmdb-import', () => {
     await firstRequest
 
     expect(secondResponse.status).toBe(409)
+  })
+
+  it('throttles repeated invalid tokens using Redis-backed counters', async () => {
+    const throttleIp = '203.0.113.10'
+
+    for (let attempt = 1; attempt < MAX_BAD_TOKEN_FAILURES; attempt++) {
+      const response = await fetch(`${baseUrl}/api/admin/tmdb-import`, {
+        method: 'POST',
+        headers: createHeaders({
+          'x-admin-token': `invalid-token-${attempt}`,
+          'x-vercel-forwarded-for': throttleIp,
+        }),
+      })
+
+      expect(response.status).toBe(401)
+    }
+
+    const throttledResponse = await fetch(`${baseUrl}/api/admin/tmdb-import`, {
+      method: 'POST',
+      headers: createHeaders({
+        'x-admin-token': 'still-invalid',
+        'x-vercel-forwarded-for': throttleIp,
+      }),
+    })
+
+    expect(throttledResponse.status).toBe(429)
+    expect(redisState.getValue(`admin-import:bad-token:${throttleIp}`)).toBe(
+      String(MAX_BAD_TOKEN_FAILURES)
+    )
+    expect(redisState.getExpiry(`admin-import:bad-token:${throttleIp}`)).toBe(BAD_TOKEN_LOCK_TTL_S)
+    expect(runTmdbImportMock).not.toHaveBeenCalled()
+  })
+
+  it('clears failed token state after a successful authenticated request', async () => {
+    const throttleIp = '203.0.113.20'
+
+    const invalidResponse = await fetch(`${baseUrl}/api/admin/tmdb-import`, {
+      method: 'POST',
+      headers: createHeaders({
+        'x-admin-token': 'invalid-token',
+        'x-vercel-forwarded-for': throttleIp,
+      }),
+    })
+
+    expect(invalidResponse.status).toBe(401)
+    expect(redisState.getValue(`admin-import:bad-token:${throttleIp}`)).toBe('1')
+
+    const successResponse = await fetch(`${baseUrl}/api/admin/tmdb-import`, {
+      method: 'POST',
+      headers: createHeaders({
+        'x-vercel-forwarded-for': throttleIp,
+      }),
+    })
+
+    expect(successResponse.status).toBe(200)
+    expect(redisState.getValue(`admin-import:bad-token:${throttleIp}`)).toBeUndefined()
+  })
+
+  it('releases the Redis lock when the import runner throws', async () => {
+    const errorMessage = 'tmdb import failed'
+    runTmdbImportMock.mockRejectedValueOnce(new Error(errorMessage))
+
+    const errorResponse = await fetch(`${baseUrl}/api/admin/tmdb-import`, {
+      method: 'POST',
+      headers: createHeaders({
+        'x-vercel-forwarded-for': '203.0.113.30',
+      }),
+    })
+
+    expect(errorResponse.status).toBe(500)
+    expect(redisState.getValue('admin-import:lock')).toBeUndefined()
+
+    const retryResponse = await fetch(`${baseUrl}/api/admin/tmdb-import`, {
+      method: 'POST',
+      headers: createHeaders({
+        'x-vercel-forwarded-for': '203.0.113.31',
+      }),
+    })
+
+    expect(retryResponse.status).toBe(200)
   })
 })
