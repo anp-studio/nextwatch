@@ -130,7 +130,6 @@ async function callMyListRpc(
   tmdbId: number
 ) {
   const { error } = await supabase.rpc(name, {
-    target_user_id: userId,
     target_tmdb_id: tmdbId,
   })
 

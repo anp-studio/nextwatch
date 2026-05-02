@@ -301,8 +301,8 @@ describe('normalized list routes', () => {
     expect(addResponse.status).toBe(200)
     expect(removeResponse.status).toBe(200)
     expect(state.rpcCalls).toEqual([
-      { name: 'append_my_list', payload: { target_user_id: TEST_USER_ID, target_tmdb_id: 13 } },
-      { name: 'remove_my_list', payload: { target_user_id: TEST_USER_ID, target_tmdb_id: 13 } },
+      { name: 'append_my_list', payload: { target_tmdb_id: 13 } },
+      { name: 'remove_my_list', payload: { target_tmdb_id: 13 } },
     ])
   })
 
