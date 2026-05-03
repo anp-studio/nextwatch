@@ -1,72 +1,86 @@
 <template>
   <div class="movie-card flex h-full min-h-0 w-full flex-col">
-    <div
-      class="movie-card-poster relative cursor-pointer overflow-hidden border border-zinc-800 bg-zinc-900 shadow-glow"
-      @click="openDetails"
-    >
-      <img
-        :src="movie.image"
-        alt="Movie Poster"
-        class="absolute inset-0 h-full w-full object-cover"
-      />
-
-      <div v-if="isInMyList || isWatched" class="absolute right-3 top-3 z-20 flex flex-col gap-1.5">
-        <div
-          v-if="isWatched"
-          class="movie-card-status flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm"
-          title="Already watched"
-        >
-          <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-            />
-          </svg>
-        </div>
-
-        <div
-          v-if="isInMyList"
-          class="movie-card-status flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm"
-          title="In My List"
-        >
-          <svg class="h-4 w-4 text-zinc-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-            />
-          </svg>
-        </div>
-      </div>
-
+    <div class="movie-card-poster-stack relative">
       <div
-        class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"
+        class="movie-card-poster-back movie-card-poster-back-left"
+        aria-hidden="true"
+      ></div>
+      <div
+        class="movie-card-poster-back movie-card-poster-back-right"
+        aria-hidden="true"
       ></div>
 
       <div
-        v-if="formattedRating"
-        class="movie-card-rating absolute bottom-3 right-3 z-20 inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/80 px-2.5 py-1 text-white shadow-lg backdrop-blur-md"
+        class="movie-card-poster relative z-10 cursor-pointer overflow-hidden border border-zinc-800 bg-zinc-900 shadow-glow"
+        @click="openDetails"
       >
-        <svg
-          class="movie-card-rating-icon text-amber-400"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          aria-hidden="true"
+        <img
+          :src="movie.image"
+          alt="Movie Poster"
+          class="absolute inset-0 h-full w-full object-cover"
+        />
+
+        <div
+          v-if="isInMyList || isWatched"
+          class="absolute right-3 top-3 z-20 flex flex-col gap-1.5"
         >
-          <path
-            d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-          />
-        </svg>
-        <span class="movie-card-rating-text">{{ formattedRating }}</span>
+          <div
+            v-if="isWatched"
+            class="movie-card-status flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm"
+            title="Already watched"
+          >
+            <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+              />
+            </svg>
+          </div>
+
+          <div
+            v-if="isInMyList"
+            class="movie-card-status flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm"
+            title="In My List"
+          >
+            <svg class="h-4 w-4 text-zinc-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+              />
+            </svg>
+          </div>
+        </div>
+
+        <div
+          class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"
+        ></div>
+
+        <div
+          v-if="formattedRating"
+          class="movie-card-rating absolute bottom-3 right-3 z-20 inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/80 px-2.5 py-1 text-white shadow-lg backdrop-blur-md"
+        >
+          <svg
+            class="movie-card-rating-icon text-amber-400"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+            />
+          </svg>
+          <span class="movie-card-rating-text">{{ formattedRating }}</span>
+        </div>
       </div>
     </div>
 
@@ -74,7 +88,7 @@
       <div class="space-y-1">
         <div class="movie-card-heading flex items-start justify-between gap-3">
           <h1 class="movie-card-title line-clamp-2 text-white">{{ movie.title }}</h1>
-          <span v-if="movie.year" class="movie-card-year shrink-0 text-zinc-200">{{
+          <span v-if="movie.year" class="movie-card-year shrink-0 text-zinc-400">{{
             movie.year
           }}</span>
         </div>
@@ -238,6 +252,34 @@ const closeDetails = () => {
   border-radius: 1.125rem;
 }
 
+.movie-card-poster-stack {
+  flex: 0 0 auto;
+  width: 100%;
+  aspect-ratio: 1 / 1.5;
+}
+
+.movie-card-poster-back {
+  position: absolute;
+  inset: 0;
+  border-radius: 1.125rem;
+  background: rgb(24 24 27);
+  border: 1px solid rgb(82 82 91 / 0.9);
+  box-shadow:
+    0 10px 26px rgb(0 0 0 / 0.2),
+    0 0 0 1px rgb(255 255 255 / 0.03);
+  pointer-events: none;
+}
+
+.movie-card-poster-back-left {
+  opacity: 0.3;
+  transform: translateX(-0.55rem) rotate(-1.6deg);
+}
+
+.movie-card-poster-back-right {
+  opacity: 0.42;
+  transform: translateX(0.55rem) rotate(1.4deg);
+}
+
 .movie-card-copy {
   width: 100%;
 }
@@ -268,10 +310,10 @@ const closeDetails = () => {
 .movie-card-year {
   font-size: clamp(0.75rem, 4.2cqw, 0.98rem);
   line-height: 1;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  opacity: 0.95;
+  opacity: 0.9;
 }
 
 .movie-card-chip {
