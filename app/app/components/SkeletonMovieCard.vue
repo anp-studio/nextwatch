@@ -14,10 +14,6 @@
         class="relative w-full shrink-0 aspect-[1/1.5] overflow-hidden rounded-[1.125rem] border border-zinc-800 bg-zinc-900 shadow-glow"
       >
         <div class="skeleton-shimmer absolute inset-0"></div>
-        <div class="skeleton-status-cluster absolute right-3 top-3 z-10 flex flex-col gap-1.5">
-          <div class="skeleton-shimmer h-[clamp(1.2rem,8.7cqw,2rem)] w-[clamp(1.2rem,8.7cqw,2rem)] rounded-full"></div>
-          <div class="skeleton-shimmer h-[clamp(1.2rem,8.7cqw,2rem)] w-[clamp(1.2rem,8.7cqw,2rem)] rounded-full"></div>
-        </div>
         <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"></div>
         <div
           class="absolute bottom-3 right-3 z-10 inline-flex min-w-[clamp(3.5rem,19cqw,4.8rem)] items-center gap-1 rounded-full border border-white/10 bg-black/70 px-2.5 py-1 backdrop-blur-md"
@@ -28,12 +24,12 @@
       </div>
     </div>
 
-    <div class="w-full space-y-2">
+    <div class="w-full space-y-[clamp(0.1rem,1.8cqw,0.5rem)]">
       <div
-        class="mb-[clamp(0.12rem,1.5cqw,0.4rem)] flex items-center justify-between gap-3 pb-[clamp(0.08rem,0.8cqw,0.18rem)]"
+        class="mb-[clamp(0.08rem,1.1cqw,0.28rem)] flex items-center justify-between gap-3 pb-[clamp(0.04rem,0.45cqw,0.1rem)]"
       >
-        <div class="skeleton-shimmer h-10 w-2/3 rounded"></div>
-        <div class="skeleton-shimmer h-4 w-12 rounded"></div>
+        <div class="skeleton-shimmer h-[clamp(1.9rem,11.2cqw,3.7rem)] flex-1 rounded"></div>
+        <div class="skeleton-shimmer h-[clamp(0.75rem,4.2cqw,0.98rem)] w-12 shrink-0 rounded"></div>
       </div>
       <div class="flex flex-wrap gap-2">
         <div class="skeleton-shimmer h-7 w-20 rounded-full"></div>
@@ -43,7 +39,7 @@
     </div>
 
     <div
-      class="flex shrink-0 justify-center gap-[clamp(0.25rem,3.5cqw,1rem)]"
+      class="flex shrink-0 justify-center gap-[clamp(0.25rem,3.5cqw,1rem)] pt-[clamp(0rem,0.35cqw,0.1rem)]"
     >
       <div
         class="skeleton-shimmer h-[clamp(2.1rem,16.1cqw,3.7rem)] w-[clamp(2.1rem,16.1cqw,3.7rem)] rounded-full [box-shadow:0_0_0_1px_rgb(255_255_255/0.04),0_8px_18px_rgb(0_0_0/0.18),0_0_18px_rgb(255_255_255/0.05)]"
