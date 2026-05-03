@@ -1,19 +1,24 @@
 <template>
-  <div class="h-full flex flex-col bg-gray-50 dark:bg-gray-900 relative overflow-hidden">
-    <div class="pt-12 px-6 text-center">
-      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Movies For You</h1>
-      <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Find your next movie.</p>
-    </div>
-    <div class="flex-1 relative w-full px-6 -mt-6 flex flex-col items-center justify-center">
-      <div v-if="pending" class="w-full max-w-sm md:max-w-[min(24rem,calc((65vh-12rem)*2/3))] h-[65vh] relative mx-auto">
-        <SkeletonMovieCard />
+  <div class="relative flex h-full flex-col overflow-hidden bg-background text-on-background">
+    <div class="discovery-viewport flex h-full flex-col px-4 pt-4 sm:px-6 sm:pt-5 lg:px-8">
+      <div v-if="pending" class="flex min-h-0 flex-1 items-center justify-center">
+        <div class="discovery-stage">
+          <div class="discovery-card-shell">
+            <SkeletonMovieCard />
+          </div>
+        </div>
       </div>
 
-      <div v-else-if="!isAuthenticated" class="text-center text-gray-500 dark:text-gray-400">
-        <p class="text-xl font-medium mb-2">Sign in to get recommendations</p>
-        <p class="text-sm mb-6">We'll suggest movies based on what you've watched.</p>
+      <div
+        v-else-if="!isAuthenticated"
+        class="mx-auto flex w-full max-w-md flex-1 flex-col justify-center pt-16 text-center text-zinc-400"
+      >
+        <p class="mb-2 text-2xl font-semibold text-white">Sign in to get recommendations</p>
+        <p class="mb-8 text-sm uppercase tracking-[0.24em] text-zinc-500">
+          We'll suggest movies based on what you've watched.
+        </p>
         <button
-          class="inline-flex items-center gap-2 px-6 py-3 bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-full transition-colors"
+          class="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 font-semibold text-black transition-colors hover:bg-zinc-200"
           @click="showLoginModal = true"
         >
           Sign in
@@ -22,9 +27,11 @@
 
       <div
         v-else-if="showBlockingRecommendationFailure"
-        class="text-center text-gray-500 dark:text-gray-400 max-w-sm mx-auto"
+        class="mx-auto max-w-md pt-16 text-center text-zinc-400"
       >
-        <p v-if="isLimitReachedFailure" class="text-2xl font-semibold mb-2">Daily limit reached!</p>
+        <p v-if="isLimitReachedFailure" class="mb-2 text-2xl font-semibold text-white">
+          Daily limit reached
+        </p>
         <AlertMessage type="error" :message="recommendationFailureMessage" />
         <div
           v-if="showRecommendationFailureActions"
@@ -32,7 +39,7 @@
         >
           <button
             v-if="canLoadPreviousRecommendations"
-            class="inline-flex items-center gap-2 px-4 py-2 text-sm border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-50 font-semibold rounded-full transition-colors"
+            class="inline-flex items-center gap-2 rounded-full border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 transition-colors hover:border-white hover:text-white disabled:opacity-50"
             :disabled="pending"
             @click="loadPreviousRecommendations"
           >
@@ -40,7 +47,7 @@
           </button>
           <button
             v-if="canRetryRecommendations"
-            class="inline-flex items-center gap-2 px-6 py-3 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-semibold rounded-full transition-colors"
+            class="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 font-semibold text-black transition-colors hover:bg-zinc-200 disabled:opacity-50"
             :disabled="pending || retrySecondsLeft > 0"
             @click="retryRecommendations"
           >
@@ -51,32 +58,34 @@
 
       <div
         v-else-if="showRecommendationEmptyState"
-        class="text-center text-gray-500 dark:text-gray-400"
+        class="mx-auto flex min-h-0 flex-1 flex-col items-center justify-center text-center text-zinc-400"
       >
-        <p class="text-2xl font-semibold mb-2">You're all caught up!</p>
-        <p class="text-base mb-6">Ready for another round?</p>
-        <div class="flex items-center justify-center gap-3">
+        <p class="mb-2 text-2xl font-semibold text-white">You're all caught up</p>
+        <p class="mb-6 text-sm uppercase tracking-[0.24em] text-zinc-500">
+          Ready for another round?
+        </p>
+        <div class="empty-state-actions flex w-full max-w-md items-center justify-center gap-3">
           <button
-            class="inline-flex items-center gap-2 px-3 py-2 text-sm border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-50 font-semibold rounded-full transition-colors"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-200 transition-colors hover:border-white hover:text-white disabled:opacity-50"
             :disabled="pending"
             @click="resetMovies"
           >
             Start Over
           </button>
           <button
-            class="inline-flex items-center gap-2 px-3 py-2 text-sm border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-50 font-semibold rounded-full transition-colors"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-200 transition-colors hover:border-white hover:text-white disabled:opacity-50"
             :disabled="pending"
             @click="refreshMovies"
           >
             Refresh
           </button>
           <button
-            class="inline-flex items-center gap-2 px-4 py-2 text-sm bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-semibold rounded-full transition-colors"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-zinc-200 disabled:opacity-50"
             :disabled="pending"
             @click="getNewMovies"
           >
             <svg
-              class="w-4 h-4"
+              class="h-4 w-4"
               :class="{ 'animate-spin': pending }"
               fill="none"
               viewBox="0 0 24 24"
@@ -94,49 +103,50 @@
         </div>
       </div>
 
-      <div v-else class="w-full max-w-sm md:max-w-[min(24rem,calc((65vh-12rem)*2/3))] mx-auto flex flex-col gap-4">
-        <div
-          v-if="showInlineRecommendationFailure"
-          class="w-full text-center text-gray-500 dark:text-gray-400"
-        >
-          <AlertMessage type="error" :message="recommendationFailureMessage" />
-          <div
-            v-if="showRecommendationFailureActions"
-            class="mt-3 flex items-center justify-center gap-3"
-          >
-            <button
-              v-if="canLoadPreviousRecommendations"
-              class="inline-flex items-center gap-2 px-4 py-2 text-sm border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-50 font-semibold rounded-full transition-colors"
-              :disabled="pending"
-              @click="loadPreviousRecommendations"
-            >
-              Load Previous Recommendations
-            </button>
-            <button
-              v-if="canRetryRecommendations"
-              class="inline-flex items-center gap-2 px-3 py-2 text-sm bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-semibold rounded-full transition-colors"
-              :disabled="pending || retrySecondsLeft > 0"
-              @click="retryRecommendations"
-            >
-              {{ retryButtonLabel }}
-            </button>
-          </div>
-        </div>
+      <div v-else class="flex min-h-0 flex-1 items-center justify-center">
+        <div class="discovery-stage">
+          <div class="discovery-card-shell">
+            <div v-if="showInlineRecommendationFailure" class="w-full text-center text-zinc-400">
+              <AlertMessage type="error" :message="recommendationFailureMessage" />
+              <div
+                v-if="showRecommendationFailureActions"
+                class="mt-3 flex items-center justify-center gap-3"
+              >
+                <button
+                  v-if="canLoadPreviousRecommendations"
+                  class="inline-flex items-center gap-2 rounded-full border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 transition-colors hover:border-white hover:text-white disabled:opacity-50"
+                  :disabled="pending"
+                  @click="loadPreviousRecommendations"
+                >
+                  Load Previous Recommendations
+                </button>
+                <button
+                  v-if="canRetryRecommendations"
+                  class="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-semibold text-black transition-colors hover:bg-zinc-200 disabled:opacity-50"
+                  :disabled="pending || retrySecondsLeft > 0"
+                  @click="retryRecommendations"
+                >
+                  {{ retryButtonLabel }}
+                </button>
+              </div>
+            </div>
 
-        <div class="w-full h-[65vh] relative mx-auto">
-          <Transition name="card" mode="out-in">
-            <MovieCard
-              v-if="currentMovieFormatted"
-              :key="currentMovieFormatted?.id"
-              :movie="currentMovieFormatted"
-              :is-in-my-list="isInMyList"
-              :is-watched="isWatched"
-              @dislike="handleDislike"
-              @watched="handleLike"
-              @to-watch="handleAddToList"
-              @refresh="refreshMovies"
-            />
-          </Transition>
+            <div class="min-h-0 w-full flex-1">
+              <Transition name="card" mode="out-in">
+                <MovieCard
+                  v-if="currentMovieFormatted"
+                  :key="currentMovieFormatted?.id"
+                  :movie="currentMovieFormatted"
+                  :is-in-my-list="isInMyList"
+                  :is-watched="isWatched"
+                  @dislike="handleDislike"
+                  @watched="handleLike"
+                  @to-watch="handleAddToList"
+                  @refresh="refreshMovies"
+                />
+              </Transition>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -146,14 +156,14 @@
     <Transition name="fade">
       <div
         v-if="undoAction"
-        class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-white dark:bg-gray-700 text-gray-800 dark:text-white rounded-full px-5 py-3 shadow-lg border border-gray-200 dark:border-transparent flex items-center gap-3 max-w-sm"
+        class="fixed bottom-24 left-1/2 z-50 flex max-w-sm -translate-x-1/2 items-center gap-3 rounded-full border border-zinc-800 bg-black px-5 py-3 text-zinc-200 shadow-glow"
       >
-        <span class="text-sm truncate">
+        <span class="truncate text-sm">
           <strong>{{ undoAction.movie.title }}</strong>
           {{ undoAction.type === 'watched' ? 'marked as watched' : 'added to My List' }}
         </span>
         <button
-          class="text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 font-semibold text-sm whitespace-nowrap transition-colors"
+          class="whitespace-nowrap text-sm font-semibold text-white transition-colors hover:text-zinc-300"
           @click="handleUndo"
         >
           Undo
@@ -166,8 +176,9 @@
 <script setup>
 // @pmackovic mozda treba da se pomeri u neki composable
 
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
+const DISCOVERY_REFRESH_EVENT = 'discovery:refresh-request'
 const FETCH_MODE = {
   DEFAULT: 'default',
   GET_NEW: 'getNew',
@@ -208,10 +219,15 @@ const currentMovieDetails = useState('discovery-current-movie-details', () => nu
 const detailsRequestId = ref(0)
 const retrySecondsLeft = ref(0)
 let retryTimerHandle = null
+let discoveryRefreshHandler = null
 
 function toRecommendationItems(recommendations) {
   return recommendations.flatMap((recommendation) => {
-    if (typeof recommendation === 'number' && Number.isInteger(recommendation) && recommendation > 0) {
+    if (
+      typeof recommendation === 'number' &&
+      Number.isInteger(recommendation) &&
+      recommendation > 0
+    ) {
       return [{ tmdbId: recommendation }]
     }
 
@@ -264,7 +280,7 @@ function getErrorStatusCode(error) {
 
 function getErrorStatusMessage(error) {
   const candidates = [error?.data?.statusMessage, error?.statusMessage, error?.message]
-  const message = candidates.find((c) => typeof c === 'string') ?? ''
+  const message = candidates.find((candidate) => typeof candidate === 'string') ?? ''
   return message || FALLBACK_RECOMMENDATION_ERROR_MESSAGE
 }
 
@@ -381,14 +397,24 @@ onMounted(() => {
     const expiresAt = Number(stored)
     if (Date.now() < expiresAt) {
       resumeRetryCooldown(expiresAt)
-      return
+    } else {
+      localStorage.removeItem(RETRY_COOLDOWN_KEY)
     }
-    localStorage.removeItem(RETRY_COOLDOWN_KEY)
   }
+
+  discoveryRefreshHandler = () => {
+    if (pending.value) return
+    resetMovies()
+  }
+
+  window.addEventListener(DISCOVERY_REFRESH_EVENT, discoveryRefreshHandler)
 })
 
 onUnmounted(() => {
   if (retryTimerHandle !== null) clearInterval(retryTimerHandle)
+  if (discoveryRefreshHandler !== null) {
+    window.removeEventListener(DISCOVERY_REFRESH_EVENT, discoveryRefreshHandler)
+  }
 })
 
 // avoid wasting TMDB quota on movies the user may never reach in the stack
@@ -460,7 +486,7 @@ const fetchRecommendations = async (mode = FETCH_MODE.DEFAULT) => {
     }
 
     if (!Array.isArray(response.recommendations)) {
-    throw new Error('Recommendations response was missing a recommendation list.')
+      throw new Error('Recommendations response was missing a recommendation list.')
     }
 
     clearRetryCooldown()
@@ -614,3 +640,111 @@ const handleModalClose = () => {
   }
 }
 </script>
+
+<style scoped>
+.discovery-stage {
+  --header-height: 4rem;
+  --footer-height: 4rem;
+  --page-vertical-padding: 1.5rem;
+  --footer-clearance: clamp(0.65rem, 1.75dvh, 1.25rem);
+  --fit-safety: clamp(0.85rem, 2dvh, 1.5rem);
+  --card-non-poster-height: clamp(9.25rem, 19dvh, 12rem);
+  --height-fit-width: calc(
+    (100dvh - var(--header-height) - var(--footer-height) - var(--page-vertical-padding) - var(--footer-clearance) - var(--card-non-poster-height) - var(--fit-safety)) / 1.5
+  );
+  display: flex;
+  min-height: 0;
+  width: min(100%, 29rem, max(16rem, var(--height-fit-width)));
+  height: 100%;
+  max-height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  margin-inline: auto;
+}
+
+.discovery-viewport {
+  padding-bottom: var(--footer-clearance, 0.85rem);
+}
+
+.discovery-card-shell {
+  container-type: inline-size;
+  display: flex;
+  min-height: 0;
+  max-height: 100%;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  padding-inline: clamp(0.35rem, 1vw, 0.85rem);
+  padding-block: clamp(0.15rem, 0.5vw, 0.4rem);
+}
+
+@media (max-width: 640px) {
+  .discovery-card-shell {
+    padding-inline: 0.35rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .discovery-card-shell {
+    padding-inline: 0.25rem;
+  }
+}
+
+@media (max-height: 760px) {
+  .discovery-stage {
+    --card-non-poster-height: clamp(7.85rem, 17dvh, 9.75rem);
+    --footer-clearance: clamp(0.5rem, 1.4dvh, 0.85rem);
+    --fit-safety: clamp(0.65rem, 1.5dvh, 1rem);
+  }
+
+  .discovery-card-shell {
+    padding-block: 0.1rem;
+  }
+}
+
+@media (max-height: 680px) {
+  .discovery-stage {
+    --card-non-poster-height: clamp(7rem, 16dvh, 8.65rem);
+    --footer-clearance: 0.5rem;
+    --fit-safety: 0.65rem;
+  }
+
+  .discovery-card-shell {
+    padding-block: 0;
+  }
+}
+
+@media (max-height: 720px) {
+  .empty-state-actions {
+    flex-direction: column;
+  }
+
+  .empty-state-actions > button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 390px) {
+  .empty-state-actions {
+    flex-direction: column;
+  }
+
+  .empty-state-actions > button {
+    width: 100%;
+  }
+}
+
+@media (min-width: 1280px) {
+  .discovery-stage {
+    width: min(100%, 27rem, max(16rem, var(--height-fit-width)));
+  }
+}
+
+@media (min-width: 640px) {
+  .discovery-stage {
+    --footer-height: 4.25rem;
+    --page-vertical-padding: 2rem;
+  }
+}
+</style>
