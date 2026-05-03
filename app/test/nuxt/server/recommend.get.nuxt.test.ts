@@ -43,22 +43,6 @@ vi.mock('../../../server/utils/recommendations', () => ({
   fetchWatchedMovies: fetchWatchedMoviesMock,
   getRecommendationsFromGemini: getRecommendationsFromGeminiMock,
   MIN_RECOMMENDATIONS_TO_CACHE: 5,
-  hydrateRecommendationsByTmdbIds: (supabase: unknown, tmdbIds: number[]) =>
-    Promise.resolve(
-      [
-        ...FRESH_CACHE_RECOMMENDATIONS,
-        ...GENERATED_RECOMMENDATIONS,
-        ...STALE_RECOMMENDATIONS,
-        ...INSUFFICIENT_VALID_RECOMMENDATIONS,
-      ]
-        .filter((recommendation) => recommendation.tmdbId !== null && tmdbIds.includes(recommendation.tmdbId))
-        .map((recommendation) => ({
-          name: recommendation.name,
-          originalName: recommendation.originalName,
-          year: recommendation.year,
-          tmdbId: recommendation.tmdbId,
-        }))
-    ),
   hasEnoughRecommendationsToCache: (recommendations: Array<{ tmdbId: number | null }>) =>
     recommendations.filter((recommendation) => recommendation.tmdbId !== null).length >= 5,
   hasValidTmdbId: (recommendation: { tmdbId: number | null }) => recommendation.tmdbId !== null,
@@ -259,16 +243,7 @@ describe('/api/recommend', () => {
 
     expect(response.status).toBe(200)
     expect(body.cached).toBe(true)
-    expect(body.regenerationError).toBeNull()
-    expect(body.staleRecommendations).toBeNull()
-    expect(body.unmatchedRecommendations).toBeNull()
-    expect(body.recommendations).toEqual(
-      FRESH_CACHE_RECOMMENDATIONS.map(({ tmdbId, originalName, year }) => ({
-        tmdbId,
-        originalName,
-        year,
-      }))
-    )
+    expect(body.recommendations).toEqual(recommendationIds(FRESH_CACHE_RECOMMENDATIONS))
     expect(getRecommendationsFromGeminiMock).not.toHaveBeenCalled()
   })
 
@@ -284,16 +259,7 @@ describe('/api/recommend', () => {
 
     expect(response.status).toBe(200)
     expect(body.cached).toBe(false)
-    expect(body.regenerationError).toBeNull()
-    expect(body.staleRecommendations).toBeNull()
-    expect(body.unmatchedRecommendations).toEqual([])
-    expect(body.recommendations).toEqual(
-      GENERATED_RECOMMENDATIONS.map(({ tmdbId, originalName, year }) => ({
-        tmdbId,
-        originalName,
-        year,
-      }))
-    )
+    expect(body.recommendations).toEqual(recommendationIds(GENERATED_RECOMMENDATIONS))
     expect(getRecommendationsFromGeminiMock).toHaveBeenCalledTimes(1)
     expect(supabaseState.upsertPayload?.tmdb_ids).toEqual(
       recommendationIds(GENERATED_RECOMMENDATIONS)
@@ -319,19 +285,13 @@ describe('/api/recommend', () => {
     const body = await readJson(response)
 
     expect(response.status).toBe(200)
-    expect(body.recommendations).toEqual(
-      GENERATED_RECOMMENDATIONS.map(({ tmdbId, originalName, year }) => ({
-        tmdbId,
-        originalName,
-        year,
-      }))
-    )
+    expect(body.recommendations).toEqual(recommendationIds(GENERATED_RECOMMENDATIONS))
     expect(supabaseState.upsertPayload?.tmdb_ids).toEqual(
       recommendationIds(GENERATED_RECOMMENDATIONS)
     )
   })
 
-  it('returns unmatched recommendations from Gemini when TMDB resolution fails', async () => {
+  it('drops unmatched recommendations from the response when TMDB resolution fails', async () => {
     getRecommendationsFromGeminiMock.mockResolvedValue({
       recommendations: [
         ...cloneRecommendations(GENERATED_RECOMMENDATIONS),
@@ -351,20 +311,8 @@ describe('/api/recommend', () => {
     const body = await readJson(response)
 
     expect(response.status).toBe(200)
-    expect(body.recommendations).toEqual(
-      GENERATED_RECOMMENDATIONS.map(({ tmdbId, originalName, year }) => ({
-        tmdbId,
-        originalName,
-        year,
-      }))
-    )
-    expect(body.unmatchedRecommendations).toEqual([
-      {
-        name: 'Unknown Festival Cut',
-        originalName: 'Unknown Festival Cut',
-        year: 2024,
-      },
-    ])
+    expect(body.recommendations).toEqual(recommendationIds(GENERATED_RECOMMENDATIONS))
+    expect(body).not.toHaveProperty('unmatchedRecommendations')
   })
 
   it('returns resolved recommendations and stores the sanitized cache payload', async () => {
@@ -389,11 +337,10 @@ describe('/api/recommend', () => {
     expect(response.status).toBe(200)
     expect(Array.isArray(body.recommendations)).toBe(true)
     expect((body.recommendations as Array<unknown>).length).toBeGreaterThanOrEqual(5)
-    expect(body.unmatchedRecommendations).toEqual([])
     expect(supabaseState.upsertPayload?.tmdb_ids).toEqual(recommendationIds(extendedRecommendations))
   })
 
-  it('returns stale recommendations with retryable regeneration metadata for 503 failures', async () => {
+  it('falls back to cached recommendations when regeneration fails with a 503', async () => {
     supabaseState.cachedRow = {
       tmdb_ids: recommendationIds(STALE_RECOMMENDATIONS),
       watched_hash: 'expired-hash',
@@ -410,24 +357,11 @@ describe('/api/recommend', () => {
     const body = await readJson(response)
 
     expect(response.status).toBe(200)
-    expect(body.recommendations).toBeNull()
-    expect(body.cached).toBe(false)
-    expect(body.regenerationError).toEqual({
-      statusCode: 503,
-      statusMessage: 'Gemini is temporarily unavailable due to high demand.',
-      retryable: true,
-    })
-    expect(body.unmatchedRecommendations).toBeNull()
-    expect(body.staleRecommendations).toEqual(
-      STALE_RECOMMENDATIONS.map(({ tmdbId, originalName, year }) => ({
-        tmdbId,
-        originalName,
-        year,
-      }))
-    )
+    expect(body.cached).toBe(true)
+    expect(body.recommendations).toEqual(recommendationIds(STALE_RECOMMENDATIONS))
   })
 
-  it('returns stale recommendations with non-retryable metadata for 429 failures', async () => {
+  it('falls back to cached recommendations when regeneration fails with a 429', async () => {
     supabaseState.cachedRow = {
       tmdb_ids: recommendationIds(STALE_RECOMMENDATIONS),
       watched_hash: 'expired-hash',
@@ -444,22 +378,11 @@ describe('/api/recommend', () => {
     const body = await readJson(response)
 
     expect(response.status).toBe(200)
-    expect(body.regenerationError).toEqual({
-      statusCode: 429,
-      statusMessage: 'Daily recommendation limit reached. Please try again tomorrow.',
-      retryable: false,
-    })
-    expect(body.unmatchedRecommendations).toBeNull()
-    expect(body.staleRecommendations).toEqual(
-      STALE_RECOMMENDATIONS.map(({ tmdbId, originalName, year }) => ({
-        tmdbId,
-        originalName,
-        year,
-      }))
-    )
+    expect(body.cached).toBe(true)
+    expect(body.recommendations).toEqual(recommendationIds(STALE_RECOMMENDATIONS))
   })
 
-  it('returns fallback metadata when regeneration results in too few valid recommendations', async () => {
+  it('falls back to cached recommendations when regeneration returns too few valid ids', async () => {
     supabaseState.cachedRow = {
       tmdb_ids: recommendationIds(STALE_RECOMMENDATIONS),
       watched_hash: 'expired-hash',
@@ -476,28 +399,8 @@ describe('/api/recommend', () => {
     const body = await readJson(response)
 
     expect(response.status).toBe(200)
-    expect(body.recommendations).toBeNull()
-    expect(body.regenerationError).toEqual({
-      statusCode: 502,
-      statusMessage: 'Recommendation generation returned too few valid TMDB matches.',
-      retryable: false,
-    })
-    expect(body.unmatchedRecommendations).toEqual(
-      INSUFFICIENT_VALID_RECOMMENDATIONS.filter(({ tmdbId }) => tmdbId === null).map(
-        ({ name, originalName, year }) => ({
-          name,
-          originalName,
-          year,
-        })
-      )
-    )
-    expect(body.staleRecommendations).toEqual(
-      STALE_RECOMMENDATIONS.map(({ tmdbId, originalName, year }) => ({
-        tmdbId,
-        originalName,
-        year,
-      }))
-    )
+    expect(body.cached).toBe(true)
+    expect(body.recommendations).toEqual(recommendationIds(STALE_RECOMMENDATIONS))
   })
 
   it('preserves the original error when regeneration fails without stored fallback', async () => {
