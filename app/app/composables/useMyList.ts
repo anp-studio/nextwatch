@@ -25,6 +25,7 @@ const isPendingMyListMovie = (movie: unknown): movie is PendingMyListMovie => {
 
 const hasMyListMovieDetails = (
   movie: Pick<MyListMovie, 'title' | 'year' | 'posterPath'> & {
+    rating?: number | null
     genres?: string[]
     runtime?: number | null
   }
@@ -32,6 +33,9 @@ const hasMyListMovieDetails = (
   movie.title.trim().length > 0 &&
   movie.year > 0 &&
   movie.posterPath.trim().length > 0 &&
+  typeof movie.rating === 'number' &&
+  Number.isFinite(movie.rating) &&
+  movie.rating > 0 &&
   Array.isArray(movie.genres) &&
   movie.genres.length > 0 &&
   movie.runtime !== undefined
@@ -40,6 +44,7 @@ const applyDetailsToMyListMovie = (movie: MyListMovie, details: Movie) => {
   movie.title = details.title
   movie.year = details.year
   movie.posterPath = posterPath(details.poster)
+  movie.rating = details.rating
   movie.genres = details.genres
   movie.runtime = details.runtime
 }
@@ -100,6 +105,7 @@ export const useMyList = () => {
 
   const addToMyList = async (
     movie: Pick<MoviePreview, 'id' | 'title' | 'year' | 'poster'> & {
+      rating?: number | null
       genres?: string[]
       runtime?: number | null
     }
@@ -121,6 +127,7 @@ export const useMyList = () => {
           title: movie.title,
           year: movie.year,
           posterPath: path,
+          rating: movie.rating,
           genres: movie.genres,
           runtime: movie.runtime,
         })
@@ -141,6 +148,8 @@ export const useMyList = () => {
           year: details?.year ?? movie.year,
           posterPath: details ? posterPath(details.poster) : path,
         }
+        if (details) entry.rating = details.rating
+        if (!details && typeof movie.rating === 'number') entry.rating = movie.rating
         if (details?.genres.length) entry.genres = details.genres
         if (details) entry.runtime = details.runtime
         if (!details && movie.genres?.length) entry.genres = movie.genres
@@ -200,6 +209,7 @@ export const useMyList = () => {
 
   const queuePendingMyListMovie = (
     movie: Pick<MoviePreview, 'id' | 'title' | 'year' | 'poster'> & {
+      rating?: number | null
       genres?: string[]
       runtime?: number | null
     }
@@ -214,6 +224,7 @@ export const useMyList = () => {
       year: movie.year,
       posterPath: posterPath(movie.poster),
     }
+    if (typeof movie.rating === 'number') entry.rating = movie.rating
     if (movie.genres?.length) entry.genres = movie.genres
     if (typeof movie.runtime === 'number') entry.runtime = movie.runtime
 
@@ -276,6 +287,7 @@ export const useMyList = () => {
               year: movie.year,
               posterPath: movie.posterPath,
             }
+            if (typeof movie.rating === 'number') entry.rating = movie.rating
             if (movie.genres?.length) entry.genres = movie.genres
             if (typeof movie.runtime === 'number') entry.runtime = movie.runtime
             myList.value.push(entry)
