@@ -1,9 +1,51 @@
 <template>
   <section>
     <div class="flex flex-col gap-3">
+      <div class="tiny-filter-actions hidden items-center gap-2">
+        <button
+          type="button"
+          class="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition"
+          :class="sortBy !== defaultSort ? mobileActionActiveClass : mobileActionInactiveClass"
+          @click="isSortModalOpen = true"
+        >
+          <span>{{ sortLabels[sortBy] }}</span>
+          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M3 7h18M6 12h12m-9 5h6"
+            />
+          </svg>
+        </button>
+
+        <button
+          type="button"
+          class="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition"
+          :class="hasFilterSelections ? mobileActionActiveClass : mobileActionInactiveClass"
+          @click="isFilterMenuOpen = true"
+        >
+          <span>Filters</span>
+          <span
+            v-if="activeFilterCount > 0"
+            class="rounded-full border border-white/10 bg-white/10 px-1.5 py-0.5 text-[0.65rem] uppercase tracking-[0.18em]"
+          >
+            {{ activeFilterCount }}
+          </span>
+          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 6h16M7 12h10m-7 6h4"
+            />
+          </svg>
+        </button>
+      </div>
+
       <div
         data-my-list-filter-dropdown
-        class="flex flex-col gap-2 border border-white/[0.08] bg-[#1c1b1b] p-2.5 sm:rounded-full sm:p-2.5 lg:flex-row lg:items-center"
+        class="tiny-filter-main flex flex-col gap-2 border border-white/[0.08] bg-[#1c1b1b] p-2.5 sm:rounded-full sm:p-2.5 lg:flex-row lg:items-center"
         :class="surfaceRadiusClass"
       >
         <label class="relative min-w-0 flex-1">
@@ -206,14 +248,11 @@
         </div>
       </div>
 
-      <div v-if="hasVisibleActiveFilters" class="flex flex-wrap items-center gap-1.5 px-1">
-        <span class="text-[0.62rem] uppercase tracking-[0.18em] text-[#8e9192]">
-          {{ resultsLabel }}
-        </span>
+      <div v-if="hasVisibleActiveFilters" class="flex items-center gap-2 overflow-x-auto px-1 pb-1">
         <button
           v-if="searchQuery.trim()"
           type="button"
-          class="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-[#141313] px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-white transition hover:border-white/30"
+          class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-[#141313] px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-white transition hover:border-white/30"
           @click="$emit('update:searchQuery', '')"
         >
           <span>Search: {{ searchQuery.trim() }}</span>
@@ -226,10 +265,29 @@
             />
           </svg>
         </button>
+
+        <button
+          v-for="genre in selectedGenres"
+          :key="genre"
+          type="button"
+          class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-[#18181b] px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-white transition hover:border-white/30"
+          @click="$emit('toggleGenre', genre)"
+        >
+          <span>{{ genre }}</span>
+          <svg class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+
         <button
           v-if="selectedRuntime"
           type="button"
-          class="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-[#141313] px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-white transition hover:border-white/30"
+          class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-[#141313] px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-white transition hover:border-white/30"
           @click="selectRuntime(null)"
         >
           <span>{{ selectedRuntime.label }}</span>
@@ -242,32 +300,13 @@
             />
           </svg>
         </button>
+
         <button
           type="button"
-          class="text-[0.62rem] uppercase tracking-[0.16em] text-[#8e9192] transition hover:text-white"
+          class="inline-flex shrink-0 items-center self-center px-1 text-[0.62rem] uppercase tracking-[0.16em] text-[#8e9192] transition hover:text-white"
           @click="$emit('clearFilters')"
         >
           Clear all
-        </button>
-      </div>
-
-      <div v-if="selectedGenres.length > 0" class="flex flex-wrap gap-1.5 px-1">
-        <button
-          v-for="genre in selectedGenres"
-          :key="genre"
-          type="button"
-          class="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-[#18181b] px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-white transition hover:border-white/30"
-          @click="$emit('toggleGenre', genre)"
-        >
-          <span>{{ genre }}</span>
-          <svg class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
         </button>
       </div>
 
@@ -290,6 +329,79 @@
         </div>
       </div>
     </div>
+
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="isFilterMenuOpen"
+          class="fixed inset-0 z-[200] flex items-center justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-sm sm:p-4"
+          @click.self="isFilterMenuOpen = false"
+        >
+          <div class="flex max-h-[95dvh] w-full max-w-md flex-col overflow-hidden bg-transparent">
+            <div class="overflow-y-auto">
+              <MyListFilterBarSideMenu
+                :search-query="searchQuery"
+                :selected-genres="selectedGenres"
+                :selected-runtime="selectedRuntime"
+                :sort-by="sortBy"
+                :available-genres="availableGenres"
+                :runtime-ranges="runtimeRanges"
+                @update:search-query="$emit('update:searchQuery', $event)"
+                @update:selected-runtime="$emit('update:selectedRuntime', $event)"
+                @update:sort-by="$emit('update:sortBy', $event)"
+                @toggle-genre="$emit('toggleGenre', $event)"
+                @clear-filters="$emit('clearFilters')"
+                @close="isFilterMenuOpen = false"
+              />
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="isSortModalOpen"
+          class="fixed inset-0 z-[200] flex items-center justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-sm sm:p-4"
+          @click.self="isSortModalOpen = false"
+        >
+          <div class="flex max-h-[95dvh] w-full max-w-sm flex-col overflow-hidden bg-transparent">
+            <div class="flex items-center justify-between px-5 pb-2 pt-4">
+              <p class="text-sm text-[#8e9192]">Sort watchlist</p>
+              <button
+                class="rounded-full p-1 text-[#8e9192] transition hover:text-white"
+                @click="isSortModalOpen = false"
+              >
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div
+              class="space-y-2 rounded-[1.75rem] border border-white/[0.08] bg-[#141313] px-4 pb-4 pt-4"
+            >
+              <button
+                v-for="option in sortOptions"
+                :key="`mobile-${option.value}`"
+                type="button"
+                class="w-full rounded-xl border px-4 py-3 text-left text-sm transition"
+                :class="sortBy === option.value ? mobileSortActiveClass : mobileSortInactiveClass"
+                @click="selectMobileSortOption(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </section>
 </template>
 
@@ -301,7 +413,6 @@ const DEFAULT_SORT: SortOption = 'default'
 const SEARCH_PLACEHOLDER = 'Search your watchlist...'
 const LENGTH_LABEL = 'Length'
 const SORT_LABEL_PREFIX = 'Sort:'
-const RESULTS_LABEL = 'Active filters'
 const EMPTY_GENRE_LABEL = 'No genres available yet'
 const SURFACE_RADIUS_CLASS = 'rounded-[1.5rem]'
 const ACTIVE_CHIP_CLASS =
@@ -310,6 +421,14 @@ const INACTIVE_CHIP_CLASS =
   'border-white/[0.08] bg-[#141313] text-[#c4c7c8] hover:border-white/30 hover:text-white'
 const SELECTED_ROW_CLASS = 'bg-[#2a2a2a] text-white border-white/20'
 const INACTIVE_ROW_CLASS = 'text-[#c4c7c8] hover:bg-white/[0.06] hover:text-white'
+const MOBILE_ACTION_ACTIVE_CLASS =
+  'border-white/30 bg-[#262525] text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]'
+const MOBILE_ACTION_INACTIVE_CLASS =
+  'border-white/[0.08] bg-[#1f1e1e] text-[#c4c7c8] shadow-[0_10px_24px_rgba(0,0,0,0.18)] hover:border-white/30 hover:bg-[#282727] hover:text-white'
+const MOBILE_SORT_ACTIVE_CLASS =
+  'border-white/20 bg-[#292727] text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]'
+const MOBILE_SORT_INACTIVE_CLASS =
+  'border-white/[0.08] bg-[#202020] text-[#c4c7c8] shadow-[0_10px_24px_rgba(0,0,0,0.18)] hover:border-white/30 hover:bg-[#292828] hover:text-white'
 
 type DropdownName = 'genre' | 'length' | 'sort'
 
@@ -339,18 +458,23 @@ const emit = defineEmits<{
 }>()
 
 const openDropdown = ref<DropdownName | null>(null)
+const isFilterMenuOpen = ref(false)
+const isSortModalOpen = ref(false)
 const sortLabels = MY_LIST_SORT_LABELS
 const defaultSort = DEFAULT_SORT
 const searchPlaceholder = SEARCH_PLACEHOLDER
 const lengthLabel = LENGTH_LABEL
 const sortLabelPrefix = SORT_LABEL_PREFIX
-const resultsLabel = RESULTS_LABEL
 const genreEmptyLabel = EMPTY_GENRE_LABEL
 const surfaceRadiusClass = SURFACE_RADIUS_CLASS
 const activeChipClass = ACTIVE_CHIP_CLASS
 const inactiveChipClass = INACTIVE_CHIP_CLASS
 const selectedRowClass = SELECTED_ROW_CLASS
 const inactiveRowClass = INACTIVE_ROW_CLASS
+const mobileActionActiveClass = MOBILE_ACTION_ACTIVE_CLASS
+const mobileActionInactiveClass = MOBILE_ACTION_INACTIVE_CLASS
+const mobileSortActiveClass = MOBILE_SORT_ACTIVE_CLASS
+const mobileSortInactiveClass = MOBILE_SORT_INACTIVE_CLASS
 
 const sortOptions = (Object.keys(sortLabels) as SortOption[]).map((value) => ({
   value,
@@ -371,6 +495,30 @@ const hasVisibleActiveFilters = computed(() => {
     props.selectedGenres.length > 0 ||
     props.selectedRuntime !== null
   )
+})
+
+const hasFilterSelections = computed(() => {
+  return (
+    props.searchQuery.trim() !== '' ||
+    props.selectedGenres.length > 0 ||
+    props.selectedRuntime !== null
+  )
+})
+
+const activeFilterCount = computed(() => {
+  let count = 0
+
+  if (props.searchQuery.trim() !== '') {
+    count++
+  }
+
+  count += props.selectedGenres.length
+
+  if (props.selectedRuntime !== null) {
+    count++
+  }
+
+  return count
 })
 
 const toggleDropdown = (name: DropdownName) => {
@@ -397,6 +545,11 @@ const selectSortOption = (sortOption: SortOption) => {
   openDropdown.value = null
 }
 
+const selectMobileSortOption = (sortOption: SortOption) => {
+  emit('update:sortBy', sortOption)
+  isSortModalOpen.value = false
+}
+
 const closeDropdowns = (event: MouseEvent) => {
   const target = event.target
 
@@ -419,3 +572,25 @@ onUnmounted(() => {
   document.removeEventListener('click', closeDropdowns)
 })
 </script>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.24s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+@media (max-width: 449px) {
+  .tiny-filter-actions {
+    display: flex;
+  }
+
+  .tiny-filter-main {
+    display: none;
+  }
+}
+</style>
