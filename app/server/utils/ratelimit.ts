@@ -3,21 +3,21 @@ import { createRedisClient } from './redis'
 
 // da lakse moze da se menja
 export const RECOMMENDATION_LIMIT = 20
+const TMDB_LIMIT = 40
+const TMDB_WINDOW = '1 s'
+const RECOMMENDATION_WINDOW = '1 d'
+export const TMDB_GLOBAL_LIMITER_KEY = 'tmdb:global'
 
-export function createRateLimiter() {
-  const redis = createRedisClient()
+const redis = createRedisClient()
 
-  const tmdbLimiter = new Ratelimit({
-    redis,
-    limiter: Ratelimit.fixedWindow(40, '1 s'),
-    analytics: false,
-  })
+export const tmdbLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.fixedWindow(TMDB_LIMIT, TMDB_WINDOW),
+  analytics: false,
+})
 
-  const recommednationLimiter = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(RECOMMENDATION_LIMIT, '1 d'),
-    analytics: false,
-  })
-
-  return { tmdbLimiter, recommednationLimiter }
-}
+export const recommednationLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(RECOMMENDATION_LIMIT, RECOMMENDATION_WINDOW),
+  analytics: false,
+})

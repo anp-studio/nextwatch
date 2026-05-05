@@ -6,7 +6,6 @@ import {
   fetchMyListMovies,
   fetchWatchedMovies,
   getRecommendationsFromGemini,
-  hydrateRecommendationsByTmdbIds,
   hasEnoughRecommendationsToCache,
   hasValidTmdbId,
   MIN_RECOMMENDATIONS_TO_CACHE,
@@ -17,26 +16,10 @@ import { createRedisClient } from '../utils/redis'
 import { throwSupabaseError } from '../utils/api-error'
 
 const RECOMMENDATIONS_TABLE = 'recommendations'
-const MOVIES_TABLE = 'movies'
 const TTL_MS = 7 * 24 * 60 * 60 * 1000
 const QUERY_TRUE = ['true', '1']
-const PRODUCTION_NODE_ENV = 'production'
-const MIN_RECOMMENDATION_POPULARITY = 1
 const LOAD_RECOMMENDATIONS_MESSAGE = 'Unable to load recommendations right now.'
 const SAVE_RECOMMENDATIONS_MESSAGE = 'Unable to save recommendations right now.'
-const GENERATE_RECOMMENDATIONS_MESSAGE = 'Unable to generate recommendations right now.'
-
-interface RecommendationDebugItem {
-  tmdbId: number
-  originalName: string
-  year: number
-}
-
-interface UnmatchedRecommendationDebugItem {
-  name: string
-  originalName: string
-  year: number
-}
 
 interface CachedRow {
   tmdb_ids: number[]
@@ -44,29 +27,14 @@ interface CachedRow {
   expires_at: string
 }
 
-interface RecommendationPopularityRow {
-  tmdb_id: number
-  popularity: number
-}
-
 interface RecommendationCacheState {
   freshRecommendationIds: number[] | null
   storedRecommendationIds: number[]
 }
 
-interface RegenerationErrorPayload {
-  statusCode: number
-  statusMessage: string
-  retryable: boolean
-}
-
 interface RecommendationResponse {
-  recommendations: Array<number | RecommendationDebugItem> | null
+  recommendations: number[]
   cached: boolean
-  stale: false
-  regenerationError: RegenerationErrorPayload | null
-  staleRecommendations: Array<number | RecommendationDebugItem> | null
-  unmatchedRecommendations: UnmatchedRecommendationDebugItem[] | null
 }
 
 function isQueryFlagEnabled(value: unknown): boolean {
@@ -126,205 +94,13 @@ function dedupeRecommendations(recommendations: RecommendationWithId[]): Recomme
   return dedupedRecommendations
 }
 
-async function filterLowPopularityRecommendationIds(
-  event: H3Event,
-  supabase: SupabaseClient,
-  userId: string,
-  recommendationIds: number[]
-): Promise<number[]> {
-  if (recommendationIds.length === 0) {
-    return []
-  }
-
-  const { data, error } = await supabase
-    .from(MOVIES_TABLE)
-    .select('tmdb_id, popularity')
-    .in('tmdb_id', recommendationIds)
-
-  if (error) {
-    throwSupabaseError(event, error, {
-      event: 'recommendation.popularity_filter_failed',
-      userId,
-      publicMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
-      extra: {
-        table: MOVIES_TABLE,
-        operation: 'select',
-      },
-    })
-  }
-
-  const popularityById = new Map(
-    ((data ?? []) as RecommendationPopularityRow[]).map((row) => [row.tmdb_id, row.popularity])
-  )
-  const filteredIds = recommendationIds.filter((recommendationId) => {
-    const popularity = popularityById.get(recommendationId)
-    return popularity === undefined || popularity >= MIN_RECOMMENDATION_POPULARITY
-  })
-
-  return filteredIds.length >= MIN_RECOMMENDATIONS_TO_CACHE ? filteredIds : recommendationIds
-}
-
-async function sanitizeRecommendationIds(
-  event: H3Event,
-  supabase: SupabaseClient,
-  userId: string,
-  recommendationIds: number[]
-): Promise<number[]> {
-  const dedupedIds = dedupeRecommendationIds(recommendationIds)
-  return filterLowPopularityRecommendationIds(event, supabase, userId, dedupedIds)
-}
-
-async function sanitizeRecommendations(
-  event: H3Event,
-  supabase: SupabaseClient,
-  userId: string,
-  recommendations: RecommendationWithId[]
-): Promise<RecommendationWithId[]> {
-  const dedupedRecommendations = dedupeRecommendations(filterValidRecommendations(recommendations))
-  const allowedIds = new Set(
-    await sanitizeRecommendationIds(
-      event,
-      supabase,
-      userId,
-      toRecommendationIds(dedupedRecommendations)
-    )
-  )
-
-  return dedupedRecommendations.filter(
-    (recommendation) => recommendation.tmdbId !== null && allowedIds.has(recommendation.tmdbId)
-  )
-}
-
-function isDevelopmentMode(): boolean {
-  return import.meta.dev || process.env.NODE_ENV !== PRODUCTION_NODE_ENV
-}
-
-function toRecommendationDebugItems(
-  recommendations: RecommendationWithId[]
-): RecommendationDebugItem[] {
-  return recommendations.flatMap((recommendation) =>
-    recommendation.tmdbId === null
-      ? []
-      : [
-          {
-            tmdbId: recommendation.tmdbId,
-            originalName: recommendation.originalName,
-            year: recommendation.year,
-          },
-        ]
-  )
-}
-
-function toUnmatchedRecommendationDebugItems(
-  recommendations: RecommendationWithId[]
-): UnmatchedRecommendationDebugItem[] {
-  if (!isDevelopmentMode()) {
-    return []
-  }
-
-  return recommendations.flatMap((recommendation) =>
-    recommendation.tmdbId !== null
-      ? []
-      : [
-          {
-            name: recommendation.name,
-            originalName: recommendation.originalName,
-            year: recommendation.year,
-          },
-        ]
-  )
-}
-
-async function formatRecommendationItems(
-  supabase: SupabaseClient,
-  recommendationIds: number[]
-): Promise<Array<number | RecommendationDebugItem>> {
-  if (!isDevelopmentMode()) {
-    return [...recommendationIds]
-  }
-
-  return (await hydrateRecommendationsByTmdbIds(supabase, recommendationIds)).flatMap(
-    (recommendation) =>
-      recommendation.tmdbId === null
-        ? []
-        : [
-            {
-              tmdbId: recommendation.tmdbId,
-              originalName: recommendation.originalName,
-              year: recommendation.year,
-            },
-          ]
-  )
-}
-
-async function buildSuccessResponse(
-  supabase: SupabaseClient,
+function buildSuccessResponse(
   recommendationIds: number[],
   cached: boolean
-): Promise<RecommendationResponse> {
+): RecommendationResponse {
   return {
-    recommendations: await formatRecommendationItems(supabase, recommendationIds),
+    recommendations: [...recommendationIds],
     cached,
-    stale: false,
-    regenerationError: null,
-    staleRecommendations: null,
-    unmatchedRecommendations: null,
-  }
-}
-
-async function buildFailureResponse(
-  supabase: SupabaseClient,
-  regenerationError: RegenerationErrorPayload,
-  staleRecommendationIds: number[],
-  unmatchedRecommendations: UnmatchedRecommendationDebugItem[] | null = null
-): Promise<RecommendationResponse> {
-  return {
-    recommendations: null,
-    cached: false,
-    stale: false,
-    regenerationError,
-    staleRecommendations: await formatRecommendationItems(supabase, staleRecommendationIds),
-    unmatchedRecommendations: isDevelopmentMode() ? unmatchedRecommendations : null,
-  }
-}
-
-function isErrorWithStatus(
-  error: unknown
-): error is { statusCode: number; statusMessage?: string } {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    typeof (error as { statusCode?: unknown }).statusCode === 'number'
-  )
-}
-
-function normalizeRegenerationError(error: unknown): RegenerationErrorPayload {
-  if (isErrorWithStatus(error)) {
-    const statusCode = error.statusCode
-    const statusMessage =
-      typeof error.statusMessage === 'string' && error.statusMessage.length > 0
-        ? error.statusMessage
-        : 'Recommendation regeneration failed.'
-
-    return {
-      statusCode,
-      statusMessage,
-      retryable: statusCode === 503,
-    }
-  }
-
-  if (error instanceof Error) {
-    return {
-      statusCode: 500,
-      statusMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
-      retryable: false,
-    }
-  }
-
-  return {
-    statusCode: 500,
-    statusMessage: 'Recommendation regeneration failed.',
-    retryable: false,
   }
 }
 
@@ -367,12 +143,7 @@ async function getRecommendationCacheState(
   }
 
   const row = data as CachedRow
-  const tmdbIds = await sanitizeRecommendationIds(
-    event,
-    supabase,
-    userId,
-    Array.isArray(row.tmdb_ids) ? row.tmdb_ids : []
-  )
+  const tmdbIds = dedupeRecommendationIds(Array.isArray(row.tmdb_ids) ? row.tmdb_ids : [])
   const isFresh = new Date(row.expires_at) > new Date() && row.watched_hash === watchedHash
 
   return {
@@ -388,12 +159,7 @@ async function storeCachedRecommendations(
   recommendations: RecommendationWithId[],
   watchedHash: string
 ): Promise<void> {
-  const recommendationIds = await sanitizeRecommendationIds(
-    event,
-    supabase,
-    userId,
-    toRecommendationIds(recommendations)
-  )
+  const recommendationIds = dedupeRecommendationIds(toRecommendationIds(recommendations))
 
   const { error } = await supabase.from(RECOMMENDATIONS_TABLE).upsert({
     user_id: userId,
@@ -446,7 +212,7 @@ export default defineEventHandler(async (event) => {
     const cacheState = await getRecommendationCacheState(event, supabase, user.id, watchedHash)
 
     if (!isGetNew && !isRefresh && cacheState.freshRecommendationIds) {
-      return buildSuccessResponse(supabase, cacheState.freshRecommendationIds, true)
+      return buildSuccessResponse(cacheState.freshRecommendationIds, true)
     }
 
     const myListMovies = await fetchMyListMovies(supabase, user.id, { event })
@@ -461,10 +227,6 @@ export default defineEventHandler(async (event) => {
     }
 
     let recommendations: RecommendationWithId[]
-    let unmatchedRecommendations: UnmatchedRecommendationDebugItem[] | null = null
-    let tmdbFallbackCount = 0
-    let geminiSystemPrompt = ''
-    let geminiUserMessage = ''
     try {
       const geminiResult = await getRecommendationsFromGemini(
         watchedMovies,
@@ -474,17 +236,8 @@ export default defineEventHandler(async (event) => {
         excludedMovies
       )
       const generatedRecommendations = geminiResult.recommendations
-      tmdbFallbackCount = geminiResult.tmdbFallbackCount
-      geminiSystemPrompt = geminiResult.systemPrompt
-      geminiUserMessage = geminiResult.userMessage
-      unmatchedRecommendations = toUnmatchedRecommendationDebugItems(generatedRecommendations)
 
-      recommendations = await sanitizeRecommendations(
-        event,
-        supabase,
-        user.id,
-        generatedRecommendations
-      )
+      recommendations = dedupeRecommendations(filterValidRecommendations(generatedRecommendations))
 
       if (
         recommendations.length < MIN_RECOMMENDATIONS_TO_CACHE ||
@@ -497,33 +250,12 @@ export default defineEventHandler(async (event) => {
         throw error
       }
 
-      return buildFailureResponse(
-        supabase,
-        normalizeRegenerationError(error),
-        cacheState.storedRecommendationIds,
-        unmatchedRecommendations
-      )
+      return buildSuccessResponse(cacheState.storedRecommendationIds, true)
     }
 
     await storeCachedRecommendations(event, supabase, user.id, recommendations, watchedHash)
 
-    if (isDevelopmentMode()) {
-      return {
-        recommendations: toRecommendationDebugItems(recommendations),
-        cached: false,
-        stale: false,
-        regenerationError: null,
-        staleRecommendations: null,
-        unmatchedRecommendations,
-        tmdbFallbackCount,
-        geminiPrompt: {
-          system: geminiSystemPrompt,
-          user: geminiUserMessage,
-        },
-      }
-    }
-
-    return buildSuccessResponse(supabase, toRecommendationIds(recommendations), false)
+    return buildSuccessResponse(toRecommendationIds(recommendations), false)
   } finally {
     await releaseRecommendationLock(redis, lock)
   }

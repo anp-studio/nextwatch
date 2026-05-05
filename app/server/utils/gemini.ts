@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { Schema } from '@google/generative-ai'
 import type { H3Event } from 'h3'
-import { createRateLimiter, RECOMMENDATION_LIMIT } from './ratelimit'
+import { recommednationLimiter, RECOMMENDATION_LIMIT } from './ratelimit'
 import { logPrivateError, throwConfigError, throwGeminiError } from './api-error'
 
 const GEMINI_DEFAULT_MODEL = 'gemini-flash-lite-latest'
@@ -76,10 +76,8 @@ export async function askGemini({
     })
   }
 
-  const rateLimiter = userId ? createRateLimiter() : null
-
-  if (userId && rateLimiter) {
-    const { success, remaining, reset } = await rateLimiter.recommednationLimiter.limit(userId)
+  if (userId) {
+    const { success, remaining, reset } = await recommednationLimiter.limit(userId)
     if (event) {
       setResponseHeaders(event, {
         'X-RateLimit-Limit': String(RECOMMENDATION_LIMIT),

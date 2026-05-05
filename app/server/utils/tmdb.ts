@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import { createRateLimiter } from './ratelimit'
+import { TMDB_GLOBAL_LIMITER_KEY, tmdbLimiter } from './ratelimit'
 import { throwConfigError, throwTmdbError } from './api-error'
 
 const TMDB_API_ORIGIN = 'https://api.themoviedb.org'
@@ -99,10 +99,7 @@ export async function fetchTmdb(
   }
 
   const safeUrl = buildTmdbUrl(path)
-
-  const ip = getRequestIP(event, { xForwardedFor: true }) ?? 'anonymous'
-  const { tmdbLimiter } = createRateLimiter()
-  const { success, limit, remaining, reset } = await tmdbLimiter.limit(ip)
+  const { success, limit, remaining, reset } = await tmdbLimiter.limit(TMDB_GLOBAL_LIMITER_KEY)
 
   const responseHeaders: Record<string, string> = {
     [TMDB_RATE_LIMIT_HEADER_LIMIT]: String(limit),

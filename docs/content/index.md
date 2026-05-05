@@ -54,13 +54,13 @@ Documentation
   :::u-page-feature
   ---
   icon: i-lucide-server
-  to: /api/tmdb-proxy
+  to: /api/overview
   ---
   #title
   Backend API
 
   #description
-  Recommendations, TMDB proxy, watched-movies, and admin import endpoints
+  Recommendations, movies, watched, My List, and admin import endpoints
   :::
 
   :::u-page-feature

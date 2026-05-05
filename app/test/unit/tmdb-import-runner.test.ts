@@ -31,7 +31,7 @@ vi.mock('node:stream', () => ({
   },
 }))
 
-const { runTmdbImport } = await import('../../../server/utils/tmdb-import-runner')
+const { runTmdbImport } = await import('../../server/utils/tmdb-import-runner')
 
 interface ImportRow {
   tmdb_id: number
