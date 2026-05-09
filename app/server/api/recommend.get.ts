@@ -8,6 +8,7 @@ import {
   getRecommendationsFromGemini,
   hasEnoughRecommendationsToCache,
   hasValidTmdbId,
+  hydrateRecommendationsByTmdbIds,
   MIN_RECOMMENDATIONS_TO_CACHE,
 } from '../utils/recommendations'
 import type { RecommendationWithId, WatchedMovieRecord } from '../utils/recommendations'
@@ -217,13 +218,12 @@ export default defineEventHandler(async (event) => {
 
     const myListMovies = await fetchMyListMovies(supabase, user.id, { event })
 
-    if (isGetNew) {
-      excludedMovies = cacheState.storedRecommendationIds.map((tmdbId) => ({
-        name: '',
-        originalName: '',
-        year: 0,
-        tmdbId,
-      }))
+    if (isGetNew && cacheState.storedRecommendationIds.length > 0) {
+      excludedMovies = await hydrateRecommendationsByTmdbIds(
+        supabase,
+        cacheState.storedRecommendationIds,
+        { event, userId: user.id }
+      )
     }
 
     let recommendations: RecommendationWithId[]
