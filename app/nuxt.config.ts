@@ -43,7 +43,7 @@ export default defineNuxtConfig({
           "object-src 'none'",
           "frame-ancestors 'none'",
           "img-src 'self' data: https://image.tmdb.org https://*.supabase.co https://*.ytimg.com",
-          "script-src 'self' 'unsafe-inline' https://js.hcaptcha.com https://www.youtube.com",
+          "script-src 'self' 'unsafe-inline' https://js.hcaptcha.com https://www.youtube.com https://hcaptcha.com",
           "style-src 'self' 'unsafe-inline'",
           "connect-src 'self' https://*.supabase.co https://hcaptcha.com https://*.hcaptcha.com https://www.youtube.com",
           'frame-src https://*.hcaptcha.com https://www.youtube.com https://www.youtube-nocookie.com',
