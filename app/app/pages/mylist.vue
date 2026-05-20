@@ -14,10 +14,6 @@
               >
                 Your Watchlist
               </h1>
-              <p class="max-w-2xl text-sm text-[#c4c7c8]">
-                Pick up where discovery left off. Mark titles as watched, remove them, or open any
-                card for full details.
-              </p>
             </div>
           </div>
 
@@ -29,7 +25,7 @@
           </div>
         </div>
 
-        <MyListFilterBarHorizontal
+        <MovieFilterBarHorizontal
           v-if="hasMovies"
           :search-query="searchQuery"
           :selected-genres="selectedGenres"
@@ -54,9 +50,6 @@
           class="rounded-[1.75rem] border border-dashed border-[#444748] bg-[#1c1b1b] px-6 py-14 text-center shadow-[0_24px_56px_rgb(0_0_0/0.5)]"
         >
           <p class="text-2xl font-semibold text-white">Your watchlist is empty</p>
-          <p class="mx-auto mt-3 max-w-md text-sm text-[#c4c7c8]">
-            Add movies from discovery to build a queue worth coming back to.
-          </p>
           <NuxtLink
             to="/"
             class="mt-8 inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-black transition-colors hover:bg-zinc-200"
@@ -70,9 +63,6 @@
           class="rounded-[1.75rem] border border-dashed border-[#444748] bg-[#1c1b1b] px-6 py-14 text-center shadow-[0_24px_56px_rgb(0_0_0/0.5)]"
         >
           <p class="text-2xl font-semibold text-white">No movies match these filters</p>
-          <p class="mx-auto mt-3 max-w-md text-sm text-[#c4c7c8]">
-            Widen the search, remove a filter, or reset the bar to bring your full queue back.
-          </p>
           <button
             class="mt-8 inline-flex items-center justify-center rounded-full border border-white/10 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-black transition-colors hover:bg-zinc-200"
             @click="clearFilters"
@@ -86,6 +76,9 @@
           name="watchlist"
           tag="div"
           class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-2 md:grid-cols-3 md:gap-x-6 md:gap-y-10 lg:grid-cols-4 xl:grid-cols-5"
+          move-class="transition-transform duration-[280ms] ease-in-out"
+          leave-active-class="absolute transition duration-[280ms] ease-in-out"
+          leave-to-class="scale-[0.96] opacity-0"
           @before-enter="onBeforeEnter"
           @enter="onEnter"
           @leave="onLeave"
@@ -110,7 +103,12 @@
       @close="selectedMovie = null"
     />
 
-    <Transition name="fade">
+    <Transition
+      enter-active-class="transition-opacity duration-300 ease-out"
+      enter-from-class="opacity-0"
+      leave-active-class="transition-opacity duration-300 ease-in"
+      leave-to-class="opacity-0"
+    >
       <div
         v-if="undoAction"
         class="fixed bottom-24 left-1/2 z-50 flex max-w-sm -translate-x-1/2 items-center gap-3 rounded-full border border-zinc-800 bg-black px-5 py-3 text-zinc-200 shadow-glow"
@@ -287,31 +285,3 @@ watch(
   }
 )
 </script>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-.watchlist-move,
-.watchlist-enter-active,
-.watchlist-leave-active {
-  transition:
-    transform 0.28s ease,
-    opacity 0.28s ease;
-}
-
-.watchlist-leave-to {
-  opacity: 0;
-  transform: scale(0.96);
-}
-
-.watchlist-leave-active {
-  position: absolute;
-}
-</style>

@@ -37,7 +37,7 @@
         <input
           :value="searchQuery"
           type="text"
-          placeholder="Search titles..."
+          :placeholder="searchPlaceholder"
           class="h-11 w-full rounded-xl border border-white/[0.08] bg-[#1c1b1b] pl-11 pr-4 text-sm text-white outline-none transition focus:border-white/40"
           @input="handleSearchInput"
         />
@@ -101,20 +101,27 @@
 <script setup lang="ts">
 import type { RuntimeRange, SortOption } from '~/composables/useWatchedFilters'
 
+const SEARCH_PLACEHOLDER = 'Search titles...'
 const ACTIVE_CHIP_CLASS = 'border-white bg-white text-black'
 const INACTIVE_CHIP_CLASS = 'border-[#444748] text-[#c4c7c8] hover:border-white/30 hover:text-white'
 const ACTIVE_ROW_CLASS = 'border-white/25 bg-[#18181b] text-white'
 const INACTIVE_ROW_CLASS =
   'border-[#353434] bg-transparent text-[#c4c7c8] hover:border-white/30 hover:text-white'
 
-defineProps<{
-  searchQuery: string
-  selectedGenres: string[]
-  selectedRuntime: RuntimeRange | null
-  sortBy: SortOption
-  availableGenres: string[]
-  runtimeRanges: RuntimeRange[]
-}>()
+withDefaults(
+  defineProps<{
+    searchQuery: string
+    selectedGenres: string[]
+    selectedRuntime: RuntimeRange | null
+    sortBy: SortOption
+    availableGenres: string[]
+    runtimeRanges: RuntimeRange[]
+    searchPlaceholder?: string
+  }>(),
+  {
+    searchPlaceholder: SEARCH_PLACEHOLDER,
+  }
+)
 
 const emit = defineEmits<{
   'update:searchQuery': [value: string]

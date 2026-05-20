@@ -1,7 +1,7 @@
 <template>
   <section>
     <div class="flex flex-col gap-3">
-      <div class="tiny-filter-actions hidden items-center gap-2">
+      <div class="hidden items-center gap-2 max-[449px]:flex">
         <button
           type="button"
           class="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition"
@@ -44,8 +44,8 @@
       </div>
 
       <div
-        data-my-list-filter-dropdown
-        class="tiny-filter-main flex flex-col gap-2 border border-white/[0.08] bg-[#1c1b1b] p-2.5 sm:rounded-full sm:p-2.5 lg:flex-row lg:items-center"
+        data-movie-filter-dropdown
+        class="flex flex-col gap-2 border border-white/[0.08] bg-[#1c1b1b] p-2.5 max-[449px]:hidden sm:rounded-full sm:p-2.5 lg:flex-row lg:items-center"
         :class="surfaceRadiusClass"
       >
         <label class="relative min-w-0 flex-1">
@@ -88,7 +88,7 @@
         <div class="hidden h-8 w-px bg-white/[0.08] lg:block"></div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <div class="relative" data-my-list-filter-dropdown>
+          <div class="relative" data-movie-filter-dropdown>
             <button
               type="button"
               class="inline-flex h-12 items-center gap-2 rounded-full border px-4 text-sm font-medium transition"
@@ -154,7 +154,7 @@
             </div>
           </div>
 
-          <div class="relative" data-my-list-filter-dropdown>
+          <div class="relative" data-movie-filter-dropdown>
             <button
               type="button"
               class="inline-flex h-12 items-center gap-2 rounded-full border px-4 text-sm font-medium transition"
@@ -205,7 +205,7 @@
             </div>
           </div>
 
-          <div class="relative" data-my-list-filter-dropdown>
+          <div class="relative" data-movie-filter-dropdown>
             <button
               type="button"
               class="inline-flex h-12 items-center gap-2 rounded-full border px-4 text-sm font-medium transition"
@@ -331,7 +331,12 @@
     </div>
 
     <Teleport to="body">
-      <Transition name="fade">
+      <Transition
+        enter-active-class="transition-opacity duration-200 ease-out"
+        enter-from-class="opacity-0"
+        leave-active-class="transition-opacity duration-200 ease-in"
+        leave-to-class="opacity-0"
+      >
         <div
           v-if="isFilterMenuOpen"
           class="fixed inset-0 z-[200] flex items-center justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-sm sm:p-4"
@@ -339,13 +344,14 @@
         >
           <div class="flex max-h-[95dvh] w-full max-w-md flex-col overflow-hidden bg-transparent">
             <div class="overflow-y-auto">
-              <MyListFilterBarSideMenu
+              <MovieFilterBarSideMenu
                 :search-query="searchQuery"
                 :selected-genres="selectedGenres"
                 :selected-runtime="selectedRuntime"
                 :sort-by="sortBy"
                 :available-genres="availableGenres"
                 :runtime-ranges="runtimeRanges"
+                :search-placeholder="searchPlaceholder"
                 @update:search-query="$emit('update:searchQuery', $event)"
                 @update:selected-runtime="$emit('update:selectedRuntime', $event)"
                 @update:sort-by="$emit('update:sortBy', $event)"
@@ -360,7 +366,12 @@
     </Teleport>
 
     <Teleport to="body">
-      <Transition name="fade">
+      <Transition
+        enter-active-class="transition-opacity duration-200 ease-out"
+        enter-from-class="opacity-0"
+        leave-active-class="transition-opacity duration-200 ease-in"
+        leave-to-class="opacity-0"
+      >
         <div
           v-if="isSortModalOpen"
           class="fixed inset-0 z-[200] flex items-center justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-sm sm:p-4"
@@ -368,7 +379,7 @@
         >
           <div class="flex max-h-[95dvh] w-full max-w-sm flex-col overflow-hidden bg-transparent">
             <div class="flex items-center justify-between px-5 pb-2 pt-4">
-              <p class="text-sm text-[#8e9192]">Sort watchlist</p>
+              <p class="text-sm text-[#8e9192]">{{ sortModalTitle }}</p>
               <button
                 class="rounded-full p-1 text-[#8e9192] transition hover:text-white"
                 @click="isSortModalOpen = false"
@@ -413,6 +424,7 @@ const DEFAULT_SORT: SortOption = 'default'
 const SEARCH_PLACEHOLDER = 'Search your watchlist...'
 const LENGTH_LABEL = 'Length'
 const SORT_LABEL_PREFIX = 'Sort:'
+const SORT_MODAL_TITLE = 'Sort watchlist'
 const EMPTY_GENRE_LABEL = 'No genres available yet'
 const SURFACE_RADIUS_CLASS = 'rounded-[1.5rem]'
 const ACTIVE_CHIP_CLASS =
@@ -429,25 +441,38 @@ const MOBILE_SORT_ACTIVE_CLASS =
   'border-white/20 bg-[#292727] text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]'
 const MOBILE_SORT_INACTIVE_CLASS =
   'border-white/[0.08] bg-[#202020] text-[#c4c7c8] shadow-[0_10px_24px_rgba(0,0,0,0.18)] hover:border-white/30 hover:bg-[#292828] hover:text-white'
+const MOBILE_BREAKPOINT_QUERY = '(max-width: 449px)'
 
 type DropdownName = 'genre' | 'length' | 'sort'
 
-const props = defineProps<{
-  searchQuery: string
-  selectedGenres: string[]
-  selectedRuntime: RuntimeRange | null
-  sortBy: SortOption
-  availableGenres: string[]
-  runtimeRanges: RuntimeRange[]
-  hasActiveFilters: boolean
-  filteredCount: number
-  totalCount: number
-  isLoadingMetadata: boolean
-  metadataProgress: {
-    loaded: number
-    total: number
+const props = withDefaults(
+  defineProps<{
+    searchQuery: string
+    selectedGenres: string[]
+    selectedRuntime: RuntimeRange | null
+    sortBy: SortOption
+    availableGenres: string[]
+    runtimeRanges: RuntimeRange[]
+    hasActiveFilters: boolean
+    filteredCount: number
+    totalCount: number
+    isLoadingMetadata: boolean
+    metadataProgress: {
+      loaded: number
+      total: number
+    }
+    searchPlaceholder?: string
+    sortLabels?: Record<SortOption, string>
+    sortLabelPrefix?: string
+    sortModalTitle?: string
+  }>(),
+  {
+    searchPlaceholder: SEARCH_PLACEHOLDER,
+    sortLabels: () => MY_LIST_SORT_LABELS,
+    sortLabelPrefix: SORT_LABEL_PREFIX,
+    sortModalTitle: SORT_MODAL_TITLE,
   }
-}>()
+)
 
 const emit = defineEmits<{
   'update:searchQuery': [value: string]
@@ -460,11 +485,9 @@ const emit = defineEmits<{
 const openDropdown = ref<DropdownName | null>(null)
 const isFilterMenuOpen = ref(false)
 const isSortModalOpen = ref(false)
-const sortLabels = MY_LIST_SORT_LABELS
+let mobileMediaQuery: MediaQueryList | null = null
 const defaultSort = DEFAULT_SORT
-const searchPlaceholder = SEARCH_PLACEHOLDER
 const lengthLabel = LENGTH_LABEL
-const sortLabelPrefix = SORT_LABEL_PREFIX
 const genreEmptyLabel = EMPTY_GENRE_LABEL
 const surfaceRadiusClass = SURFACE_RADIUS_CLASS
 const activeChipClass = ACTIVE_CHIP_CLASS
@@ -476,10 +499,12 @@ const mobileActionInactiveClass = MOBILE_ACTION_INACTIVE_CLASS
 const mobileSortActiveClass = MOBILE_SORT_ACTIVE_CLASS
 const mobileSortInactiveClass = MOBILE_SORT_INACTIVE_CLASS
 
-const sortOptions = (Object.keys(sortLabels) as SortOption[]).map((value) => ({
-  value,
-  label: sortLabels[value],
-}))
+const sortOptions = computed(() => {
+  return (Object.keys(props.sortLabels) as SortOption[]).map((value) => ({
+    value,
+    label: props.sortLabels[value],
+  }))
+})
 
 const metadataWidth = computed(() => {
   if (props.metadataProgress.total === 0) {
@@ -557,40 +582,33 @@ const closeDropdowns = (event: MouseEvent) => {
     return
   }
 
-  if (target.closest('[data-my-list-filter-dropdown]')) {
+  if (target.closest('[data-movie-filter-dropdown]')) {
     return
   }
 
   openDropdown.value = null
 }
 
+const closeDesktopOverlays = (event: MediaQueryListEvent) => {
+  if (event.matches) {
+    openDropdown.value = null
+  }
+}
+
 onMounted(() => {
   document.addEventListener('click', closeDropdowns)
+  mobileMediaQuery = window.matchMedia(MOBILE_BREAKPOINT_QUERY)
+  mobileMediaQuery.addEventListener('change', closeDesktopOverlays)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', closeDropdowns)
+
+  if (!mobileMediaQuery) {
+    return
+  }
+
+  mobileMediaQuery.removeEventListener('change', closeDesktopOverlays)
+  mobileMediaQuery = null
 })
 </script>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.24s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-@media (max-width: 449px) {
-  .tiny-filter-actions {
-    display: flex;
-  }
-
-  .tiny-filter-main {
-    display: none;
-  }
-}
-</style>
