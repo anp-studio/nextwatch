@@ -71,7 +71,9 @@ body {
 /* ===== Page Transitions ===== */
 .page-enter-active,
 .page-leave-active {
-  transition: opacity 250ms ease, transform 250ms ease;
+  transition:
+    opacity 250ms ease,
+    transform 250ms ease;
 }
 .page-enter-from {
   opacity: 0;
@@ -84,10 +86,14 @@ body {
 
 /* ===== Modal (scale + fade) ===== */
 .modal-enter-active {
-  transition: opacity 800ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    opacity 800ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 800ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .modal-leave-active {
-  transition: opacity 200ms ease, transform 200ms ease;
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
 }
 .modal-enter-from {
   opacity: 0;
@@ -110,14 +116,18 @@ body {
 
 /* ===== Card entrance ===== */
 .card-enter-active {
-  transition: opacity 350ms ease, transform 350ms ease;
+  transition:
+    opacity 350ms ease,
+    transform 350ms ease;
 }
 .card-enter-from {
   opacity: 0;
   transform: translateY(16px) scale(0.97);
 }
 .card-leave-active {
-  transition: opacity 200ms ease, transform 200ms ease;
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
 }
 .card-leave-to {
   opacity: 0;
@@ -126,7 +136,9 @@ body {
 
 /* ===== Stagger list (TransitionGroup) ===== */
 .list-enter-active {
-  transition: opacity 300ms ease, transform 300ms ease;
+  transition:
+    opacity 300ms ease,
+    transform 300ms ease;
 }
 .list-enter-from {
   opacity: 0;
@@ -141,30 +153,28 @@ body {
 
 /* ===== Skeleton shimmer ===== */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 .skeleton-shimmer {
-  background: linear-gradient(90deg,
-    #201f1f 25%,
-    #2a2a2a 50%,
-    #201f1f 75%
-  );
+  background: linear-gradient(90deg, #201f1f 25%, #2a2a2a 50%, #201f1f 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 :is(.dark) .skeleton-shimmer {
-  background: linear-gradient(90deg,
-    #201f1f 25%,
-    #2a2a2a 50%,
-    #201f1f 75%
-  );
+  background: linear-gradient(90deg, #201f1f 25%, #2a2a2a 50%, #201f1f 75%);
   background-size: 200% 100%;
 }
 
 /* ===== Button press micro-interaction ===== */
 .btn-press {
-  transition: transform 150ms ease, opacity 150ms ease;
+  transition:
+    transform 150ms ease,
+    opacity 150ms ease;
 }
 .btn-press:active {
   transform: scale(0.93);
@@ -197,18 +207,32 @@ body {
     transform: translateY(0);
   }
 }
-.auth-field-stagger > *:nth-child(1) { animation: field-in 400ms ease 100ms both; }
-.auth-field-stagger > *:nth-child(2) { animation: field-in 400ms ease 180ms both; }
-.auth-field-stagger > *:nth-child(3) { animation: field-in 400ms ease 260ms both; }
-.auth-field-stagger > *:nth-child(4) { animation: field-in 400ms ease 340ms both; }
-.auth-field-stagger > *:nth-child(5) { animation: field-in 400ms ease 420ms both; }
+.auth-field-stagger > *:nth-child(1) {
+  animation: field-in 400ms ease 100ms both;
+}
+.auth-field-stagger > *:nth-child(2) {
+  animation: field-in 400ms ease 180ms both;
+}
+.auth-field-stagger > *:nth-child(3) {
+  animation: field-in 400ms ease 260ms both;
+}
+.auth-field-stagger > *:nth-child(4) {
+  animation: field-in 400ms ease 340ms both;
+}
+.auth-field-stagger > *:nth-child(5) {
+  animation: field-in 400ms ease 420ms both;
+}
 
 /* Auth view switch */
 .auth-switch-enter-active {
-  transition: opacity 250ms ease, transform 250ms ease;
+  transition:
+    opacity 250ms ease,
+    transform 250ms ease;
 }
 .auth-switch-leave-active {
-  transition: opacity 150ms ease, transform 150ms ease;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
 }
 .auth-switch-enter-from {
   opacity: 0;
@@ -227,12 +251,24 @@ body {
   animation: spin-out 100ms ease;
 }
 @keyframes spin-in {
-  from { transform: rotate(-180deg); opacity: 0; }
-  to { transform: rotate(0); opacity: 1; }
+  from {
+    transform: rotate(-180deg);
+    opacity: 0;
+  }
+  to {
+    transform: rotate(0);
+    opacity: 1;
+  }
 }
 @keyframes spin-out {
-  from { transform: rotate(0); opacity: 1; }
-  to { transform: rotate(180deg); opacity: 0; }
+  from {
+    transform: rotate(0);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(180deg);
+    opacity: 0;
+  }
 }
 
 /* ===== Nav link active indicator ===== */
@@ -259,6 +295,9 @@ html.theme-transitioning,
 html.theme-transitioning *:not(.theme-toggle):not(.theme-toggle *),
 html.theme-transitioning *:not(.theme-toggle):not(.theme-toggle *)::before,
 html.theme-transitioning *:not(.theme-toggle):not(.theme-toggle *)::after {
-  transition: background-color 300ms ease, color 300ms ease,
-              border-color 300ms ease, fill 300ms ease !important;
+  transition:
+    background-color 300ms ease,
+    color 300ms ease,
+    border-color 300ms ease,
+    fill 300ms ease !important;
 }

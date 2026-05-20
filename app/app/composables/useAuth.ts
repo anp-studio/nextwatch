@@ -44,8 +44,7 @@ export const useAuth = () => {
 
     const processedWatchedMovies = await processPendingWatchedMovies(accessToken)
     const processedMyListMovies = await processPendingMyListMovies(accessToken)
-    const didProcessPendingMovies =
-      processedWatchedMovies > 0 || processedMyListMovies > 0
+    const didProcessPendingMovies = processedWatchedMovies > 0 || processedMyListMovies > 0
 
     if (didProcessPendingMovies) {
       await syncWatchedMoviesFromSupabase(accessToken)
@@ -74,7 +73,12 @@ export const useAuth = () => {
     }
   }
 
-  const signup = async (email: string, password: string, username?: string, captchaToken?: string) => {
+  const signup = async (
+    email: string,
+    password: string,
+    username?: string,
+    captchaToken?: string
+  ) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,

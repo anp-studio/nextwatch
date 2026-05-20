@@ -1,6 +1,8 @@
 <template>
   <nav class="z-50 border-t border-zinc-800 bg-black">
-    <div class="mx-auto flex h-16 w-full max-w-7xl items-center justify-around gap-2 px-3 sm:h-[4.25rem] sm:px-6 lg:px-8">
+    <div
+      class="mx-auto flex h-16 w-full max-w-7xl items-center justify-around gap-2 px-3 sm:h-[4.25rem] sm:px-6 lg:px-8"
+    >
       <NuxtLink
         to="/"
         class="nav-link flex min-w-16 flex-1 flex-col items-center justify-center gap-0.5 pt-1 text-[9px] font-medium uppercase tracking-[0.24em] text-zinc-500 transition-colors hover:text-zinc-200 sm:gap-1 sm:pt-2 sm:text-[10px] sm:tracking-[0.28em]"

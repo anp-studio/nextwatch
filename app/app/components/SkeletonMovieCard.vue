@@ -14,12 +14,18 @@
         class="relative w-full shrink-0 aspect-[1/1.5] overflow-hidden rounded-[1.125rem] border border-zinc-800 bg-zinc-900 shadow-glow"
       >
         <div class="skeleton-shimmer absolute inset-0"></div>
-        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"></div>
+        <div
+          class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"
+        ></div>
         <div
           class="absolute bottom-3 right-3 z-10 inline-flex min-w-[clamp(3.5rem,19cqw,4.8rem)] items-center gap-1 rounded-full border border-white/10 bg-black/70 px-2.5 py-1 backdrop-blur-md"
         >
-          <div class="skeleton-shimmer h-[clamp(0.72rem,3.9cqw,0.92rem)] w-[clamp(0.72rem,3.9cqw,0.92rem)] rounded-full"></div>
-          <div class="skeleton-shimmer h-[clamp(0.68rem,3.8cqw,0.9rem)] w-[clamp(1.7rem,9.6cqw,2.4rem)] rounded"></div>
+          <div
+            class="skeleton-shimmer h-[clamp(0.72rem,3.9cqw,0.92rem)] w-[clamp(0.72rem,3.9cqw,0.92rem)] rounded-full"
+          ></div>
+          <div
+            class="skeleton-shimmer h-[clamp(0.68rem,3.8cqw,0.9rem)] w-[clamp(1.7rem,9.6cqw,2.4rem)] rounded"
+          ></div>
         </div>
       </div>
     </div>

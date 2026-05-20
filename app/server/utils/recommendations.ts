@@ -20,7 +20,7 @@ const SYSTEM_PROMPT = `You are a movie recommendation engine.
 Analyze the user's taste profile from their watch history: preferred genres, directors, eras, themes, and tone.
 
 Recommend exactly ${MAX_RECOMMENDATIONS} movies, obeying these rules:
-1. HARD PROHIBITION — watched list: Never recommend any movie from the WATCHED list. Not even sequels, remakes, or alternate cuts of those exact titles. This constraint is absolute and overrides everything else. If you are unsure whether a movie is on the watched list, do not include it.
+1. HARD PROHIBITION — watched and recently recommended lists: Never recommend any movie from the WATCHED list or the RECENTLY RECOMMENDED list. Not even sequels, remakes, or alternate cuts of those exact titles. This constraint is absolute and overrides everything else. If you are unsure whether a movie is on these lists, do not include it.
 2. WATCHLIST (My List): The user already knows about these movies and has deliberately saved them. Your default should be 0 recommendations from this list. Only include a My List movie when it is the single best possible match for the user's taste AND no comparable undiscovered film exists. Maximum: 1. Prefer 0.
 3. Aim for variety across genres and decades while staying true to the inferred taste profile.
 4. Return movie titles in their original release language and script exactly as TMDB original_title. Do not transliterate, anglicize, or use localized variants (e.g. ゴジラ-1.0 not Godzilla Minus One).
@@ -471,11 +471,11 @@ ${watchedList}
 WATCHLIST — I already know about these; include at most 1 only if it is an exceptional taste match, otherwise skip all of them:
 ${myListList}
 
-RECENTLY RECOMMENDED — do NOT repeat any of these (includes alternate titles, sequel variants, and localized title variants):
+RECENTLY RECOMMENDED (FORBIDDEN) — do NOT repeat any of these (includes alternate titles, sequel variants, and localized title variants):
 ${excludedList}
 
 Recommend exactly ${MAX_RECOMMENDATIONS} movies I would enjoy that do not appear in any of the three lists above.
-Before outputting, verify that every recommended movie is absent from the WATCHED list.`
+Before outputting, verify that every recommended movie is absent from both the WATCHED and RECENTLY RECOMMENDED lists.`
 }
 
 export async function appendTmdbIds(

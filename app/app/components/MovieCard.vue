@@ -54,7 +54,12 @@
             class="flex h-[clamp(1.2rem,8.7cqw,2rem)] w-[clamp(1.2rem,8.7cqw,2rem)] items-center justify-center rounded-full bg-black/60 backdrop-blur-sm"
             title="In My List"
           >
-            <svg class="h-4 w-4 text-zinc-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              class="h-4 w-4 text-zinc-200"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -102,9 +107,8 @@
           <span
             v-if="movie.year"
             class="shrink-0 text-[clamp(0.75rem,4.2cqw,0.98rem)] font-medium uppercase leading-none tracking-[0.08em] text-zinc-400 opacity-90"
-          >{{
-            movie.year
-          }}</span>
+            >{{ movie.year }}</span
+          >
         </div>
       </div>
 
