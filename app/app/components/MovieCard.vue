@@ -248,6 +248,7 @@ const genreTags = computed(() => {
     .split(',')
     .map((genre) => genre.trim())
     .filter(Boolean)
+    .slice(0, 3)
 })
 const formattedRating = computed(() => {
   const rating = props.movie.rating

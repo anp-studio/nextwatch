@@ -111,7 +111,7 @@
     >
       <div
         v-if="undoAction"
-        class="fixed bottom-24 left-1/2 z-50 flex max-w-sm -translate-x-1/2 items-center gap-3 rounded-full border border-zinc-800 bg-black px-5 py-3 text-zinc-200 shadow-glow"
+        class="fixed left-1/2 top-6 z-50 flex max-w-sm -translate-x-1/2 items-center gap-3 rounded-full border border-zinc-800 bg-black px-5 py-3 text-zinc-200 shadow-glow"
       >
         <span class="truncate text-sm">
           <strong>{{ undoAction.movie.title }}</strong>

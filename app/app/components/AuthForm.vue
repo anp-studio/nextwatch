@@ -1,19 +1,19 @@
 <template>
   <div class="flex-1 flex flex-col justify-center items-center h-full p-4 w-full">
     <div
-      class="auth-card-enter w-full max-w-md bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 flex flex-col gap-4"
+      class="auth-card-enter w-full max-w-md bg-surface-container-low p-8 rounded-2xl shadow-lg border border-outline-variant flex flex-col gap-4"
     >
       <Transition name="auth-switch" mode="out-in">
         <div :key="authView" class="text-center mb-6">
-          <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+          <h2 class="text-3xl font-bold text-on-surface mb-2">
             <span v-if="authView === 'login'">Welcome Back</span>
             <span v-else-if="authView === 'register'">Create Account</span>
             <span v-else>Reset Password</span>
           </h2>
-          <p v-if="authView === 'login'" class="text-gray-500 dark:text-gray-400 text-sm">
+          <p v-if="authView === 'login'" class="text-on-surface-variant text-sm">
             Log in to access your movie recommendations
           </p>
-          <p v-if="authView === 'register'" class="text-gray-500 dark:text-gray-400 text-sm">
+          <p v-if="authView === 'register'" class="text-on-surface-variant text-sm">
             Find your next favorite movie
           </p>
         </div>
@@ -34,7 +34,7 @@
             type="text"
             placeholder="Username"
             required
-            class="w-full bg-gray-100 dark:bg-gray-700 dark:text-white rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+            class="w-full bg-surface-container text-on-surface rounded-xl py-3 px-4 outline-none border border-outline-variant placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
           />
 
           <input
@@ -42,7 +42,7 @@
             type="email"
             placeholder="Email address"
             required
-            class="w-full bg-gray-100 dark:bg-gray-700 dark:text-white rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+            class="w-full bg-surface-container text-on-surface rounded-xl py-3 px-4 outline-none border border-outline-variant placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
           />
 
           <input
@@ -51,7 +51,7 @@
             type="password"
             placeholder="Password"
             required
-            class="w-full bg-gray-100 dark:bg-gray-700 dark:text-white rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+            class="w-full bg-surface-container text-on-surface rounded-xl py-3 px-4 outline-none border border-outline-variant placeholder:text-outline focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
           />
 
           <VueHcaptcha
@@ -75,9 +75,9 @@
           <button
             type="submit"
             :disabled="isLoading || isGoogleLoading"
-            class="btn-press w-full bg-rose-500 text-white rounded-xl py-3 px-6 font-semibold hover:bg-rose-600 transition-colors shadow-md mt-2 flex justify-center items-center h-12 disabled:opacity-70"
+            class="btn-press w-full bg-primary text-on-primary rounded-xl py-3 px-6 font-semibold hover:bg-primary/90 transition-colors shadow-md mt-2 flex justify-center items-center h-12 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            <LoadingSpinner v-if="isLoading" size="h-5 w-5" color="text-white" />
+            <LoadingSpinner v-if="isLoading" size="h-5 w-5" color="text-on-primary" />
             <span v-else-if="authView === 'login'">Log In</span>
             <span v-else-if="authView === 'register'">Sign Up</span>
             <span v-else>Send Reset Link</span>
@@ -88,15 +88,15 @@
       <div class="mt-4 flex flex-col items-center gap-3 text-sm">
         <template v-if="authView === 'login'">
           <button
-            class="text-gray-500 hover:text-rose-500 transition-colors"
+            class="text-on-surface-variant hover:text-on-surface transition-colors"
             @click="switchView('forgot')"
           >
             Forgot password?
           </button>
-          <div class="text-gray-400">
+          <div class="text-on-surface-variant">
             Don't have an account?
             <button
-              class="text-rose-500 font-semibold hover:underline"
+              class="text-on-surface font-semibold hover:underline"
               @click="switchView('register')"
             >
               Register
@@ -105,10 +105,10 @@
         </template>
 
         <template v-else-if="authView === 'register'">
-          <div class="text-gray-400">
+          <div class="text-on-surface-variant">
             Already have an account?
             <button
-              class="text-rose-500 font-semibold hover:underline"
+              class="text-on-surface font-semibold hover:underline"
               @click="switchView('login')"
             >
               Log In
@@ -118,7 +118,7 @@
 
         <template v-else>
           <button
-            class="text-gray-500 hover:text-rose-500 transition-colors flex items-center gap-1"
+            class="text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-1"
             @click="switchView('login')"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,15 +135,15 @@
       </div>
 
       <div v-if="authView !== 'forgot'" class="flex items-center my-4">
-        <div class="flex-1 border-t border-gray-200 dark:border-gray-600"></div>
-        <span class="px-4 text-gray-400 text-sm">OR</span>
-        <div class="flex-1 border-t border-gray-200 dark:border-gray-600"></div>
+        <div class="flex-1 border-t border-outline-variant"></div>
+        <span class="px-4 text-label-sm text-on-surface-variant">OR</span>
+        <div class="flex-1 border-t border-outline-variant"></div>
       </div>
 
       <button
         v-if="authView !== 'forgot'"
         :disabled="isLoading || isGoogleLoading"
-        class="btn-press w-full flex items-center justify-center gap-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed transition-colors font-medium h-12 shadow-sm"
+        class="btn-press w-full flex items-center justify-center gap-3 bg-surface-container border border-outline-variant text-on-surface py-3 rounded-xl hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-70 transition-colors font-medium h-12 shadow-sm"
         @click="handleGoogleSignIn"
       >
         <svg v-if="!isGoogleLoading" class="w-5 h-5" viewBox="0 0 24 24">
@@ -164,7 +164,7 @@
             d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
           />
         </svg>
-        <LoadingSpinner v-else size="h-5 w-5" color="text-gray-500" />
+        <LoadingSpinner v-else size="h-5 w-5" color="text-on-surface-variant" />
         <span>{{ isGoogleLoading ? 'Signing in...' : 'Continue with Google' }}</span>
       </button>
     </div>
