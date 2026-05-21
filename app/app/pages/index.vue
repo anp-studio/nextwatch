@@ -4,13 +4,11 @@
       class="flex h-full flex-col px-4 pb-[var(--footer-clearance,0.85rem)] pt-4 sm:px-6 sm:pt-5 lg:px-8"
     >
       <div v-if="pending" class="flex min-h-0 flex-1 items-center justify-center">
-        <div
-          :class="desktopCardContainerClasses"
-        >
+        <div class="mx-auto flex h-full min-h-0 w-full max-w-[82rem] items-center justify-center">
           <div
-            class="[container-type:inline-size] flex min-h-0 max-h-full w-full flex-1 flex-col justify-center px-[clamp(0.35rem,1vw,0.85rem)] py-[clamp(0.15rem,0.5vw,0.4rem)] sm:px-[0.35rem] max-[420px]:px-[0.25rem] max-[760px]:py-[0.1rem] max-[680px]:py-0"
+            class="flex h-full min-h-0 w-full flex-1 flex-col justify-center [--card-non-poster-height:clamp(9.25rem,19dvh,12rem)] [--fit-safety:clamp(0.85rem,2dvh,1.5rem)] [--footer-clearance:clamp(0.65rem,1.75dvh,1.25rem)] [--footer-height:4rem] [--header-height:4rem] [--height-fit-width:calc((100dvh-var(--header-height)-var(--footer-height)-var(--page-vertical-padding)-var(--footer-clearance)-var(--card-non-poster-height)-var(--fit-safety))/1.5)] [--page-vertical-padding:1.5rem] sm:[--footer-height:4.25rem] sm:[--page-vertical-padding:2rem] max-[760px]:[--card-non-poster-height:clamp(7.85rem,17dvh,9.75rem)] max-[760px]:[--fit-safety:clamp(0.65rem,1.5dvh,1rem)] max-[760px]:[--footer-clearance:clamp(0.5rem,1.4dvh,0.85rem)] max-[680px]:[--card-non-poster-height:clamp(7rem,16dvh,8.65rem)] max-[680px]:[--fit-safety:0.65rem] max-[680px]:[--footer-clearance:0.5rem]"
           >
-            <SkeletonMovieCard />
+            <SkeletonMovieCard variant="desktop" />
           </div>
         </div>
       </div>
@@ -113,18 +111,21 @@
 
       <div v-else class="flex min-h-0 flex-1 items-center justify-center">
         <div
-          class="mx-auto flex h-full min-h-0 w-full max-w-[82rem] items-center justify-center"
+          class="mx-auto flex h-full min-h-0 w-full max-w-[82rem] items-center justify-center lg:pl-10 xl:pl-14"
         >
           <div
-            :class="desktopGridClasses"
+            class="flex h-full min-h-0 w-full flex-1 flex-col justify-center gap-6 [--card-non-poster-height:clamp(9.25rem,19dvh,12rem)] [--fit-safety:clamp(0.85rem,2dvh,1.5rem)] [--footer-clearance:clamp(0.65rem,1.75dvh,1.25rem)] [--footer-height:4rem] [--header-height:4rem] [--height-fit-width:calc((100dvh-var(--header-height)-var(--footer-height)-var(--page-vertical-padding)-var(--footer-clearance)-var(--card-non-poster-height)-var(--fit-safety))/1.5)] [--page-vertical-padding:1.5rem] sm:[--footer-height:4.25rem] sm:[--page-vertical-padding:2rem] max-[760px]:[--card-non-poster-height:clamp(7.85rem,17dvh,9.75rem)] max-[760px]:[--fit-safety:clamp(0.65rem,1.5dvh,1rem)] max-[760px]:[--footer-clearance:clamp(0.5rem,1.4dvh,0.85rem)] max-[680px]:[--card-non-poster-height:clamp(7rem,16dvh,8.65rem)] max-[680px]:[--fit-safety:0.65rem] max-[680px]:[--footer-clearance:0.5rem] lg:grid lg:grid-cols-[min(24.5rem,max(16rem,var(--height-fit-width)))_minmax(0,1fr)] lg:items-stretch lg:gap-16 xl:grid-cols-[min(25.5rem,max(16rem,var(--height-fit-width)))_minmax(0,1fr)] xl:gap-20"
           >
             <div
-              :class="desktopCardContainerClasses"
+              class="mx-auto flex h-full min-h-0 w-[min(100%,29rem,max(16rem,var(--height-fit-width)))] max-h-full flex-col justify-center lg:mx-0 lg:w-full lg:max-w-none xl:max-w-none"
             >
               <div
-                class="[container-type:inline-size] flex min-h-0 max-h-full w-full flex-1 flex-col justify-center px-[clamp(0.35rem,1vw,0.85rem)] py-[clamp(0.15rem,0.5vw,0.4rem)] sm:px-[0.35rem] max-[420px]:px-[0.25rem] max-[760px]:py-[0.1rem] max-[680px]:py-0"
+                class="[container-type:inline-size] flex min-h-0 max-h-full w-full flex-1 flex-col justify-center px-[clamp(0.35rem,1vw,0.85rem)] py-[clamp(0.15rem,0.5vw,0.4rem)] sm:px-[0.35rem] lg:px-0 lg:py-0 max-[420px]:px-[0.25rem] max-[760px]:py-[0.1rem] max-[680px]:py-0"
               >
-                <div v-if="showInlineRecommendationFailure" class="w-full text-center text-zinc-400">
+                <div
+                  v-if="showInlineRecommendationFailure"
+                  class="w-full text-center text-zinc-400"
+                >
                   <AlertMessage type="error" :message="recommendationFailureMessage" />
                   <div
                     v-if="showRecommendationFailureActions"
@@ -218,7 +219,6 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 const RECOMMENDATION_REFRESH_EVENT = 'recommendation:refresh-request'
 const DESKTOP_DETAILS_BREAKPOINT_QUERY = '(min-width: 1024px)'
-const SHORT_DESKTOP_CARD_BREAKPOINT_QUERY = '(min-width: 1024px) and (max-height: 820px)'
 const FETCH_MODE = {
   DEFAULT: 'default',
   GET_NEW: 'getNew',
@@ -257,11 +257,9 @@ const currentMovieDetails = useState('recommendation-current-movie-details', () 
 const detailsRequestId = ref(0)
 const retrySecondsLeft = ref(0)
 const isDesktopDetailsLayout = ref(false)
-const isShortDesktopCardLayout = ref(false)
 let retryTimerHandle = null
 let recommendationRefreshHandler = null
 let desktopDetailsMediaQuery = null
-let shortDesktopCardMediaQuery = null
 
 function toRecommendationItems(recommendations) {
   return recommendations.flatMap((recommendation) => {
@@ -428,18 +426,6 @@ const currentMovieFormatted = computed(() => {
 const remainingPosterStackCount = computed(() =>
   Math.max(0, Math.min(MAX_POSTER_STACK_CARDS, movies.value.length - 1))
 )
-const desktopGridClasses = computed(() => [
-  'flex h-full min-h-0 w-full flex-1 flex-col justify-center gap-6',
-  isShortDesktopCardLayout.value
-    ? 'lg:grid lg:grid-cols-[minmax(0,22.5rem)_minmax(0,1fr)] lg:items-stretch lg:gap-12 xl:grid-cols-[minmax(0,23.25rem)_minmax(0,1fr)] xl:gap-14'
-    : 'lg:grid lg:grid-cols-[minmax(0,24.5rem)_minmax(0,1fr)] lg:items-stretch lg:gap-12 xl:grid-cols-[minmax(0,25.5rem)_minmax(0,1fr)] xl:gap-14',
-])
-const desktopCardContainerClasses = computed(() => [
-  'mx-auto flex h-full min-h-0 w-[min(100%,29rem,max(16rem,var(--height-fit-width)))] max-h-full flex-col justify-center [--card-non-poster-height:clamp(9.25rem,19dvh,12rem)] [--fit-safety:clamp(0.85rem,2dvh,1.5rem)] [--footer-clearance:clamp(0.65rem,1.75dvh,1.25rem)] [--footer-height:4rem] [--header-height:4rem] [--height-fit-width:calc((100dvh-var(--header-height)-var(--footer-height)-var(--page-vertical-padding)-var(--footer-clearance)-var(--card-non-poster-height)-var(--fit-safety))/1.5)] [--page-vertical-padding:1.5rem] sm:[--footer-height:4.25rem] sm:[--page-vertical-padding:2rem] max-[760px]:[--card-non-poster-height:clamp(7.85rem,17dvh,9.75rem)] max-[760px]:[--fit-safety:clamp(0.65rem,1.5dvh,1rem)] max-[760px]:[--footer-clearance:clamp(0.5rem,1.4dvh,0.85rem)] max-[680px]:[--card-non-poster-height:clamp(7rem,16dvh,8.65rem)] max-[680px]:[--fit-safety:0.65rem] max-[680px]:[--footer-clearance:0.5rem]',
-  isShortDesktopCardLayout.value
-    ? 'lg:mx-0 lg:w-full lg:max-w-[22.5rem] lg:[--card-non-poster-height:clamp(8rem,16dvh,10rem)] lg:[--fit-safety:clamp(1rem,2.2dvh,1.65rem)] lg:[--footer-clearance:clamp(0.7rem,1.8dvh,1.15rem)] xl:max-w-[23.25rem]'
-    : 'lg:mx-0 lg:w-full lg:max-w-[24.5rem] xl:max-w-[25.5rem]',
-])
 
 const isInMyList = computed(() => {
   const id = currentMovie.value?.tmdbId
@@ -455,10 +441,6 @@ const isWatched = computed(() => {
 
 function syncDesktopDetailsLayout(mediaQuery) {
   isDesktopDetailsLayout.value = mediaQuery.matches
-}
-
-function syncShortDesktopCardLayout(mediaQuery) {
-  isShortDesktopCardLayout.value = mediaQuery.matches
 }
 
 onMounted(() => {
@@ -480,9 +462,6 @@ onMounted(() => {
   desktopDetailsMediaQuery = window.matchMedia(DESKTOP_DETAILS_BREAKPOINT_QUERY)
   syncDesktopDetailsLayout(desktopDetailsMediaQuery)
   desktopDetailsMediaQuery.addEventListener('change', syncDesktopDetailsLayout)
-  shortDesktopCardMediaQuery = window.matchMedia(SHORT_DESKTOP_CARD_BREAKPOINT_QUERY)
-  syncShortDesktopCardLayout(shortDesktopCardMediaQuery)
-  shortDesktopCardMediaQuery.addEventListener('change', syncShortDesktopCardLayout)
   window.addEventListener(RECOMMENDATION_REFRESH_EVENT, recommendationRefreshHandler)
 })
 
@@ -491,10 +470,6 @@ onUnmounted(() => {
   if (desktopDetailsMediaQuery !== null) {
     desktopDetailsMediaQuery.removeEventListener('change', syncDesktopDetailsLayout)
     desktopDetailsMediaQuery = null
-  }
-  if (shortDesktopCardMediaQuery !== null) {
-    shortDesktopCardMediaQuery.removeEventListener('change', syncShortDesktopCardLayout)
-    shortDesktopCardMediaQuery = null
   }
   if (recommendationRefreshHandler !== null) {
     window.removeEventListener(RECOMMENDATION_REFRESH_EVENT, recommendationRefreshHandler)
