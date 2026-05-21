@@ -7,150 +7,154 @@
     <Transition name="modal" appear @after-leave="emit('close')">
       <div
         v-if="showPanel"
-        class="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]"
+        class="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl"
       >
-      <button
-        class="absolute top-3 right-3 text-gray-700 dark:text-white bg-white/50 dark:bg-black/50 hover:bg-white/80 dark:hover:bg-black/80 rounded-full p-2 z-10 transition-colors"
-        @click="closePanel"
-      >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M6 18L18 6M6 6l12 12"
-          ></path>
-        </svg>
-      </button>
+        <button
+          class="absolute right-3 top-3 z-10 rounded-full border border-white/10 bg-black/60 p-2 text-zinc-300 backdrop-blur-sm transition-colors hover:border-white/30 hover:text-white"
+          @click="closePanel"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            ></path>
+          </svg>
+        </button>
 
-      <div class="relative w-full pt-[56.25%] bg-black flex-shrink-0">
-        <div
-          v-if="trailerVideoId && !trailerFailed"
-          :id="playerId"
-          class="absolute top-0 left-0 w-full h-full"
-        ></div>
-        <img
-          v-if="!trailerVideoId || trailerFailed"
-          :src="movie.poster"
-          :alt="movie.title"
-          class="absolute top-0 left-0 w-full h-full object-cover"
-        />
-      </div>
-
-      <div class="p-6 overflow-y-auto text-gray-900 dark:text-white">
-        <h2 class="text-2xl sm:text-3xl font-bold mb-2">{{ movie.title }}</h2>
-
-        <div class="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400 mb-4">
-          <span v-if="movie.year">{{ movie.year }}</span>
-          <span v-if="movie.duration && movie.duration !== 'N/A'">{{ movie.duration }}</span>
-          <span v-if="movie.rating" class="flex items-center gap-1 text-amber-500">
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-              />
-            </svg>
-            {{ movie.rating }}
-          </span>
+        <div class="relative w-full flex-shrink-0 bg-black pt-[56.25%]">
+          <div
+            v-if="trailerVideoId && !trailerFailed"
+            :id="playerId"
+            class="absolute left-0 top-0 h-full w-full"
+          ></div>
+          <img
+            v-if="(!trailerVideoId || trailerFailed) && fallbackImageSource"
+            :src="fallbackImageSource"
+            :alt="movie.title"
+            class="absolute left-0 top-0 h-full w-full object-cover"
+          />
         </div>
 
-        <div v-if="movie.genres?.length" class="flex flex-wrap gap-2 mb-4">
-          <span
-            v-for="genre in movie.genres"
-            :key="genre"
-            class="px-3 py-1 bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-full text-xs font-medium"
-          >
-            {{ genre }}
-          </span>
-        </div>
+        <div class="overflow-y-auto p-6 text-white">
+          <h2 class="mb-2 text-2xl font-bold tracking-[-0.03em] sm:text-3xl">{{ movie.title }}</h2>
 
-        <div v-if="movie.directors?.length" class="mb-4">
-          <h3
-            class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1"
-          >
-            {{ movie.directors.length > 1 ? 'Directors' : 'Director' }}
-          </h3>
-          <p class="text-gray-600 dark:text-gray-300 text-sm">{{ movie.directors.join(', ') }}</p>
-        </div>
-
-        <div v-if="movie.actors?.length" class="mb-4">
-          <h3
-            class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1"
-          >
-            Cast
-          </h3>
-          <p class="text-gray-600 dark:text-gray-300 text-sm">{{ movie.actors.join(', ') }}</p>
-        </div>
-
-        <p class="text-gray-600 dark:text-gray-300 leading-relaxed">{{ movie.description }}</p>
-
-        <div v-if="showAddButton" class="mt-6 flex flex-col gap-3">
-          <div class="flex gap-3">
-            <button
-              v-if="isWatched"
-              class="group btn-press flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-red-500 hover:text-white rounded-xl text-sm font-bold flex justify-center items-center gap-2 transition-colors"
-              title="Remove from watched"
-              @click="$emit('remove')"
+          <div class="mb-4 flex flex-wrap items-center gap-3 text-sm text-zinc-400">
+            <span v-if="movie.year">{{ movie.year }}</span>
+            <span v-if="movie.duration && movie.duration !== 'N/A'">{{ movie.duration }}</span>
+            <span
+              v-if="formattedRating"
+              class="inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/80 px-2.5 py-1 text-sm font-bold leading-none text-white shadow-lg backdrop-blur-md"
             >
               <svg
-                class="w-5 h-5 text-green-500 group-hover:hidden"
-                fill="none"
-                stroke="currentColor"
+                class="h-4 w-4 text-amber-400 [filter:drop-shadow(0_1px_1px_rgb(0_0_0/0.45))]"
+                fill="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M5 13l4 4L19 7"
+                  d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
                 />
               </svg>
-              <svg
-                class="w-5 h-5 hidden group-hover:inline"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+              <span class="[text-shadow:0_1px_2px_rgb(0_0_0/0.65)]">{{ formattedRating }}</span>
+            </span>
+          </div>
+
+          <div v-if="movie.genres?.length" class="mb-4 flex flex-wrap gap-1.5 sm:gap-2">
+            <span
+              v-for="genre in movie.genres"
+              :key="genre"
+              class="rounded-full border border-zinc-800 bg-zinc-900/60 px-3 py-1 text-xs font-semibold tracking-[0.16em] text-zinc-400"
+            >
+              {{ genre }}
+            </span>
+          </div>
+
+          <div v-if="movie.directors?.length" class="mb-4">
+            <h3 class="mb-1 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+              {{ movie.directors.length > 1 ? 'Directors' : 'Director' }}
+            </h3>
+            <p class="text-sm text-zinc-300">{{ movie.directors.join(', ') }}</p>
+          </div>
+
+          <div v-if="movie.actors?.length" class="mb-4">
+            <h3 class="mb-1 text-sm font-semibold uppercase tracking-wide text-zinc-500">Cast</h3>
+            <p class="text-sm text-zinc-300">{{ movie.actors.join(', ') }}</p>
+          </div>
+
+          <p class="leading-relaxed text-zinc-300">{{ movie.description }}</p>
+
+          <div v-if="showAddButton" class="mt-6 flex flex-col gap-3">
+            <div class="flex gap-3">
+              <button
+                v-if="isWatched"
+                class="group btn-press flex flex-1 items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900 py-3 text-sm font-bold text-zinc-400 transition-colors hover:border-white hover:bg-black hover:text-white"
+                title="Remove from watched"
+                @click="$emit('remove')"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-              <span class="group-hover:hidden">Already Watched</span>
-              <span class="hidden group-hover:inline">Remove from Watched</span>
-            </button>
-            <button
-              v-else
-              class="btn-press flex-1 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-sm font-bold flex justify-center items-center gap-2 transition-colors"
-              @click="$emit('add')"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              Add to Watched
-            </button>
-            <button
-              v-if="showMyListButton"
-              class="btn-press py-3 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
-              :class="isInMyList
-                ? 'bg-rose-500 text-white hover:bg-rose-600'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 hover:text-rose-500'"
-              :title="isInMyList ? 'Remove from My List' : 'Add to My List'"
-              @click="$emit('toggle-mylist')"
-            >
-              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-              </svg>
-            </button>
+                <svg
+                  class="h-5 w-5 text-white group-hover:hidden"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+                <svg
+                  class="hidden h-5 w-5 group-hover:inline"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+                <span class="group-hover:hidden">Already Watched</span>
+                <span class="hidden group-hover:inline">Remove from Watched</span>
+              </button>
+              <button
+                v-else
+                class="btn-press flex flex-1 items-center justify-center gap-2 rounded-xl bg-white py-3 text-sm font-bold text-black transition-colors hover:bg-zinc-200"
+                @click="$emit('add')"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Add to Watched
+              </button>
+              <button
+                v-if="showMyListButton"
+                class="btn-press flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-colors"
+                :class="
+                  isInMyList
+                    ? 'bg-white text-black hover:bg-zinc-200'
+                    : 'border border-zinc-800 bg-zinc-900 text-zinc-500 hover:border-white hover:text-white'
+                "
+                :title="isInMyList ? 'Remove from My List' : 'Add to My List'"
+                @click="$emit('toggle-mylist')"
+              >
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
       </div>
     </Transition>
   </div>
@@ -185,7 +189,9 @@ watch(
   () => props.isOpen && !!props.movie,
   (visible) => {
     if (visible) {
-      nextTick(() => { showPanel.value = true })
+      nextTick(() => {
+        showPanel.value = true
+      })
     }
   },
   { immediate: true }
@@ -204,6 +210,23 @@ const trailerVideoId = computed(() => {
   if (!trailer) return null
   const match = trailer.match(/[?&]v=([^&]+)/)
   return match ? match[1] : null
+})
+
+const fallbackImageSource = computed(() => {
+  const movie = props.movie
+  if (!movie) return ''
+
+  return movie.backdrop || movie.poster
+})
+
+const formattedRating = computed(() => {
+  const rating = props.movie?.rating
+
+  if (typeof rating !== 'number' || !Number.isFinite(rating) || rating <= 0) {
+    return null
+  }
+
+  return `${rating.toFixed(1)}/10`
 })
 
 function loadYouTubeAPI(): Promise<void> {

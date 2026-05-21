@@ -51,6 +51,7 @@ export interface Movie {
   id: number
   title: string
   poster: string
+  backdrop: string
   rating: number
   year: number
   duration: string
