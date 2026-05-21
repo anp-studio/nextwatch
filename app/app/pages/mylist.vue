@@ -54,7 +54,7 @@
             to="/"
             class="mt-8 inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-black transition-colors hover:bg-zinc-200"
           >
-            Go to Discovery
+            Go to Recommendations
           </NuxtLink>
         </div>
 

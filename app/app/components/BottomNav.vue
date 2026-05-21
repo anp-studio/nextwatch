@@ -22,7 +22,7 @@
             d="M8.5 11.25l2.25 2.25 4.75-4.75"
           />
         </svg>
-        <span>Discover</span>
+        <span>Reccomendations</span>
       </NuxtLink>
 
       <NuxtLink

@@ -191,7 +191,7 @@
 
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
-const DISCOVERY_REFRESH_EVENT = 'discovery:refresh-request'
+const RECOMMENDATION_REFRESH_EVENT = 'recommendation:refresh-request'
 const FETCH_MODE = {
   DEFAULT: 'default',
   GET_NEW: 'getNew',
@@ -215,13 +215,10 @@ const { isAuthenticated, loading: authLoading } = useAuth()
 const { getMovieDetails } = useMovieDetails()
 const supabase = useSupabase()
 
-const movies = useState('discovery-movies', () => [])
-const originalMovies = useState('discovery-original-movies', () => [])
-const hasLoaded = useState('discovery-has-loaded', () => false)
-const hasSuccessfulRecommendationLoad = useState(
-  'discovery-has-successful-recommendation-load',
-  () => false
-)
+const movies = useState('recommendation-movies', () => [])
+const originalMovies = useState('recommendation-original-movies', () => [])
+const hasLoaded = useState('recommendation-has-loaded', () => false)
+const hasSuccessfulRecommendationLoad = useState('has-successful-recommendation-load', () => false)
 const recommendationsPending = ref(true)
 const detailsPending = ref(false)
 const pending = computed(() => recommendationsPending.value || detailsPending.value)
@@ -229,11 +226,11 @@ const showLoginModal = ref(false)
 const recommendationFailure = ref(null)
 const lastFetchMode = ref(FETCH_MODE.DEFAULT)
 const pendingModalMovieId = ref(null)
-const currentMovieDetails = useState('discovery-current-movie-details', () => null)
+const currentMovieDetails = useState('recommendation-current-movie-details', () => null)
 const detailsRequestId = ref(0)
 const retrySecondsLeft = ref(0)
 let retryTimerHandle = null
-let discoveryRefreshHandler = null
+let recommendationRefreshHandler = null
 
 function toRecommendationItems(recommendations) {
   return recommendations.flatMap((recommendation) => {
@@ -421,18 +418,18 @@ onMounted(() => {
     }
   }
 
-  discoveryRefreshHandler = () => {
+  recommendationRefreshHandler = () => {
     if (pending.value) return
-    resetMovies()
+    refreshMovies()
   }
 
-  window.addEventListener(DISCOVERY_REFRESH_EVENT, discoveryRefreshHandler)
+  window.addEventListener(RECOMMENDATION_REFRESH_EVENT, recommendationRefreshHandler)
 })
 
 onUnmounted(() => {
   if (retryTimerHandle !== null) clearInterval(retryTimerHandle)
-  if (discoveryRefreshHandler !== null) {
-    window.removeEventListener(DISCOVERY_REFRESH_EVENT, discoveryRefreshHandler)
+  if (recommendationRefreshHandler !== null) {
+    window.removeEventListener(RECOMMENDATION_REFRESH_EVENT, recommendationRefreshHandler)
   }
 })
 

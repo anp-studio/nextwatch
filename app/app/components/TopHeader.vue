@@ -12,9 +12,10 @@
 
       <div class="flex items-center gap-2">
         <button
+          v-if="isRecommendationRoute"
           class="theme-toggle btn-press inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-800 text-zinc-400 transition-colors hover:border-white hover:text-white"
-          :aria-label="refreshLabel"
-          :title="refreshLabel"
+          aria-label="Refresh recommendation feed"
+          title="Refresh recommendation feed"
           @click="handleRefreshAction"
         >
           <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -50,20 +51,12 @@
 <script setup>
 import { computed } from 'vue'
 
-const DISCOVERY_REFRESH_EVENT = 'discovery:refresh-request'
+const RECOMMENDATION_REFRESH_EVENT = 'recommendation:refresh-request'
 
 const route = useRoute()
 
-const isDiscoveryRoute = computed(() => route.path === '/')
-const refreshLabel = computed(() =>
-  isDiscoveryRoute.value ? 'Refresh discovery feed' : 'Go to discovery feed'
-)
-
+const isRecommendationRoute = computed(() => route.path === '/')
 const handleRefreshAction = () => {
-  if (!isDiscoveryRoute.value) {
-    return navigateTo('/')
-  }
-
-  window.dispatchEvent(new CustomEvent(DISCOVERY_REFRESH_EVENT))
+  window.dispatchEvent(new CustomEvent(RECOMMENDATION_REFRESH_EVENT))
 }
 </script>
