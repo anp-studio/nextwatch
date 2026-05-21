@@ -1,15 +1,13 @@
 <template>
-  <div
-    v-if="isOpen && movie"
-    class="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 sm:p-6 backdrop-blur-sm"
-    @click.self="closePanel"
-  >
-    <Transition name="modal" appear @after-leave="emit('close')">
-      <div
-        v-if="showPanel"
-        class="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl"
-      >
+  <div v-if="shouldRender" :class="rootClasses" @click.self="handleRootClick">
+    <Transition
+      :name="isInline ? undefined : 'modal'"
+      appear
+      @after-leave="handleAfterLeave"
+    >
+      <div v-if="activeMovie && showPanel" :class="panelClasses">
         <button
+          v-if="!isInline"
           class="absolute right-3 top-3 z-10 rounded-full border border-white/10 bg-black/60 p-2 text-zinc-300 backdrop-blur-sm transition-colors hover:border-white/30 hover:text-white"
           @click="closePanel"
         >
@@ -23,7 +21,7 @@
           </svg>
         </button>
 
-        <div class="relative w-full flex-shrink-0 bg-black pt-[56.25%]">
+        <div :class="mediaClasses">
           <div
             v-if="trailerVideoId && !trailerFailed"
             :id="playerId"
@@ -32,17 +30,21 @@
           <img
             v-if="(!trailerVideoId || trailerFailed) && fallbackImageSource"
             :src="fallbackImageSource"
-            :alt="movie.title"
+            :alt="activeMovie.title"
             class="absolute left-0 top-0 h-full w-full object-cover"
           />
         </div>
 
         <div class="overflow-y-auto p-6 text-white">
-          <h2 class="mb-2 text-2xl font-bold tracking-[-0.03em] sm:text-3xl">{{ movie.title }}</h2>
+          <h2 class="mb-2 text-2xl font-bold tracking-[-0.03em] sm:text-3xl">
+            {{ activeMovie.title }}
+          </h2>
 
           <div class="mb-4 flex flex-wrap items-center gap-3 text-sm text-zinc-400">
-            <span v-if="movie.year">{{ movie.year }}</span>
-            <span v-if="movie.duration && movie.duration !== 'N/A'">{{ movie.duration }}</span>
+            <span v-if="activeMovie.year">{{ activeMovie.year }}</span>
+            <span v-if="activeMovie.duration && activeMovie.duration !== 'N/A'">
+              {{ activeMovie.duration }}
+            </span>
             <span
               v-if="formattedRating"
               class="inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/80 px-2.5 py-1 text-sm font-bold leading-none text-white shadow-lg backdrop-blur-md"
@@ -61,9 +63,9 @@
             </span>
           </div>
 
-          <div v-if="movie.genres?.length" class="mb-4 flex flex-wrap gap-1.5 sm:gap-2">
+          <div v-if="activeMovie.genres?.length" class="mb-4 flex flex-wrap gap-1.5 sm:gap-2">
             <span
-              v-for="genre in movie.genres"
+              v-for="genre in activeMovie.genres"
               :key="genre"
               class="rounded-full border border-zinc-800 bg-zinc-900/60 px-3 py-1 text-xs font-semibold tracking-[0.16em] text-zinc-400"
             >
@@ -71,19 +73,19 @@
             </span>
           </div>
 
-          <div v-if="movie.directors?.length" class="mb-4">
+          <div v-if="activeMovie.directors?.length" class="mb-4">
             <h3 class="mb-1 text-sm font-semibold uppercase tracking-wide text-zinc-500">
-              {{ movie.directors.length > 1 ? 'Directors' : 'Director' }}
+              {{ activeMovie.directors.length > 1 ? 'Directors' : 'Director' }}
             </h3>
-            <p class="text-sm text-zinc-300">{{ movie.directors.join(', ') }}</p>
+            <p class="text-sm text-zinc-300">{{ activeMovie.directors.join(', ') }}</p>
           </div>
 
-          <div v-if="movie.actors?.length" class="mb-4">
+          <div v-if="activeMovie.actors?.length" class="mb-4">
             <h3 class="mb-1 text-sm font-semibold uppercase tracking-wide text-zinc-500">Cast</h3>
-            <p class="text-sm text-zinc-300">{{ movie.actors.join(', ') }}</p>
+            <p class="text-sm text-zinc-300">{{ activeMovie.actors.join(', ') }}</p>
           </div>
 
-          <p class="leading-relaxed text-zinc-300">{{ movie.description }}</p>
+          <p class="leading-relaxed text-zinc-300">{{ activeMovie.description }}</p>
 
           <div v-if="showAddButton" class="mt-6 flex flex-col gap-3">
             <div class="flex gap-3">
@@ -175,6 +177,7 @@ import type { YouTubePlayerInstance, YouTubeWindow } from '~/types/youtube'
 const props = defineProps<{
   isOpen: boolean
   movie: Movie | null
+  variant?: 'modal' | 'inline'
   showAddButton?: boolean
   isWatched?: boolean
   showMyListButton?: boolean
@@ -183,22 +186,68 @@ const props = defineProps<{
 
 const emit = defineEmits(['close', 'add', 'remove', 'toggle-mylist'])
 
+const activeMovie = computed(() => props.movie)
+const isInline = computed(() => props.variant === 'inline')
+const shouldRender = computed(() => !!props.movie && (isInline.value || props.isOpen))
+const rootClasses = computed(() =>
+  isInline.value
+    ? 'flex h-full min-h-0 w-full'
+    : 'fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm sm:p-6'
+)
+const panelClasses = computed(() =>
+  isInline.value
+    ? 'relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[1.75rem] border border-zinc-800 bg-zinc-950 shadow-2xl'
+    : 'relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl'
+)
+const mediaClasses = computed(() =>
+  isInline.value
+    ? 'relative w-full flex-shrink-0 bg-black pt-[48%] xl:pt-[44%]'
+    : 'relative w-full flex-shrink-0 bg-black pt-[56.25%]'
+)
 const showPanel = ref(false)
 
 watch(
-  () => props.isOpen && !!props.movie,
+  () => [props.isOpen, props.movie, props.variant],
   (visible) => {
-    if (visible) {
+    if (isInline.value) {
+      showPanel.value = !!props.movie
+      return
+    }
+
+    if (visible[0] && visible[1]) {
       nextTick(() => {
         showPanel.value = true
       })
+      return
     }
+
+    showPanel.value = false
   },
   { immediate: true }
 )
 
 function closePanel() {
+  if (isInline.value) {
+    return
+  }
+
   showPanel.value = false
+}
+
+function handleRootClick() {
+  if (isInline.value) {
+    return
+  }
+
+  closePanel()
+}
+
+function handleAfterLeave() {
+  if (isInline.value) {
+    return
+  }
+
+  emit('close')
 }
 
 const trailerFailed = ref(false)
@@ -328,7 +377,7 @@ watch(
 watch(
   () => props.isOpen,
   (open) => {
-    if (!open) {
+    if (!isInline.value && !open) {
       destroyPlayer()
     }
   }

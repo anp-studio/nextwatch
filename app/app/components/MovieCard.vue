@@ -15,8 +15,9 @@
       ></div>
 
       <div
-        class="relative z-10 w-full shrink-0 aspect-[1/1.5] cursor-pointer overflow-hidden rounded-[1.125rem] border border-zinc-800 bg-zinc-900 shadow-glow"
-        @click="openDetails"
+        class="relative z-10 w-full shrink-0 aspect-[1/1.5] overflow-hidden rounded-[1.125rem] border border-zinc-800 bg-zinc-900 shadow-glow"
+        :class="detailsEnabled ? 'cursor-pointer' : 'cursor-default'"
+        @click="handleCardClick"
       >
         <img
           :src="movie.image"
@@ -204,7 +205,12 @@
       </button>
     </div>
 
-    <MovieDetails :is-open="isDetailsOpen" :movie="detailedMovie" @close="closeDetails" />
+    <MovieDetails
+      v-if="detailsEnabled"
+      :is-open="isDetailsOpen"
+      :movie="detailedMovie"
+      @close="closeDetails"
+    />
   </div>
 </template>
 
@@ -230,6 +236,10 @@ const props = defineProps({
   posterStackCount: {
     type: Number,
     default: 0,
+  },
+  detailsEnabled: {
+    type: Boolean,
+    default: true,
   },
 })
 
@@ -260,6 +270,14 @@ const formattedRating = computed(() => {
   return `${rating.toFixed(RATING_PRECISION)}/${MAX_RATING}`
 })
 const displayedTitle = computed(() => truncateMovieTitle(props.movie.title))
+
+const handleCardClick = () => {
+  if (!props.detailsEnabled) {
+    return
+  }
+
+  openDetails()
+}
 
 const openDetails = async () => {
   isDetailsOpen.value = true
