@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Session, SupabaseClient, User } from '@supabase/supabase-js'
 import type { H3Event } from 'h3'
-import { throwConfigError, throwSupabaseError } from './api-error'
+import { throwConfigError, throwSupabaseError, throwCaptchaError } from './api-error'
 import { createServiceSupabaseClient } from './auth'
+import { verifyHcaptcha } from './verifyHcaptcha'
 
 export const EMAIL_ALREADY_REGISTERED_CODE = 'EMAIL_ALREADY_REGISTERED'
 
@@ -11,8 +12,11 @@ const MIN_PASSWORD_LENGTH = 6
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const VALIDATION_STATUS_CODE = 400
 const CONFLICT_STATUS_CODE = 409
+const BAD_GATEWAY_STATUS_CODE = 502
 const SIGNUP_FAILED_MESSAGE = 'Unable to create account.'
-const CAPTCHA_REQUIRED_MESSAGE = 'Captcha verification is required.'
+const CAPTCHA_REQUIRED_MESSAGE = 'Captcha is required.'
+const CAPTCHA_FAILED_MESSAGE = 'Captcha verification failed.'
+const CAPTCHA_UNAVAILABLE_MESSAGE = 'Captcha service is temporarily unavailable.'
 
 export interface SignupPayload {
   email: string
@@ -108,11 +112,48 @@ export function validateSignupPayload(body: unknown): SignupPayload {
   }
 }
 
-export async function verifySignupCaptcha(captchaToken: string): Promise<void> {
+export async function verifySignupCaptcha(event: H3Event, captchaToken: string): Promise<void> {
   if (!captchaToken.trim()) {
-    throw createError({
+    throwCaptchaError(event, new Error('Missing hCaptcha token'), {
+      event: 'signup.hcaptcha_missing',
+      publicMessage: CAPTCHA_REQUIRED_MESSAGE,
       statusCode: VALIDATION_STATUS_CODE,
-      statusMessage: CAPTCHA_REQUIRED_MESSAGE,
+    })
+  }
+
+  const config = useRuntimeConfig(event)
+  const secretKey = config.hcaptchaSecretKey
+  const siteKey = config.public.hcaptchaSiteKey
+
+  if (!secretKey || typeof secretKey !== 'string') {
+    throwConfigError(event, new Error('Missing hCaptcha secret key'), {
+      event: 'signup.hcaptcha_misconfigured',
+    })
+  }
+
+  let captchResult
+
+  try {
+    captchResult = await verifyHcaptcha({
+      token: captchaToken,
+      secret: secretKey,
+      sitekey: siteKey,
+    })
+  } catch (error) {
+    throwCaptchaError(event, error, {
+      event: 'signup.hcaptcha_verification_failed',
+      publicMessage: CAPTCHA_UNAVAILABLE_MESSAGE,
+      statusCode: BAD_GATEWAY_STATUS_CODE,
+    })
+  }
+
+  if (!captchResult.success) {
+    throwCaptchaError(event, new Error('hCaptcha verification failed'), {
+      event: 'signup.hcaptcha_verification_failed',
+      publicMessage: CAPTCHA_FAILED_MESSAGE,
+      extra: {
+        'error-codes': captchResult['error-codes'],
+      },
     })
   }
 }

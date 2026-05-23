@@ -63,15 +63,6 @@
             @error="onCaptchaError"
           />
 
-          <VueHcaptcha
-            v-if="authView === 'login'"
-            ref="loginCaptchaWidget"
-            :sitekey="siteKey"
-            size="invisible"
-            @verify="onLoginCaptchaVerify"
-            @error="onLoginCaptchaError"
-          />
-
           <button
             type="submit"
             :disabled="isLoading || isGoogleLoading"
@@ -192,7 +183,6 @@ const errorMessage = ref('')
 const successMessage = ref('')
 const captchaToken = ref(null)
 const captchaWidget = ref(null)
-const loginCaptchaWidget = ref(null)
 const EMAIL_ALREADY_REGISTERED_CODE = 'EMAIL_ALREADY_REGISTERED'
 
 const onCaptchaVerify = (token) => {
@@ -210,28 +200,6 @@ const onCaptchaError = () => {
 const resetCaptcha = () => {
   captchaToken.value = null
   captchaWidget.value?.reset()
-}
-
-let resolveLoginCaptcha = null
-let rejectLoginCaptcha = null
-
-const getLoginCaptchaToken = () =>
-  new Promise((resolve, reject) => {
-    resolveLoginCaptcha = resolve
-    rejectLoginCaptcha = reject
-    loginCaptchaWidget.value.execute()
-  })
-
-const onLoginCaptchaVerify = (token) => {
-  resolveLoginCaptcha?.(token)
-  resolveLoginCaptcha = null
-  rejectLoginCaptcha = null
-}
-
-const onLoginCaptchaError = () => {
-  rejectLoginCaptcha?.(new Error('Captcha failed. Please try again.'))
-  resolveLoginCaptcha = null
-  rejectLoginCaptcha = null
 }
 
 const switchView = (view) => {
@@ -259,8 +227,7 @@ const submitAuth = async () => {
 
   try {
     if (authView.value === 'login') {
-      const token = await getLoginCaptchaToken()
-      const { error } = await login(email.value, password.value, token)
+      const { error } = await login(email.value, password.value)
       if (error) throw error
       successMessage.value = 'Login successful!'
       setTimeout(() => emit('authenticated'), 1000)
@@ -297,8 +264,6 @@ const submitAuth = async () => {
     errorMessage.value = error.message || 'Something went wrong.'
     if (authView.value === 'register') {
       resetCaptcha()
-    } else if (authView.value === 'login') {
-      loginCaptchaWidget.value?.reset()
     }
   } finally {
     isLoading.value = false

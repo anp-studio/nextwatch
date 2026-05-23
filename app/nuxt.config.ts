@@ -14,6 +14,7 @@ export default defineNuxtConfig({
     libsqlAuthToken: process.env.NUXT_LIBSQL_AUTH_TOKEN ?? '',
     adminToken: process.env.ADMIN_API_TOKEN ?? '',
     supabaseServiceRoleKey: process.env.NUXT_SUPABASE_SERVICE_ROLE_KEY ?? '',
+    hcaptchaSecretKey: process.env.NUXT_HCAPTCHA_SECRET ?? '',
     public: {
       supabaseUrl: process.env.NUXT_PUBLIC_SUPABASE_URL ?? '',
       supabaseKey: process.env.NUXT_PUBLIC_SUPABASE_ANON_KEY ?? '',

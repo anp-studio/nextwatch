@@ -9,7 +9,7 @@ import {
 export default defineEventHandler(async (event) => {
   const payload = validateSignupPayload(await readBody<unknown>(event))
 
-  await verifySignupCaptcha(payload.captchaToken)
+  await verifySignupCaptcha(event, payload.captchaToken)
 
   if (await checkAuthEmailExists(event, payload.email)) {
     throw createEmailAlreadyRegisteredError()
