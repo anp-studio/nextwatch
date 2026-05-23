@@ -193,6 +193,7 @@ const successMessage = ref('')
 const captchaToken = ref(null)
 const captchaWidget = ref(null)
 const loginCaptchaWidget = ref(null)
+const EMAIL_ALREADY_REGISTERED_CODE = 'EMAIL_ALREADY_REGISTERED'
 
 const onCaptchaVerify = (token) => {
   captchaToken.value = token
@@ -242,6 +243,15 @@ const switchView = (view) => {
   resetCaptcha()
 }
 
+const switchToLoginForExistingEmail = () => {
+  authView.value = 'login'
+  password.value = ''
+  username.value = ''
+  successMessage.value = ''
+  errorMessage.value = 'That email is already registered. Please log in instead.'
+  resetCaptcha()
+}
+
 const submitAuth = async () => {
   errorMessage.value = ''
   successMessage.value = ''
@@ -270,6 +280,10 @@ const submitAuth = async () => {
         username.value.trim(),
         captchaToken.value ?? undefined
       )
+      if (error?.code === EMAIL_ALREADY_REGISTERED_CODE) {
+        switchToLoginForExistingEmail()
+        return
+      }
       if (error) throw error
       successMessage.value = 'Registration successful! Please verify your email before logging in.'
       setTimeout(() => switchView('login'), 2000)
