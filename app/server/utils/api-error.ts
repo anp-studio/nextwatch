@@ -4,7 +4,7 @@ const INTERNAL_SERVER_ERROR_STATUS_CODE = 500
 const BAD_GATEWAY_STATUS_CODE = 502
 const SERVICE_UNAVAILABLE_STATUS_CODE = 503
 
-type ErrorSource = 'supabase' | 'gemini' | 'tmdb' | 'import' | 'config' | 'unknown'
+type ErrorSource = 'supabase' | 'gemini' | 'tmdb' | 'import' | 'config' | 'captcha' | 'unknown'
 
 interface LogContext {
   event: string
@@ -182,6 +182,19 @@ export function throwImportError(
     ...options,
     cause,
     source: 'import',
+    statusCode: options.statusCode ?? BAD_GATEWAY_STATUS_CODE,
+  })
+}
+
+export function throwCaptchaError(
+  event: H3Event,
+  cause: unknown,
+  options: Omit<PublicErrorOptions, 'cause' | 'source'>
+): never {
+  return throwPublicError(event, {
+    ...options,
+    cause,
+    source: 'captcha',
     statusCode: options.statusCode ?? BAD_GATEWAY_STATUS_CODE,
   })
 }
