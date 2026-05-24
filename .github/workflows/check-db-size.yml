@@ -33,9 +33,9 @@ jobs:
           echo "### DB Size Report" >> $GITHUB_STEP_SUMMARY
           echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Korisceno | ${TOTAL} MB |" >> $GITHUB_STEP_SUMMARY
+          echo "| Used | ${TOTAL} MB |" >> $GITHUB_STEP_SUMMARY
           echo "| Free tier | 500 MB |" >> $GITHUB_STEP_SUMMARY
-          echo "| Procenat | ${PCT}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Precentage | ${PCT}% |" >> $GITHUB_STEP_SUMMARY
 
       - name: Warn if over 80%
         if: ${{ fromJson(steps.dbsize.outputs.used_pct) >= 80 }}

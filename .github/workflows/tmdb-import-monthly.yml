@@ -1,4 +1,4 @@
-name: TMDB import (monthly full refresh)
+name: TMDB Import
 
 on:
   schedule:
@@ -9,11 +9,28 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger monthly full-refresh import
-        run: |
-          curl --fail --show-error --silent \
-            -X POST "${APP_BASE_URL}/api/admin/tmdb-import" \
-            -H "x-admin-token: ${ADMIN_API_TOKEN}"
+      - name: Trigger TMDB import
+        id: tmdb
         env:
           APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
           ADMIN_API_TOKEN: ${{ secrets.ADMIN_API_TOKEN }}
+        run: |
+          RESULT=$(curl --fail --show-error --silent \
+            -X POST "${APP_BASE_URL%/}/api/admin/tmdb-import" \
+            -H "x-admin-token: ${ADMIN_API_TOKEN}")
+          echo "Raw result: $RESULT"
+          IMPORTED=$(echo "$RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['imported'])")
+          SKIPPED=$(echo "$RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['skipped'])")
+          ADULT=$(echo "$RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['adultExcluded'])")
+          LOW_POP=$(echo "$RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['lowPopularityExcluded'])")
+          DURATION=$(echo "$RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['durationSeconds'])")
+          echo "imported=$IMPORTED" >> $GITHUB_OUTPUT
+          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+          echo "### TMDB Import Report" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Imported | $IMPORTED |" >> $GITHUB_STEP_SUMMARY
+          echo "| Skipped | $SKIPPED |" >> $GITHUB_STEP_SUMMARY
+          echo "| Adult excluded | $ADULT |" >> $GITHUB_STEP_SUMMARY
+          echo "| Low popularity excluded | $LOW_POP |" >> $GITHUB_STEP_SUMMARY
+          echo "| Duration | ${DURATION}s |" >> $GITHUB_STEP_SUMMARY
