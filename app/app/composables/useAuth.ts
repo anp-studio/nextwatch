@@ -1,6 +1,8 @@
 import { ref, computed } from 'vue'
 import type { User, AuthError, Session } from '@supabase/supabase-js'
 
+export const EMAIL_ALREADY_REGISTERED_CODE = 'EMAIL_ALREADY_REGISTERED'
+
 const user = ref<User | null>(null)
 const session = ref<Session | null>(null)
 const loading = ref(true)
@@ -9,6 +11,33 @@ const AUTH_SYNC_DEFER_MS = 0
 let hasInitializedAuth = false
 let authStateSubscription: { unsubscribe: () => void } | null = null
 let pendingAuthSyncTimeout: ReturnType<typeof setTimeout> | null = null
+
+interface SignupApiResponse {
+  user: User | null
+  session: Session | null
+}
+
+interface SignupError extends Error {
+  code?: typeof EMAIL_ALREADY_REGISTERED_CODE
+}
+
+function toSignupError(error: unknown): SignupError {
+  const errorData =
+    typeof error === 'object' && error !== null
+      ? (error as { data?: { data?: { code?: unknown }; statusMessage?: unknown } }).data
+      : undefined
+  const message =
+    typeof errorData?.statusMessage === 'string' ? errorData.statusMessage : 'Something went wrong.'
+  const signupError = new Error(message) as SignupError
+  const code =
+    typeof errorData?.data?.code === 'string' ? errorData.data.code : undefined
+
+  if (code === EMAIL_ALREADY_REGISTERED_CODE) {
+    signupError.code = EMAIL_ALREADY_REGISTERED_CODE
+  }
+
+  return signupError
+}
 
 export const useAuth = () => {
   const supabase = useSupabase()
@@ -74,27 +103,33 @@ export const useAuth = () => {
     captchaToken?: string
   ) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          ...(username ? { data: { full_name: username } } : {}),
-          ...(captchaToken ? { captchaToken } : {}),
+      const data = await $fetch<SignupApiResponse>('/api/auth/signup', {
+        method: 'POST',
+        body: {
+          email,
+          password,
+          username,
+          captchaToken,
         },
       })
 
-      if (error) throw error
-
       if (data.session) {
-        user.value = data.user
-        session.value = data.session
+        const { data: sessionData, error } = await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        })
+
+        if (error) throw error
+
+        user.value = sessionData.user
+        session.value = sessionData.session
       }
 
       await syncSavedMovieStateAfterAuth(data.session?.access_token ?? undefined)
 
       return { user: data.user }
     } catch (error) {
-      return { user: null, error: error as AuthError }
+      return { user: null, error: toSignupError(error) }
     }
   }
 
@@ -127,10 +162,30 @@ export const useAuth = () => {
     }
   }
 
-  const updatePassword = async (newPassword: string) => {
+  const verifyPasswordResetOtp = async (email: string, token: string) => {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'recovery',
+      })
+
+      if (error) throw error
+
+      user.value = data.user
+      session.value = data.session
+
+      return { user: data.user, session: data.session }
+    } catch (error) {
+      return { user: null, session: null, error: error as AuthError }
+    }
+  }
+
+  const updatePassword = async (newPassword: string, currentPassword?: string) => {
     try {
       const { data, error } = await supabase.auth.updateUser({
         password: newPassword,
+        ...(currentPassword ? { current_password: currentPassword } : {}),
       })
       if (error) throw error
       return { user: data.user }
@@ -199,6 +254,7 @@ export const useAuth = () => {
     logout,
     signInWithGoogle,
     resetPassword,
+    verifyPasswordResetOtp,
     updatePassword,
   }
 }

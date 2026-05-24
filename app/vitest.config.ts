@@ -23,6 +23,7 @@ export default defineConfig({
                 runtimeConfig: {
                   adminToken: 'test-admin-token',
                   supabaseServiceRoleKey: 'test-service-role-key',
+                  hcaptchaSecretKey: 'test-hcaptcha-secret',
                   public: {
                     supabaseUrl: 'https://example.supabase.co',
                     supabaseKey: 'test-supabase-key',
