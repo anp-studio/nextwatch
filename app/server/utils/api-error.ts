@@ -34,12 +34,33 @@ interface PrivateErrorLogOptions {
   extra?: Record<string, unknown>
 }
 
+const SERIALIZED_ERROR_KEYS = [
+  'status',
+  'statusCode',
+  'code',
+  'provider',
+  'model',
+  'responseMode',
+  'causeMessage',
+  'originalStatusCode',
+  'attempts',
+] as const
+
+function getSerializedErrorMetadata(error: Error): Record<string, unknown> {
+  const record = error as unknown as Record<string, unknown>
+
+  return Object.fromEntries(
+    SERIALIZED_ERROR_KEYS.flatMap((key) => (record[key] === undefined ? [] : [[key, record[key]]]))
+  )
+}
+
 function toErrorDetails(cause: unknown): Record<string, unknown> {
   if (cause instanceof Error) {
     return {
       name: cause.name,
       message: cause.message,
       stack: cause.stack,
+      ...getSerializedErrorMetadata(cause),
     }
   }
 

@@ -8,6 +8,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import {
   cloneRecommendations,
   cloneWatchedMovies,
+  createFallbackResponse,
   FRESH_CACHE_RECOMMENDATIONS,
   GENERATED_RECOMMENDATIONS,
   INSUFFICIENT_VALID_RECOMMENDATIONS,
@@ -25,6 +26,7 @@ const {
   getRecommendationsFromPlatformAiMock,
   acquireRecommendationLockMock,
   releaseRecommendationLockMock,
+  logPrivateErrorMock,
 } = vi.hoisted(() => ({
   fetchMyListMoviesMock: vi.fn(),
   fetchWatchedMoviesMock: vi.fn(),
@@ -32,6 +34,7 @@ const {
   getRecommendationsFromPlatformAiMock: vi.fn(),
   acquireRecommendationLockMock: vi.fn(),
   releaseRecommendationLockMock: vi.fn(),
+  logPrivateErrorMock: vi.fn(),
 }))
 
 vi.mock('../../../server/utils/auth', () => ({
@@ -56,6 +59,15 @@ vi.mock('../../../server/utils/recommendation-lock', () => ({
 vi.mock('../../../server/utils/redis', () => ({
   createRedisClient: () => ({}),
 }))
+
+vi.mock('../../../server/utils/api-error', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../server/utils/api-error')>()
+
+  return {
+    ...actual,
+    logPrivateError: logPrivateErrorMock,
+  }
+})
 
 Object.assign(globalThis, {
   createError,
@@ -357,8 +369,22 @@ describe('/api/recommend', () => {
     const body = await readJson(response)
 
     expect(response.status).toBe(200)
-    expect(body.cached).toBe(true)
-    expect(body.recommendations).toEqual(recommendationIds(STALE_RECOMMENDATIONS))
+    expect(body).toEqual(
+      createFallbackResponse(
+        503,
+        'Platform AI is temporarily unavailable due to high demand.',
+        true,
+        recommendationIds(STALE_RECOMMENDATIONS)
+      )
+    )
+    expect(logPrivateErrorMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'recommendation.regeneration_failed',
+        source: 'ai_provider',
+        statusCode: 503,
+        userId: TEST_USER_ID,
+      })
+    )
   })
 
   it('falls back to cached recommendations when regeneration fails with a 429', async () => {
@@ -378,8 +404,14 @@ describe('/api/recommend', () => {
     const body = await readJson(response)
 
     expect(response.status).toBe(200)
-    expect(body.cached).toBe(true)
-    expect(body.recommendations).toEqual(recommendationIds(STALE_RECOMMENDATIONS))
+    expect(body).toEqual(
+      createFallbackResponse(
+        429,
+        'Daily recommendation limit reached. Please try again tomorrow.',
+        false,
+        recommendationIds(STALE_RECOMMENDATIONS)
+      )
+    )
   })
 
   it('falls back to cached recommendations when regeneration returns too few valid ids', async () => {
@@ -399,8 +431,14 @@ describe('/api/recommend', () => {
     const body = await readJson(response)
 
     expect(response.status).toBe(200)
-    expect(body.cached).toBe(true)
-    expect(body.recommendations).toEqual(recommendationIds(STALE_RECOMMENDATIONS))
+    expect(body).toEqual(
+      createFallbackResponse(
+        502,
+        'Recommendation generation returned too few valid TMDB matches.',
+        false,
+        recommendationIds(STALE_RECOMMENDATIONS)
+      )
+    )
   })
 
   it('preserves the original error when regeneration fails without stored fallback', async () => {

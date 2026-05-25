@@ -6,6 +6,8 @@ import { recommendationLimiter, RECOMMENDATION_LIMIT } from './ratelimit'
 const GOOGLE_AI_STUDIO_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/'
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 const GENERATE_RECOMMENDATIONS_MESSAGE = 'Unable to generate recommendations right now.'
+const TOO_MANY_REQUESTS_STATUS_CODE = 429
+const BAD_GATEWAY_STATUS_CODE = 502
 
 export interface PlatformAiRequest {
   systemPrompt: string
@@ -29,6 +31,20 @@ interface PlatformAiConfig {
   googleModels: string
   openRouterApiKey: string
   openRouterModels: string
+}
+
+interface ProviderErrorContext {
+  provider: PlatformAiProviderConfig['provider']
+  model: string
+  responseMode: 'json_schema'
+}
+
+interface ProviderAttempt {
+  provider: PlatformAiProviderConfig['provider']
+  model: string
+  responseMode: 'json_schema'
+  statusCode: number | null
+  causeMessage: string
 }
 
 export function parseProviderModels(value: string): string[] {
@@ -115,7 +131,8 @@ function getProviderErrorStatusCode(error: unknown): number | null {
     return null
   }
 
-  const status = (error as { status?: number }).status
+  const record = error as { status?: number; statusCode?: number }
+  const status = record.status ?? record.statusCode
 
   if (typeof status === 'number' && status >= 400 && status < 600) {
     return status
@@ -124,13 +141,89 @@ function getProviderErrorStatusCode(error: unknown): number | null {
   return null
 }
 
-function createProviderError(error: unknown): Error {
-  const statusCode = getProviderErrorStatusCode(error)
+function getProviderErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message
+  }
 
-  return createError({
-    statusCode: statusCode === 429 ? 429 : 502,
+  if (typeof error !== 'object' || error === null) {
+    return 'Unknown AI provider error'
+  }
+
+  const record = error as Record<string, unknown>
+
+  if (typeof record.message === 'string' && record.message.length > 0) {
+    return record.message
+  }
+
+  if (typeof record.error === 'object' && record.error !== null) {
+    const nestedError = record.error as Record<string, unknown>
+
+    if (typeof nestedError.message === 'string' && nestedError.message.length > 0) {
+      return nestedError.message
+    }
+  }
+
+  return 'Unknown AI provider error'
+}
+
+function createProviderError(error: unknown, context: ProviderErrorContext): Error {
+  const statusCode = getProviderErrorStatusCode(error)
+  const providerError = createError({
+    statusCode: statusCode === TOO_MANY_REQUESTS_STATUS_CODE ? TOO_MANY_REQUESTS_STATUS_CODE : BAD_GATEWAY_STATUS_CODE,
     statusMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
   })
+
+  return Object.assign(providerError, {
+    provider: context.provider,
+    model: context.model,
+    responseMode: context.responseMode,
+    causeMessage: getProviderErrorMessage(error),
+    originalStatusCode: statusCode,
+  })
+}
+
+function getAttemptFromError(
+  error: unknown,
+  provider: PlatformAiProviderConfig['provider'],
+  model: string
+): ProviderAttempt {
+  if (typeof error !== 'object' || error === null) {
+    return {
+      provider,
+      model,
+      responseMode: 'json_schema',
+      statusCode: null,
+      causeMessage: getProviderErrorMessage(error),
+    }
+  }
+
+  const record = error as Record<string, unknown>
+  const causeMessage =
+    typeof record.causeMessage === 'string' && record.causeMessage.length > 0
+      ? record.causeMessage
+      : getProviderErrorMessage(error)
+  const originalStatusCode =
+    typeof record.originalStatusCode === 'number' ? record.originalStatusCode : getProviderErrorStatusCode(error)
+
+  return {
+    provider,
+    model,
+    responseMode: 'json_schema',
+    statusCode: originalStatusCode,
+    causeMessage,
+  }
+}
+
+function attachAttempts(error: unknown, attempts: ProviderAttempt[]): Error {
+  const providerError = error instanceof Error
+    ? error
+    : createError({
+        statusCode: BAD_GATEWAY_STATUS_CODE,
+        statusMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
+      })
+
+  return Object.assign(providerError, { attempts })
 }
 
 async function createChatCompletion(
@@ -175,7 +268,11 @@ async function createChatCompletion(
 
     return content
   } catch (error) {
-    throw createProviderError(error)
+    throw createProviderError(error, {
+      provider: provider.provider,
+      model,
+      responseMode: 'json_schema',
+    })
   }
 }
 
@@ -200,6 +297,7 @@ export async function askPlatformAi(request: PlatformAiRequest): Promise<string>
   }
 
   let lastError: unknown = null
+  const attempts: ProviderAttempt[] = []
 
   for (const provider of providers) {
     for (const model of provider.models) {
@@ -207,12 +305,13 @@ export async function askPlatformAi(request: PlatformAiRequest): Promise<string>
         return await createChatCompletion(provider, model, request)
       } catch (error) {
         lastError = error
+        attempts.push(getAttemptFromError(error, provider.provider, model))
       }
     }
   }
 
   if (lastError) {
-    throw lastError
+    throw attachAttempts(lastError, attempts)
   }
 
   throw createError({
