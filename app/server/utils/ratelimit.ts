@@ -16,8 +16,11 @@ export const tmdbLimiter = new Ratelimit({
   analytics: false,
 })
 
-export const recommednationLimiter = new Ratelimit({
+export const recommendationLimiter = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(RECOMMENDATION_LIMIT, RECOMMENDATION_WINDOW),
   analytics: false,
 })
+
+// keep this for now but will remove later
+export const recommednationLimiter = recommendationLimiter

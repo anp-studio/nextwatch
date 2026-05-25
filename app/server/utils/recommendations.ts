@@ -539,7 +539,7 @@ export async function appendTmdbIds(
   return { recommendations: results, tmdbFallbackCount }
 }
 
-export async function getRecommendationsFromGemini(
+export async function getRecommendationsFromPlatformAi(
   watchedMovies: Array<{ title: string; year: number }>,
   myListMovies: Array<{ title: string; year: number }>,
   userId?: string,
@@ -554,10 +554,11 @@ export async function getRecommendationsFromGemini(
   const systemPrompt = `${SYSTEM_PROMPT}\n${EXACT_ORIGINAL_TITLE_PROMPT_SUFFIX}\n${POPULAR_MOVIE_PROMPT_SUFFIX}`
   const userMessage = buildUserMessage(watchedMovies, myListMovies, excludedMovies)
 
-  const raw = await askGemini({
+  const raw = await askPlatformAi({
     systemPrompt,
     userMessage,
     schema: RECOMMENDATION_SCHEMA,
+    schemaName: 'movie_recommendations',
     userId,
     event,
   })
