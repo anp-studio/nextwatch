@@ -17,7 +17,17 @@ vi.mock('../../server/utils/tmdb', () => ({
   fetchTmdb: fetchTmdbMock,
 }))
 
-const { appendTmdbIds } = await import('../../server/utils/recommendations')
+const { askPlatformAiMock } = vi.hoisted(() => ({
+  askPlatformAiMock: vi.fn(),
+}))
+
+vi.mock('../../server/utils/ai-client', () => ({
+  askPlatformAi: askPlatformAiMock,
+}))
+
+const { appendTmdbIds, getRecommendationsFromPlatformAi } = await import(
+  '../../server/utils/recommendations'
+)
 
 interface SearchRow {
   tmdb_id: number
@@ -246,5 +256,43 @@ describe('appendTmdbIds', () => {
       tmdbFallbackCount: 1,
     })
     expect(fetchTmdbMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('getRecommendationsFromPlatformAi', () => {
+  beforeEach(() => {
+    askPlatformAiMock.mockReset()
+  })
+
+  it('accepts a top-level recommendation array payload', async () => {
+    askPlatformAiMock.mockResolvedValue(
+      JSON.stringify([{ name: 'Stalker', originalName: 'Stalker', year: 1979 }])
+    )
+
+    const result = await getRecommendationsFromPlatformAi(
+      [{ title: 'Alien', year: 1979 }],
+      []
+    )
+
+    expect(result.recommendations).toEqual([
+      { name: 'Stalker', originalName: 'Stalker', year: 1979, tmdbId: null },
+    ])
+  })
+
+  it('accepts an object payload that wraps recommendations', async () => {
+    askPlatformAiMock.mockResolvedValue(
+      JSON.stringify({
+        recommendations: [{ name: 'Stalker', originalName: 'Stalker', year: 1979 }],
+      })
+    )
+
+    const result = await getRecommendationsFromPlatformAi(
+      [{ title: 'Alien', year: 1979 }],
+      []
+    )
+
+    expect(result.recommendations).toEqual([
+      { name: 'Stalker', originalName: 'Stalker', year: 1979, tmdbId: null },
+    ])
   })
 })

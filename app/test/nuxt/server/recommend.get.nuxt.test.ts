@@ -22,14 +22,14 @@ const {
   fetchMyListMoviesMock,
   fetchWatchedMoviesMock,
   getAuthorizedUserMock,
-  getRecommendationsFromGeminiMock,
+  getRecommendationsFromPlatformAiMock,
   acquireRecommendationLockMock,
   releaseRecommendationLockMock,
 } = vi.hoisted(() => ({
   fetchMyListMoviesMock: vi.fn(),
   fetchWatchedMoviesMock: vi.fn(),
   getAuthorizedUserMock: vi.fn(),
-  getRecommendationsFromGeminiMock: vi.fn(),
+  getRecommendationsFromPlatformAiMock: vi.fn(),
   acquireRecommendationLockMock: vi.fn(),
   releaseRecommendationLockMock: vi.fn(),
 }))
@@ -41,7 +41,7 @@ vi.mock('../../../server/utils/auth', () => ({
 vi.mock('../../../server/utils/recommendations', () => ({
   fetchMyListMovies: fetchMyListMoviesMock,
   fetchWatchedMovies: fetchWatchedMoviesMock,
-  getRecommendationsFromGemini: getRecommendationsFromGeminiMock,
+  getRecommendationsFromPlatformAi: getRecommendationsFromPlatformAiMock,
   MIN_RECOMMENDATIONS_TO_CACHE: 5,
   hasEnoughRecommendationsToCache: (recommendations: Array<{ tmdbId: number | null }>) =>
     recommendations.filter((recommendation) => recommendation.tmdbId !== null).length >= 5,
@@ -218,7 +218,7 @@ describe('/api/recommend', () => {
     releaseRecommendationLockMock.mockResolvedValue(true)
     fetchWatchedMoviesMock.mockResolvedValue(cloneWatchedMovies(WATCHED_MOVIES))
     fetchMyListMoviesMock.mockResolvedValue(cloneWatchedMovies(MY_LIST_MOVIES))
-    getRecommendationsFromGeminiMock.mockResolvedValue({
+    getRecommendationsFromPlatformAiMock.mockResolvedValue({
       recommendations: cloneRecommendations(GENERATED_RECOMMENDATIONS),
       tmdbFallbackCount: 0,
       systemPrompt: '',
@@ -231,7 +231,7 @@ describe('/api/recommend', () => {
     vi.useRealTimers()
   })
 
-  it('returns fresh cached recommendations without calling Gemini', async () => {
+  it('returns fresh cached recommendations without calling platform AI', async () => {
     supabaseState.cachedRow = {
       tmdb_ids: recommendationIds(FRESH_CACHE_RECOMMENDATIONS),
       watched_hash: computeWatchedHash(WATCHED_MOVIES),
@@ -244,7 +244,7 @@ describe('/api/recommend', () => {
     expect(response.status).toBe(200)
     expect(body.cached).toBe(true)
     expect(body.recommendations).toEqual(recommendationIds(FRESH_CACHE_RECOMMENDATIONS))
-    expect(getRecommendationsFromGeminiMock).not.toHaveBeenCalled()
+    expect(getRecommendationsFromPlatformAiMock).not.toHaveBeenCalled()
   })
 
   it('regenerates and stores recommendations when cache is not reusable', async () => {
@@ -260,14 +260,14 @@ describe('/api/recommend', () => {
     expect(response.status).toBe(200)
     expect(body.cached).toBe(false)
     expect(body.recommendations).toEqual(recommendationIds(GENERATED_RECOMMENDATIONS))
-    expect(getRecommendationsFromGeminiMock).toHaveBeenCalledTimes(1)
+    expect(getRecommendationsFromPlatformAiMock).toHaveBeenCalledTimes(1)
     expect(supabaseState.upsertPayload?.tmdb_ids).toEqual(
       recommendationIds(GENERATED_RECOMMENDATIONS)
     )
   })
 
   it('deduplicates generated recommendations before returning and caching them', async () => {
-    getRecommendationsFromGeminiMock.mockResolvedValue({
+    getRecommendationsFromPlatformAiMock.mockResolvedValue({
       recommendations: [
         GENERATED_RECOMMENDATIONS[0]!,
         GENERATED_RECOMMENDATIONS[0]!,
@@ -292,7 +292,7 @@ describe('/api/recommend', () => {
   })
 
   it('drops unmatched recommendations from the response when TMDB resolution fails', async () => {
-    getRecommendationsFromGeminiMock.mockResolvedValue({
+    getRecommendationsFromPlatformAiMock.mockResolvedValue({
       recommendations: [
         ...cloneRecommendations(GENERATED_RECOMMENDATIONS),
         {
@@ -324,7 +324,7 @@ describe('/api/recommend', () => {
     supabaseState.movieRows = supabaseState.movieRows.map((row) =>
       row.tmdb_id === lowPopularityId ? { ...row, popularity: 1 } : row
     )
-    getRecommendationsFromGeminiMock.mockResolvedValue({
+    getRecommendationsFromPlatformAiMock.mockResolvedValue({
       recommendations: extendedRecommendations,
       tmdbFallbackCount: 0,
       systemPrompt: '',
@@ -346,10 +346,10 @@ describe('/api/recommend', () => {
       watched_hash: 'expired-hash',
       expires_at: '2026-04-01T00:00:00.000Z',
     }
-    getRecommendationsFromGeminiMock.mockRejectedValue(
+    getRecommendationsFromPlatformAiMock.mockRejectedValue(
       createError({
         statusCode: 503,
-        statusMessage: 'Gemini is temporarily unavailable due to high demand.',
+        statusMessage: 'Platform AI is temporarily unavailable due to high demand.',
       })
     )
 
@@ -367,7 +367,7 @@ describe('/api/recommend', () => {
       watched_hash: 'expired-hash',
       expires_at: '2026-04-01T00:00:00.000Z',
     }
-    getRecommendationsFromGeminiMock.mockRejectedValue(
+    getRecommendationsFromPlatformAiMock.mockRejectedValue(
       createError({
         statusCode: 429,
         statusMessage: 'Daily recommendation limit reached. Please try again tomorrow.',
@@ -388,7 +388,7 @@ describe('/api/recommend', () => {
       watched_hash: 'expired-hash',
       expires_at: '2026-04-01T00:00:00.000Z',
     }
-    getRecommendationsFromGeminiMock.mockResolvedValue({
+    getRecommendationsFromPlatformAiMock.mockResolvedValue({
       recommendations: cloneRecommendations(INSUFFICIENT_VALID_RECOMMENDATIONS),
       tmdbFallbackCount: 0,
       systemPrompt: '',
@@ -404,10 +404,10 @@ describe('/api/recommend', () => {
   })
 
   it('preserves the original error when regeneration fails without stored fallback', async () => {
-    getRecommendationsFromGeminiMock.mockRejectedValue(
+    getRecommendationsFromPlatformAiMock.mockRejectedValue(
       createError({
         statusCode: 503,
-        statusMessage: 'Gemini is temporarily unavailable due to high demand.',
+        statusMessage: 'Platform AI is temporarily unavailable due to high demand.',
       })
     )
 
@@ -416,6 +416,6 @@ describe('/api/recommend', () => {
 
     expect(response.status).toBe(503)
     expect(body.statusCode).toBe(503)
-    expect(body.statusMessage).toBe('Gemini is temporarily unavailable due to high demand.')
+    expect(body.statusMessage).toBe('Platform AI is temporarily unavailable due to high demand.')
   })
 })

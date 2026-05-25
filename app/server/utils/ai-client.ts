@@ -77,10 +77,10 @@ export function createPlatformAiProviderConfig(
 function getPlatformAiProviderConfig(event?: H3Event, userId?: string): PlatformAiProviderConfig[] {
   const config = useRuntimeConfig()
   const providers = createPlatformAiProviderConfig({
-    googleApiKey: config.googleApiKey || process.env.GOOGLE_API_KEY || '',
-    googleModels: config.googleModels || process.env.GOOGLE_MODELS || '',
-    openRouterApiKey: config.openRouterApiKey || process.env.OPENROUTER_API_KEY || '',
-    openRouterModels: config.openRouterModels || process.env.OPENROUTER_MODELS || '',
+    googleApiKey: config.googleApiKey || process.env.NUXT_GOOGLE_API_KEY || '',
+    googleModels: config.googleModels || process.env.NUXT_GOOGLE_MODELS || '',
+    openRouterApiKey: config.openRouterApiKey || process.env.NUXT_OPENROUTER_API_KEY || '',
+    openRouterModels: config.openRouterModels || process.env.NUXT_OPENROUTER_MODELS || '',
   })
 
   if (providers.length === 0) {
@@ -216,7 +216,7 @@ export async function askPlatformAi(request: PlatformAiRequest): Promise<string>
   }
 
   throw createError({
-    statusCode: 502,
-    statusMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
+    statusCode: 503,
+    statusMessage: 'Service is temporarily unavailable.',
   })
 }

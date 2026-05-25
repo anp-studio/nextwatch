@@ -9,9 +9,10 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     tmdbApiKey: process.env.NUXT_TMDB_API_KEY ?? '',
-    googleAiStudioApiKey: process.env.NUXT_GOOGLE_API_KEY ?? '',
-    googleAiStudioModels:
-      process.env.NUXT_GOOGLE_MODELS ?? 'gemini-2.5-flash-lite,gemini-2.0-flash',
+    googleApiKey: process.env.NUXT_GOOGLE_API_KEY ?? '',
+    googleModels:
+      process.env.NUXT_GOOGLE_MODELS ??
+      'gemini-flash-lite-latest,gemini-2.5-flash-lite,gemini-2.0-flash-lite',
     openRouterApiKey: process.env.NUXT_OPENROUTER_API_KEY ?? '',
     openRouterModels: process.env.NUXT_OPENROUTER_MODELS ?? 'google/gemini-2.5-flash-lite',
     adminToken: process.env.ADMIN_API_TOKEN ?? '',

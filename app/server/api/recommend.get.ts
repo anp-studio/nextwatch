@@ -5,7 +5,7 @@ import { getAuthorizedUser } from '../utils/auth'
 import {
   fetchMyListMovies,
   fetchWatchedMovies,
-  getRecommendationsFromGemini,
+  getRecommendationsFromPlatformAi,
   hasEnoughRecommendationsToCache,
   hasValidTmdbId,
   hydrateRecommendationsByTmdbIds,
@@ -228,14 +228,14 @@ export default defineEventHandler(async (event) => {
 
     let recommendations: RecommendationWithId[]
     try {
-      const geminiResult = await getRecommendationsFromGemini(
+      const platformAiResult = await getRecommendationsFromPlatformAi(
         watchedMovies,
         myListMovies,
         user.id,
         event,
         excludedMovies
       )
-      const generatedRecommendations = geminiResult.recommendations
+      const generatedRecommendations = platformAiResult.recommendations
 
       recommendations = dedupeRecommendations(filterValidRecommendations(generatedRecommendations))
 
