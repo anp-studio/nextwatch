@@ -2,17 +2,35 @@
   <div
     class="[container-type:inline-size] flex h-full min-h-0 w-full flex-col justify-center gap-[clamp(0.25rem,3.5cqw,1rem)]"
   >
-    <div class="relative w-full shrink-0 aspect-[1/1.5]">
+    <div
+      ref="posterRef"
+      class="relative w-full shrink-0 aspect-[1/1.5] [touch-action:pan-y]"
+      :style="posterStyle"
+      @touchstart="onTouchStart"
+      @touchmove="onTouchMove"
+      @touchend="onTouchEnd"
+      @touchcancel="onTouchEnd"
+    >
       <div
         v-if="posterStackCount >= 2"
         class="pointer-events-none absolute inset-0 rounded-[1.125rem] border border-outline opacity-30 [transform:translateX(-0.55rem)_rotate(-1.6deg)]"
-        style="background-color: rgb(var(--color-surface-container-low)); box-shadow: 0 10px 26px rgb(0 0 0 / 0.2), 0 0 0 1px rgb(255 255 255 / 0.03);"
+        style="
+          background-color: rgb(var(--color-surface-container-low));
+          box-shadow:
+            0 10px 26px rgb(0 0 0 / 0.2),
+            0 0 0 1px rgb(255 255 255 / 0.03);
+        "
         aria-hidden="true"
       ></div>
       <div
         v-if="posterStackCount >= 1"
         class="pointer-events-none absolute inset-0 rounded-[1.125rem] border border-outline opacity-40 [transform:translateX(0.55rem)_rotate(1.4deg)]"
-        style="background-color: rgb(var(--color-surface-container-low)); box-shadow: 0 10px 26px rgb(0 0 0 / 0.2), 0 0 0 1px rgb(255 255 255 / 0.03);"
+        style="
+          background-color: rgb(var(--color-surface-container-low));
+          box-shadow:
+            0 10px 26px rgb(0 0 0 / 0.2),
+            0 0 0 1px rgb(255 255 255 / 0.03);
+        "
         aria-hidden="true"
       ></div>
 
@@ -26,6 +44,28 @@
           alt="Movie Poster"
           class="absolute inset-0 h-full w-full object-cover"
         />
+
+        <div
+          class="pointer-events-none absolute left-4 top-4 z-30 -rotate-12 rounded-lg border-2 border-primary bg-black/40 px-3 py-1 text-xl font-extrabold uppercase tracking-wider text-primary backdrop-blur-sm"
+          :style="{ opacity: watchedOpacity }"
+          aria-hidden="true"
+        >
+          Watched
+        </div>
+        <div
+          class="pointer-events-none absolute right-4 top-4 z-30 rotate-12 rounded-lg border-2 border-primary bg-black/40 px-3 py-1 text-xl font-extrabold uppercase tracking-wider text-primary backdrop-blur-sm"
+          :style="{ opacity: nopeOpacity }"
+          aria-hidden="true"
+        >
+          No
+        </div>
+        <div
+          class="pointer-events-none absolute left-1/2 bottom-16 z-30 -translate-x-1/2 rounded-lg border-2 border-primary bg-black/40 px-3 py-1 text-xl font-extrabold uppercase tracking-wider text-primary backdrop-blur-sm"
+          :style="{ opacity: watchlistOpacity }"
+          aria-hidden="true"
+        >
+          Watchlist
+        </div>
 
         <div
           v-if="isInMyList || isWatched"
@@ -226,6 +266,11 @@ import { computed, ref } from 'vue'
 const MAX_RATING = 10
 const RATING_PRECISION = 1
 
+const SWIPE_INTENT_PX = 10
+const SWIPE_COMMIT_X_RATIO = 0.3
+const SWIPE_COMMIT_Y_RATIO = 0.25
+const SWIPE_FLICK_VELOCITY = 0.6
+
 const props = defineProps({
   movie: {
     type: Object,
@@ -249,9 +294,141 @@ const props = defineProps({
   },
 })
 
-defineEmits(['dislike', 'watched', 'to-watch', 'refresh'])
+const emit = defineEmits(['dislike', 'watched', 'to-watch', 'refresh'])
 
 const { getMovieDetails } = useMovieDetails()
+
+const posterRef = ref(null)
+const dragX = ref(0)
+const dragY = ref(0)
+const isDragging = ref(false)
+const isReleasing = ref(false)
+const committed = ref(false)
+const wasSwiping = ref(false)
+
+let startX = 0
+let startY = 0
+let startTime = 0
+
+const posterStyle = computed(() => {
+  const rotate = dragX.value * 0.05
+  return {
+    transform: `translate(${dragX.value}px, ${dragY.value}px) rotate(${rotate}deg)`,
+    transition: isDragging.value ? 'none' : 'transform 300ms cubic-bezier(0.22, 1, 0.36, 1)',
+    touchAction: isDragging.value ? 'none' : 'pan-y',
+  }
+})
+
+const swipeDirection = computed(() => {
+  const absX = Math.abs(dragX.value)
+  const absY = Math.abs(dragY.value)
+  if (absX < SWIPE_INTENT_PX && absY < SWIPE_INTENT_PX) return null
+  if (absX >= absY) return dragX.value > 0 ? 'right' : 'left'
+  return dragY.value < 0 ? 'up' : null
+})
+
+const posterWidth = () => posterRef.value?.offsetWidth || 1
+const posterHeight = () => posterRef.value?.offsetHeight || 1
+
+const nopeOpacity = computed(() =>
+  swipeDirection.value === 'left'
+    ? Math.min(1, Math.abs(dragX.value) / (posterWidth() * SWIPE_COMMIT_X_RATIO))
+    : 0
+)
+const watchedOpacity = computed(() =>
+  swipeDirection.value === 'right'
+    ? Math.min(1, Math.abs(dragX.value) / (posterWidth() * SWIPE_COMMIT_X_RATIO))
+    : 0
+)
+const watchlistOpacity = computed(() =>
+  swipeDirection.value === 'up'
+    ? Math.min(1, Math.abs(dragY.value) / (posterHeight() * SWIPE_COMMIT_Y_RATIO))
+    : 0
+)
+
+const onTouchStart = (event) => {
+  if (committed.value || event.touches.length !== 1) return
+  const touch = event.touches[0]
+  startX = touch.clientX
+  startY = touch.clientY
+  startTime = event.timeStamp
+  isDragging.value = true
+  isReleasing.value = false
+  wasSwiping.value = false
+}
+
+const onTouchMove = (event) => {
+  if (!isDragging.value) return
+  const touch = event.touches[0]
+  const dx = touch.clientX - startX
+  const dy = touch.clientY - startY
+
+  if (Math.abs(dy) > Math.abs(dx) && dy > 0 && !wasSwiping.value) {
+    return
+  }
+
+  dragX.value = dx
+  dragY.value = Math.min(dy, 0)
+
+  if (Math.abs(dx) > SWIPE_INTENT_PX || dy < -SWIPE_INTENT_PX) {
+    wasSwiping.value = true
+    if (event.cancelable) event.preventDefault()
+  }
+}
+
+const onTouchEnd = (event) => {
+  if (!isDragging.value) return
+  isDragging.value = false
+
+  const dx = dragX.value
+  const dy = dragY.value
+  const elapsed = Math.max(1, event.timeStamp - startTime)
+  const velocityX = Math.abs(dx) / elapsed
+  const velocityY = Math.abs(dy) / elapsed
+
+  const commitX = posterWidth() * SWIPE_COMMIT_X_RATIO
+  const commitY = posterHeight() * SWIPE_COMMIT_Y_RATIO
+
+  const direction = swipeDirection.value
+  let action = null
+
+  if (direction === 'left' && (Math.abs(dx) > commitX || velocityX > SWIPE_FLICK_VELOCITY)) {
+    action = 'left'
+  } else if (
+    direction === 'right' &&
+    (Math.abs(dx) > commitX || velocityX > SWIPE_FLICK_VELOCITY)
+  ) {
+    action = 'right'
+  } else if (direction === 'up' && (Math.abs(dy) > commitY || velocityY > SWIPE_FLICK_VELOCITY)) {
+    action = 'up'
+  }
+
+  if (action) {
+    commitSwipe(action)
+  } else {
+    dragX.value = 0
+    dragY.value = 0
+  }
+}
+
+const commitSwipe = (direction) => {
+  committed.value = true
+  isReleasing.value = true
+
+  const width = posterWidth()
+  const height = posterHeight()
+  if (direction === 'left') {
+    dragX.value = -width * 1.3
+  } else if (direction === 'right') {
+    dragX.value = width * 1.3
+  } else {
+    dragY.value = -height * 1.3
+  }
+
+  const eventName =
+    direction === 'left' ? 'dislike' : direction === 'right' ? 'watched' : 'to-watch'
+  emit(eventName, props.movie)
+}
 
 const isDetailsOpen = ref(false)
 const detailedMovie = ref(null)
@@ -279,6 +456,11 @@ const displayedTitle = computed(() => truncateMovieTitle(props.movie.title))
 
 const handleCardClick = () => {
   if (!props.detailsEnabled) {
+    return
+  }
+
+  if (wasSwiping.value) {
+    wasSwiping.value = false
     return
   }
 
