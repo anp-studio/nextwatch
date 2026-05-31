@@ -71,23 +71,123 @@
     </p>
   </div>
 
-  <button
-    class="w-full max-w-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-xl py-3 px-6 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm mb-10"
-    @click="handleLogout"
-  >
-    Log Out
-  </button>
+  <div class="w-full max-w-xs flex flex-col gap-3 mb-10">
+    <button
+      class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-xl py-3 px-6 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+      @click="openPasswordModal"
+    >
+      Change Password
+    </button>
+
+    <button
+      class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-xl py-3 px-6 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+      @click="handleLogout"
+    >
+      Log Out
+    </button>
+  </div>
+
+  <Teleport to="body">
+    <Transition name="fade">
+      <div
+        v-if="isPasswordModalOpen"
+        class="fixed inset-0 z-50 bg-gray-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+        @click.self="closePasswordModal"
+      >
+        <div
+          class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6 flex flex-col gap-4"
+        >
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h3 class="text-2xl font-bold text-gray-900 dark:text-white">Change Password</h3>
+              <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Enter a new password for your account.
+              </p>
+            </div>
+            <button
+              class="text-gray-400 hover:text-rose-500 p-1 transition-colors"
+              :disabled="isSavingPassword"
+              @click="closePasswordModal"
+            >
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                ></path>
+              </svg>
+            </button>
+          </div>
+
+          <AlertMessage type="error" :message="passwordErrorMessage" />
+
+          <form class="flex flex-col gap-4" @submit.prevent="savePassword">
+            <input
+              v-model="currentPassword"
+              type="password"
+              autocomplete="current-password"
+              placeholder="Current password"
+              required
+              class="w-full bg-gray-100 dark:bg-gray-700 dark:text-white rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+            />
+
+            <input
+              v-model="newPassword"
+              type="password"
+              autocomplete="new-password"
+              placeholder="New password"
+              required
+              class="w-full bg-gray-100 dark:bg-gray-700 dark:text-white rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+            />
+
+            <input
+              v-model="confirmPassword"
+              type="password"
+              autocomplete="new-password"
+              placeholder="Confirm new password"
+              required
+              class="w-full bg-gray-100 dark:bg-gray-700 dark:text-white rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+            />
+
+            <button
+              type="submit"
+              :disabled="isSavingPassword"
+              class="btn-press w-full bg-rose-500 text-white rounded-xl py-3 px-6 font-semibold hover:bg-rose-600 transition-colors shadow-md mt-2 flex justify-center items-center h-12 disabled:opacity-70"
+            >
+              <LoadingSpinner v-if="isSavingPassword" size="h-5 w-5" color="text-white" />
+              <span v-else>Update Password</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 
-const { user, logout } = useAuth()
+const { user, logout, updatePassword } = useAuth()
 const supabase = useSupabase()
+
+const CURRENT_PASSWORD_ERROR_PATTERNS = [
+  'current password',
+  'current_password',
+  'incorrect password',
+  'invalid password',
+  'invalid credentials',
+]
 
 const isEditingName = ref(false)
 const newName = ref('')
 const isSavingName = ref(false)
+const isPasswordModalOpen = ref(false)
+const currentPassword = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const passwordErrorMessage = ref('')
+const isSavingPassword = ref(false)
 
 const startEditing = () => {
   newName.value = user.value?.user_metadata?.full_name || ''
@@ -122,5 +222,74 @@ const saveName = async () => {
 
 const handleLogout = async () => {
   await logout()
+}
+
+const isCurrentPasswordMismatchError = (error) => {
+  if (!(error instanceof Error)) return false
+
+  const message = error.message.toLowerCase()
+
+  return CURRENT_PASSWORD_ERROR_PATTERNS.some((pattern) => message.includes(pattern))
+}
+
+const getErrorMessage = (error) => {
+  if (isCurrentPasswordMismatchError(error)) {
+    return 'Current password is incorrect'
+  }
+
+  return error instanceof Error ? error.message : 'Something went wrong.'
+}
+
+const resetPasswordForm = () => {
+  currentPassword.value = ''
+  newPassword.value = ''
+  confirmPassword.value = ''
+  passwordErrorMessage.value = ''
+}
+
+const openPasswordModal = () => {
+  resetPasswordForm()
+  isPasswordModalOpen.value = true
+}
+
+const closePasswordModal = () => {
+  if (isSavingPassword.value) return
+
+  isPasswordModalOpen.value = false
+  resetPasswordForm()
+}
+
+const validatePasswords = () => {
+  if (!currentPassword.value) {
+    throw new Error('Current password is required')
+  }
+
+  if (newPassword.value.length < 6) {
+    throw new Error('Password must be at least 6 characters')
+  }
+
+  if (newPassword.value !== confirmPassword.value) {
+    throw new Error('Passwords do not match')
+  }
+}
+
+const savePassword = async () => {
+  passwordErrorMessage.value = ''
+  isSavingPassword.value = true
+
+  try {
+    validatePasswords()
+
+    const { error } = await updatePassword(newPassword.value, currentPassword.value)
+
+    if (error) throw error
+
+    await logout()
+    await navigateTo('/profile?auth=login&passwordReset=success')
+  } catch (error) {
+    passwordErrorMessage.value = getErrorMessage(error)
+  } finally {
+    isSavingPassword.value = false
+  }
 }
 </script>

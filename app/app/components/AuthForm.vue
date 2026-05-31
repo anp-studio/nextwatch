@@ -63,15 +63,6 @@
             @error="onCaptchaError"
           />
 
-          <VueHcaptcha
-            v-if="authView === 'login'"
-            ref="loginCaptchaWidget"
-            :sitekey="siteKey"
-            size="invisible"
-            @verify="onLoginCaptchaVerify"
-            @error="onLoginCaptchaError"
-          />
-
           <button
             type="submit"
             :disabled="isLoading || isGoogleLoading"
@@ -80,7 +71,7 @@
             <LoadingSpinner v-if="isLoading" size="h-5 w-5" color="text-on-primary" />
             <span v-else-if="authView === 'login'">Log In</span>
             <span v-else-if="authView === 'register'">Sign Up</span>
-            <span v-else>Send Reset Link</span>
+            <span v-else>Send Reset Code</span>
           </button>
         </form>
       </Transition>
@@ -172,10 +163,12 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha'
 
 const { login, signup, resetPassword, signInWithGoogle } = useAuth()
+const route = useRoute()
+const router = useRouter()
 
 const config = useRuntimeConfig()
 const siteKey = config.public.hcaptchaSiteKey
@@ -192,7 +185,6 @@ const errorMessage = ref('')
 const successMessage = ref('')
 const captchaToken = ref(null)
 const captchaWidget = ref(null)
-const loginCaptchaWidget = ref(null)
 
 const onCaptchaVerify = (token) => {
   captchaToken.value = token
@@ -211,28 +203,6 @@ const resetCaptcha = () => {
   captchaWidget.value?.reset()
 }
 
-let resolveLoginCaptcha = null
-let rejectLoginCaptcha = null
-
-const getLoginCaptchaToken = () =>
-  new Promise((resolve, reject) => {
-    resolveLoginCaptcha = resolve
-    rejectLoginCaptcha = reject
-    loginCaptchaWidget.value.execute()
-  })
-
-const onLoginCaptchaVerify = (token) => {
-  resolveLoginCaptcha?.(token)
-  resolveLoginCaptcha = null
-  rejectLoginCaptcha = null
-}
-
-const onLoginCaptchaError = () => {
-  rejectLoginCaptcha?.(new Error('Captcha failed. Please try again.'))
-  resolveLoginCaptcha = null
-  rejectLoginCaptcha = null
-}
-
 const switchView = (view) => {
   authView.value = view
   errorMessage.value = ''
@@ -242,6 +212,25 @@ const switchView = (view) => {
   resetCaptcha()
 }
 
+const switchToLoginForExistingEmail = () => {
+  authView.value = 'login'
+  password.value = ''
+  username.value = ''
+  successMessage.value = ''
+  errorMessage.value = 'That email is already registered. Please log in instead.'
+  resetCaptcha()
+}
+
+onMounted(() => {
+  if (route.query.auth === 'login') {
+    authView.value = 'login'
+  }
+
+  if (route.query.passwordReset === 'success') {
+    successMessage.value = 'Password updated. Please log in with your new password.'
+  }
+})
+
 const submitAuth = async () => {
   errorMessage.value = ''
   successMessage.value = ''
@@ -249,8 +238,7 @@ const submitAuth = async () => {
 
   try {
     if (authView.value === 'login') {
-      const token = await getLoginCaptchaToken()
-      const { error } = await login(email.value, password.value, token)
+      const { error } = await login(email.value, password.value)
       if (error) throw error
       successMessage.value = 'Login successful!'
       setTimeout(() => emit('authenticated'), 1000)
@@ -270,21 +258,29 @@ const submitAuth = async () => {
         username.value.trim(),
         captchaToken.value ?? undefined
       )
+      if (error?.code === 'EMAIL_ALREADY_REGISTERED') {
+        switchToLoginForExistingEmail()
+        return
+      }
       if (error) throw error
       successMessage.value = 'Registration successful! Please verify your email before logging in.'
       setTimeout(() => switchView('login'), 2000)
     } else if (authView.value === 'forgot') {
       const { error } = await resetPassword(email.value)
       if (error) throw error
-      successMessage.value = 'Password reset link sent! Check your email.'
-      setTimeout(() => switchView('login'), 3000)
+      successMessage.value = 'Password reset code sent! Check your email.'
+      await router.push({
+        path: '/reset-password',
+        query: {
+          mode: 'otp',
+          email: email.value,
+        },
+      })
     }
   } catch (error) {
     errorMessage.value = error.message || 'Something went wrong.'
     if (authView.value === 'register') {
       resetCaptcha()
-    } else if (authView.value === 'login') {
-      loginCaptchaWidget.value?.reset()
     }
   } finally {
     isLoading.value = false
