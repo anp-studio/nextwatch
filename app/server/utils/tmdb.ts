@@ -13,6 +13,8 @@ const TMDB_RATE_LIMIT_HEADER_RESET = 'X-TMDB-RateLimit-Reset'
 const PROTOCOL_RELATIVE_PREFIX = '//'
 const ABSOLUTE_URL_PATTERN = /^[a-zA-Z][a-zA-Z\d+\-.]*:/
 const SEARCH_MOVIE_PATH = 'search/movie'
+const POPULAR_MOVIE_PATH = 'movie/popular'
+const ALLOWED_STATIC_PATHS = new Set([SEARCH_MOVIE_PATH, POPULAR_MOVIE_PATH])
 const MOVIE_PATH_SEGMENT = 'movie'
 const NUMERIC_SEGMENT_PATTERN = /^\d+$/
 const TMDB_FETCH_FAILED_MESSAGE = 'Movie data is temporarily unavailable.'
@@ -66,13 +68,13 @@ function buildTmdbUrl(path: string): string {
   // check if the path is either the search/movie endpoint or a movie/{id} endpoint with a numeric id
   const pathSegments = tmdbPath.split('/')
   const movieIdSegment = pathSegments[1]
-  const isSearchMoviePath = tmdbPath === SEARCH_MOVIE_PATH
+  const isAllowedStaticPath = ALLOWED_STATIC_PATHS.has(tmdbPath)
   const isMovieByIdPath =
     pathSegments.length === 2 &&
     pathSegments[0] === MOVIE_PATH_SEGMENT &&
     typeof movieIdSegment === 'string' &&
     NUMERIC_SEGMENT_PATTERN.test(movieIdSegment)
-  const isAllowedPath = isSearchMoviePath || isMovieByIdPath
+  const isAllowedPath = isAllowedStaticPath || isMovieByIdPath
 
   if (!isAllowedPath) {
     throw createError({

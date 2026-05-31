@@ -8,7 +8,9 @@
           class="flex flex-col gap-4 border-l-2 border-primary pl-4 sm:flex-row sm:items-end sm:justify-between"
         >
           <div class="space-y-2">
-            <h1 class="text-3xl font-semibold uppercase tracking-[-0.04em] text-on-background sm:text-3xl">
+            <h1
+              class="text-3xl font-semibold uppercase tracking-[-0.04em] text-on-background sm:text-3xl"
+            >
               Search Movies
             </h1>
           </div>
@@ -46,7 +48,7 @@
               @input="handleInput"
             />
             <button
-              v-if="hasSearchQuery"
+              v-if="searchResults.length > 0"
               type="button"
               class="absolute inset-y-0 right-4 flex items-center text-outline transition hover:text-on-surface"
               @click="clearSearch"
@@ -63,7 +65,7 @@
           </div>
 
           <MovieFilterBarHorizontal
-            v-if="hasSearchQuery"
+            v-if="searchResults.length > 0"
             class="mt-2"
             :search-query="searchQuery"
             :selected-genres="selectedGenres"
@@ -98,17 +100,21 @@
         </div>
 
         <div
-          v-else-if="!hasSearchQuery && searchResults.length === 0"
+          v-else-if="!hasSearchQuery && searchResults.length === 0 && !isSearching"
           class="rounded-[1.75rem] border border-dashed border-outline-variant bg-surface-container-low px-6 py-14 text-center shadow-glow"
         >
-          <p class="text-2xl font-semibold text-on-background">Enter a movie name to search</p>
+          <p class="text-2xl font-semibold text-on-background">
+            No popular movies available right now
+          </p>
         </div>
 
         <div
           v-else-if="hasSearchQuery && searchResults.length === 0 && !isSearching"
           class="rounded-[1.75rem] border border-dashed border-outline-variant bg-surface-container-low px-6 py-14 text-center shadow-glow"
         >
-          <p class="text-2xl font-semibold text-on-background">No results for "{{ searchQuery }}"</p>
+          <p class="text-2xl font-semibold text-on-background">
+            No results for "{{ searchQuery }}"
+          </p>
         </div>
 
         <div
@@ -444,10 +450,8 @@ const searchTMDB = async (query: string) => {
   const searchToken = ++activeSearchToken
 
   if (!normalizedQuery) {
-    searchResults.value = []
-    isLoadingMetadata.value = false
-    metadataProgress.value = { ...DEFAULT_METADATA_PROGRESS }
     clearFilters()
+    await loadPopularMovies()
     return
   }
 
@@ -474,6 +478,33 @@ const searchTMDB = async (query: string) => {
   }
 }
 
+const loadPopularMovies = async () => {
+  const searchToken = ++activeSearchToken
+
+  isSearching.value = true
+
+  try {
+    const data = await $fetch<SearchMoviesResponse>('/api/movies/popular')
+
+    if (searchToken !== activeSearchToken) {
+      return
+    }
+
+    searchResults.value = data.results
+    void fetchSearchMetadata(data.results, searchToken)
+  } catch {
+    if (searchToken === activeSearchToken) {
+      searchResults.value = []
+      isLoadingMetadata.value = false
+      metadataProgress.value = { ...DEFAULT_METADATA_PROGRESS }
+    }
+  } finally {
+    if (searchToken === activeSearchToken) {
+      isSearching.value = false
+    }
+  }
+}
+
 const handleInput = () => {
   if (debounceTimeout) {
     clearTimeout(debounceTimeout)
@@ -491,11 +522,18 @@ const clearSearch = () => {
 
   activeSearchToken++
   searchQuery.value = ''
-  searchResults.value = []
-  isLoadingMetadata.value = false
-  metadataProgress.value = { ...DEFAULT_METADATA_PROGRESS }
   clearFilters()
+  void loadPopularMovies()
 }
+
+onMounted(() => {
+  if (hasSearchQuery.value) {
+    void searchTMDB(searchQuery.value)
+    return
+  }
+
+  void loadPopularMovies()
+})
 
 const onBeforeEnter = (element: Element) => {
   const htmlElement = element as HTMLElement
