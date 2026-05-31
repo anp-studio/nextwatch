@@ -1,13 +1,13 @@
 <template>
   <aside
-    class="w-full rounded-[1.75rem] border border-[#2a2a2a] bg-[linear-gradient(180deg,#141313_0%,#0e0e0e_100%)] p-5 shadow-[0_24px_64px_rgb(0_0_0/0.45)]"
+    class="w-full rounded-[1.75rem] border border-outline-variant bg-surface-container-low p-5 shadow-glow"
   >
     <div class="space-y-5">
-      <div class="flex items-center justify-between border-b border-white/[0.08] pb-4">
-        <h2 class="text-sm font-semibold uppercase tracking-[0.28em] text-white">Filters</h2>
+      <div class="flex items-center justify-between border-b border-outline-variant pb-4">
+        <h2 class="text-sm font-semibold uppercase tracking-[0.28em] text-on-background">Filters</h2>
         <button
           type="button"
-          class="rounded-full p-1 text-[#8e9192] transition hover:text-white"
+          class="rounded-full p-1 text-outline transition hover:text-on-surface"
           @click="$emit('close')"
         >
           <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -22,7 +22,7 @@
       </div>
 
       <section class="space-y-3">
-        <h3 class="text-[0.7rem] uppercase tracking-[0.22em] text-[#8e9192]">Genre</h3>
+        <h3 class="text-[0.7rem] uppercase tracking-[0.22em] text-outline">Genre</h3>
         <div class="flex flex-wrap gap-2">
           <button
             v-for="genre in availableGenres"
@@ -38,7 +38,7 @@
       </section>
 
       <section class="space-y-3">
-        <h3 class="text-[0.7rem] uppercase tracking-[0.22em] text-[#8e9192]">Length</h3>
+        <h3 class="text-[0.7rem] uppercase tracking-[0.22em] text-outline">Length</h3>
         <div class="space-y-2">
           <button
             v-for="range in runtimeRanges"
@@ -55,8 +55,8 @@
               class="h-4 w-4 rounded-sm border"
               :class="
                 selectedRuntime?.label === range.label
-                  ? 'border-white bg-white'
-                  : 'border-[#444748]'
+                  ? 'border-primary bg-primary'
+                  : 'border-outline-variant'
               "
             ></span>
           </button>
@@ -64,7 +64,7 @@
       </section>
 
       <section v-if="ratingOptions.length > 0" class="space-y-3">
-        <h3 class="text-[0.7rem] uppercase tracking-[0.22em] text-[#8e9192]">Rating</h3>
+        <h3 class="text-[0.7rem] uppercase tracking-[0.22em] text-outline">Rating</h3>
         <div class="space-y-2">
           <button
             type="button"
@@ -75,7 +75,7 @@
             <span>Any rating</span>
             <span
               class="h-4 w-4 rounded-sm border"
-              :class="minRating === null ? 'border-white bg-white' : 'border-[#444748]'"
+              :class="minRating === null ? 'border-primary bg-primary' : 'border-outline-variant'"
             ></span>
           </button>
           <button
@@ -89,7 +89,9 @@
             <span>{{ option.label }}</span>
             <span
               class="h-4 w-4 rounded-sm border"
-              :class="minRating === option.value ? 'border-white bg-white' : 'border-[#444748]'"
+              :class="
+                minRating === option.value ? 'border-primary bg-primary' : 'border-outline-variant'
+              "
             ></span>
           </button>
         </div>
@@ -98,7 +100,7 @@
       <div class="pt-2">
         <button
           type="button"
-          class="w-full rounded-xl border border-[#353434] px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#c4c7c8] transition hover:border-white/30 hover:text-white"
+          class="w-full rounded-xl border border-outline-variant px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-on-surface-variant transition hover:border-primary/40 hover:text-on-surface"
           @click="$emit('clearFilters')"
         >
           Reset
@@ -111,11 +113,12 @@
 <script setup lang="ts">
 import type { RuntimeRange, SortOption } from '~/composables/useWatchedFilters'
 
-const ACTIVE_CHIP_CLASS = 'border-white bg-white text-black'
-const INACTIVE_CHIP_CLASS = 'border-[#444748] text-[#c4c7c8] hover:border-white/30 hover:text-white'
-const ACTIVE_ROW_CLASS = 'border-white/25 bg-[#18181b] text-white'
+const ACTIVE_CHIP_CLASS = 'border-primary/10 bg-primary text-on-primary'
+const INACTIVE_CHIP_CLASS =
+  'border-outline-variant text-on-surface-variant hover:border-primary/40 hover:text-on-surface'
+const ACTIVE_ROW_CLASS = 'border-outline-variant bg-surface-container-high text-on-surface'
 const INACTIVE_ROW_CLASS =
-  'border-[#353434] bg-transparent text-[#c4c7c8] hover:border-white/30 hover:text-white'
+  'border-outline-variant bg-transparent text-on-surface-variant hover:border-primary/40 hover:text-on-surface'
 
 interface RatingOption {
   label: string

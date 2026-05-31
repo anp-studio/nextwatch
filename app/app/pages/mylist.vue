@@ -5,12 +5,12 @@
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-8">
       <section class="flex flex-col gap-6">
         <div
-          class="flex flex-col gap-4 border-l-2 border-[#ffffff] pl-4 sm:flex-row sm:items-end sm:justify-between"
+          class="flex flex-col gap-4 border-l-2 border-primary pl-4 sm:flex-row sm:items-end sm:justify-between"
         >
           <div class="space-y-2">
             <div class="space-y-2">
               <h1
-                class="text-3xl font-semibold uppercase tracking-[-0.04em] text-white sm:text-3xl"
+                class="text-3xl font-semibold uppercase tracking-[-0.04em] text-on-background sm:text-3xl"
               >
                 Your Watchlist
               </h1>
@@ -18,9 +18,9 @@
           </div>
 
           <div
-            class="inline-flex w-fit items-center gap-2 rounded-full border border-[#444748] bg-[#1c1b1b] px-4 py-2 text-[0.7rem] font-semibold uppercase tracking-[0.26em] text-[#c4c7c8]"
+            class="inline-flex w-fit items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-[0.7rem] font-semibold uppercase tracking-[0.26em] text-on-surface-variant"
           >
-            <span class="h-2 w-2 rounded-full bg-white"></span>
+            <span class="h-2 w-2 rounded-full bg-primary"></span>
             {{ movieCountLabel }}
           </div>
         </div>
@@ -47,12 +47,12 @@
 
         <div
           v-if="!hasMovies"
-          class="rounded-[1.75rem] border border-dashed border-[#444748] bg-[#1c1b1b] px-6 py-14 text-center shadow-[0_24px_56px_rgb(0_0_0/0.5)]"
+          class="rounded-[1.75rem] border border-dashed border-outline-variant bg-surface-container-low px-6 py-14 text-center shadow-glow"
         >
-          <p class="text-2xl font-semibold text-white">Your watchlist is empty</p>
+          <p class="text-2xl font-semibold text-on-background">Your watchlist is empty</p>
           <NuxtLink
             to="/"
-            class="mt-8 inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-black transition-colors hover:bg-zinc-200"
+            class="mt-8 inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-on-primary transition-colors hover:bg-primary/90"
           >
             Go to Recommendations
           </NuxtLink>
@@ -60,11 +60,11 @@
 
         <div
           v-else-if="!hasFilteredMovies"
-          class="rounded-[1.75rem] border border-dashed border-[#444748] bg-[#1c1b1b] px-6 py-14 text-center shadow-[0_24px_56px_rgb(0_0_0/0.5)]"
+          class="rounded-[1.75rem] border border-dashed border-outline-variant bg-surface-container-low px-6 py-14 text-center shadow-glow"
         >
-          <p class="text-2xl font-semibold text-white">No movies match these filters</p>
+          <p class="text-2xl font-semibold text-on-background">No movies match these filters</p>
           <button
-            class="mt-8 inline-flex items-center justify-center rounded-full border border-white/10 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-black transition-colors hover:bg-zinc-200"
+            class="mt-8 inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-on-primary transition-colors hover:bg-primary/90"
             @click="clearFilters"
           >
             Clear Filters
@@ -111,14 +111,14 @@
     >
       <div
         v-if="undoAction"
-        class="fixed left-1/2 top-6 z-50 flex max-w-sm -translate-x-1/2 items-center gap-3 rounded-full border border-zinc-800 bg-black px-5 py-3 text-zinc-200 shadow-glow"
+        class="fixed left-1/2 top-6 z-50 flex max-w-sm -translate-x-1/2 items-center gap-3 rounded-full border border-outline-variant bg-surface-container-lowest px-5 py-3 text-on-surface shadow-glow"
       >
         <span class="truncate text-sm">
           <strong>{{ undoAction.movie.title }}</strong>
           {{ undoAction.type === 'watched' ? 'marked as watched' : 'removed from watchlist' }}
         </span>
         <button
-          class="whitespace-nowrap text-sm font-semibold text-white transition-colors hover:text-zinc-300"
+          class="whitespace-nowrap text-sm font-semibold text-on-surface transition-colors hover:text-on-surface-variant"
           @click="handleUndo"
         >
           Undo

@@ -6,14 +6,16 @@
       >
         <div class="relative w-full shrink-0 aspect-[1/1.5]">
           <div
-            class="pointer-events-none absolute inset-0 rounded-[1.125rem] border border-[rgb(82_82_91/0.9)] bg-zinc-900 opacity-30 [box-shadow:0_10px_26px_rgb(0_0_0/0.2),0_0_0_1px_rgb(255_255_255/0.03)] [transform:translateX(-0.55rem)_rotate(-1.6deg)]"
+            class="pointer-events-none absolute inset-0 rounded-[1.125rem] border border-outline opacity-30 [transform:translateX(-0.55rem)_rotate(-1.6deg)]"
+            style="background-color: rgb(var(--color-surface-container-low)); box-shadow: 0 10px 26px rgb(0 0 0 / 0.2), 0 0 0 1px rgb(255 255 255 / 0.03);"
           ></div>
           <div
-            class="pointer-events-none absolute inset-0 rounded-[1.125rem] border border-[rgb(82_82_91/0.9)] bg-zinc-900 opacity-40 [box-shadow:0_10px_26px_rgb(0_0_0/0.2),0_0_0_1px_rgb(255_255_255/0.03)] [transform:translateX(0.55rem)_rotate(1.4deg)]"
+            class="pointer-events-none absolute inset-0 rounded-[1.125rem] border border-outline opacity-40 [transform:translateX(0.55rem)_rotate(1.4deg)]"
+            style="background-color: rgb(var(--color-surface-container-low)); box-shadow: 0 10px 26px rgb(0 0 0 / 0.2), 0 0 0 1px rgb(255 255 255 / 0.03);"
           ></div>
 
           <div
-            class="relative w-full shrink-0 aspect-[1/1.5] overflow-hidden rounded-[1.125rem] border border-zinc-800 bg-zinc-900 shadow-glow"
+            class="relative w-full shrink-0 aspect-[1/1.5] overflow-hidden rounded-[1.125rem] border border-outline-variant bg-surface-container-low shadow-glow"
           >
             <div class="skeleton-shimmer absolute inset-0"></div>
             <div
@@ -69,9 +71,9 @@
       class="hidden min-h-0 lg:flex lg:max-w-[48rem] lg:flex-col lg:py-[clamp(0.15rem,0.5vw,0.4rem)]"
     >
       <div
-        class="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[1.75rem] border border-zinc-800 bg-zinc-950 shadow-2xl"
+        class="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[1.75rem] border border-outline-variant bg-surface-container-low shadow-glow"
       >
-        <div class="relative w-full flex-shrink-0 bg-black pt-[48%] xl:pt-[44%]">
+        <div class="relative w-full flex-shrink-0 bg-surface-container-high pt-[48%] xl:pt-[44%]">
           <div class="skeleton-shimmer absolute inset-0"></div>
         </div>
 

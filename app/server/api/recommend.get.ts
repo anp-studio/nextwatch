@@ -5,7 +5,7 @@ import { getAuthorizedUser } from '../utils/auth'
 import {
   fetchMyListMovies,
   fetchWatchedMovies,
-  getRecommendationsFromGemini,
+  getRecommendationsFromPlatformAi,
   hasEnoughRecommendationsToCache,
   hasValidTmdbId,
   hydrateRecommendationsByTmdbIds,
@@ -14,7 +14,7 @@ import {
 import type { RecommendationWithId, WatchedMovieRecord } from '../utils/recommendations'
 import { acquireRecommendationLock, releaseRecommendationLock } from '../utils/recommendation-lock'
 import { createRedisClient } from '../utils/redis'
-import { throwSupabaseError } from '../utils/api-error'
+import { logPrivateError, throwSupabaseError } from '../utils/api-error'
 
 const RECOMMENDATIONS_TABLE = 'recommendations'
 const TTL_MS = 7 * 24 * 60 * 60 * 1000
@@ -34,8 +34,15 @@ interface RecommendationCacheState {
 }
 
 interface RecommendationResponse {
-  recommendations: number[]
+  recommendations: number[] | null
   cached: boolean
+  stale: boolean
+  regenerationError: {
+    statusCode: number
+    statusMessage: string
+    retryable: boolean
+  } | null
+  staleRecommendations: number[] | null
 }
 
 function isQueryFlagEnabled(value: unknown): boolean {
@@ -102,6 +109,54 @@ function buildSuccessResponse(
   return {
     recommendations: [...recommendationIds],
     cached,
+    stale: false,
+    regenerationError: null,
+    staleRecommendations: null,
+  }
+}
+
+function getErrorStatusCode(error: unknown): number {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'statusCode' in error &&
+    typeof (error as { statusCode?: unknown }).statusCode === 'number'
+  ) {
+    return (error as { statusCode: number }).statusCode
+  }
+
+  return 500
+}
+
+function getErrorStatusMessage(error: unknown): string {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'statusMessage' in error &&
+    typeof (error as { statusMessage?: unknown }).statusMessage === 'string'
+  ) {
+    return (error as { statusMessage: string }).statusMessage
+  }
+
+  return 'Unable to generate recommendations right now.'
+}
+
+function buildRegenerationFallbackResponse(
+  error: unknown,
+  staleRecommendationIds: number[]
+): RecommendationResponse {
+  const statusCode = getErrorStatusCode(error)
+
+  return {
+    recommendations: null,
+    cached: false,
+    stale: false,
+    regenerationError: {
+      statusCode,
+      statusMessage: getErrorStatusMessage(error),
+      retryable: statusCode === 503 ? true : false,
+    },
+    staleRecommendations: [...staleRecommendationIds],
   }
 }
 
@@ -228,14 +283,14 @@ export default defineEventHandler(async (event) => {
 
     let recommendations: RecommendationWithId[]
     try {
-      const geminiResult = await getRecommendationsFromGemini(
+      const platformAiResult = await getRecommendationsFromPlatformAi(
         watchedMovies,
         myListMovies,
         user.id,
         event,
         excludedMovies
       )
-      const generatedRecommendations = geminiResult.recommendations
+      const generatedRecommendations = platformAiResult.recommendations
 
       recommendations = dedupeRecommendations(filterValidRecommendations(generatedRecommendations))
 
@@ -250,7 +305,22 @@ export default defineEventHandler(async (event) => {
         throw error
       }
 
-      return buildSuccessResponse(cacheState.storedRecommendationIds, true)
+      logPrivateError({
+        cause: error,
+        event: 'recommendation.regeneration_failed',
+        source: 'ai_provider',
+        statusCode: getErrorStatusCode(error),
+        userId: user.id,
+        route: event.path,
+        method: event.method,
+        extra: {
+          staleRecommendationCount: cacheState.storedRecommendationIds.length,
+          refresh: isRefresh,
+          getNew: isGetNew,
+        },
+      })
+
+      return buildRegenerationFallbackResponse(error, cacheState.storedRecommendationIds)
     }
 
     await storeCachedRecommendations(event, supabase, user.id, recommendations, watchedHash)

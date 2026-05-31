@@ -1,135 +1,280 @@
 <template>
-  <div
-    class="w-24 h-24 flex-shrink-0 rounded-full bg-rose-100 dark:bg-rose-900 mb-4 flex items-center justify-center text-rose-500 overflow-hidden shadow-md mt-8 border-4 border-white dark:border-gray-700"
-  >
-    <img
-      v-if="user?.user_metadata?.avatar_url"
-      :src="user.user_metadata.avatar_url"
-      class="w-full h-full object-cover"
-    />
-    <span v-else class="text-3xl font-bold uppercase">{{ user?.email?.charAt(0) || 'U' }}</span>
-  </div>
+  <section class="w-full max-w-3xl pt-8">
+    <div class="mb-8 flex flex-col items-center text-center">
+      <div
+        class="mb-4 flex h-24 w-24 items-center justify-center rounded-full border border-zinc-300 bg-white text-4xl font-black uppercase tracking-[-0.08em] text-zinc-950 shadow-lg dark:border-zinc-700 dark:bg-zinc-950 dark:text-white dark:shadow-glow"
+      >
+        {{ profileInitial }}
+      </div>
 
-  <div class="flex flex-col items-center mb-8 w-full">
-    <div class="flex items-center justify-center gap-2 mb-1 w-full max-w-xs mx-auto">
-      <template v-if="isEditingName">
-        <input
-          v-model="newName"
-          type="text"
-          class="w-full border-b-2 border-rose-500 bg-transparent px-2 py-1 text-xl font-bold text-gray-900 dark:text-white text-center focus:outline-none"
-          placeholder="Enter new name..."
-          @keyup.enter="saveName"
-        />
-        <button
-          :disabled="isSavingName"
-          class="text-green-500 hover:text-green-600 p-1 transition-colors"
-          @click="saveName"
-        >
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M5 13l4 4L19 7"
-            ></path>
-          </svg>
-        </button>
-        <button class="text-gray-400 hover:text-rose-500 p-1 transition-colors" @click="cancelEdit">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            ></path>
-          </svg>
-        </button>
-      </template>
+      <div class="w-full max-w-sm">
+        <div v-if="isEditingName" class="flex items-center gap-2">
+          <input
+            v-model="newName"
+            type="text"
+            class="min-w-0 flex-1 rounded-full border border-zinc-300 bg-white px-4 py-2 text-center text-lg font-bold text-zinc-950 outline-none transition-colors focus:border-zinc-950 dark:border-zinc-700 dark:bg-black dark:text-white dark:focus:border-white"
+            placeholder="Enter new name..."
+            @keyup.enter="saveName"
+          />
+          <button
+            :disabled="isSavingName"
+            class="btn-press rounded-full bg-zinc-950 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+            @click="saveName"
+          >
+            Save
+          </button>
+          <button
+            class="btn-press rounded-full border border-zinc-300 px-4 py-2 text-sm font-bold text-zinc-600 transition-colors hover:border-zinc-950 hover:text-zinc-950 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-white dark:hover:text-white"
+            @click="cancelEdit"
+          >
+            Cancel
+          </button>
+        </div>
 
-      <template v-else>
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white text-center truncate">
-          {{ user?.user_metadata?.username || user?.user_metadata?.full_name || 'User' }}
-        </h2>
-        <button
-          class="text-gray-400 hover:text-rose-500 transition-colors p-1 flex-shrink-0"
-          @click="startEditing"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-            ></path>
-          </svg>
-        </button>
-      </template>
+        <template v-else>
+          <h1 class="truncate text-3xl font-black tracking-[-0.04em] text-zinc-950 dark:text-white">
+            {{ displayName }}
+          </h1>
+          <p class="mt-1 text-sm font-medium text-zinc-500">{{ user?.email }}</p>
+        </template>
+      </div>
     </div>
 
-    <p class="text-gray-500 dark:text-gray-400 text-sm font-medium">
-      {{ user?.email }}
-    </p>
-  </div>
+    <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+      <button
+        class="group flex min-h-14 items-center justify-between rounded-[1.25rem] border border-zinc-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:border-zinc-950 dark:border-zinc-800 dark:bg-zinc-950/80 dark:hover:border-white"
+        @click="startEditing"
+      >
+        <span class="flex items-center gap-3">
+          <span
+            class="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 transition-colors group-hover:border-zinc-950 group-hover:text-zinc-950 dark:border-zinc-800 dark:group-hover:border-white dark:group-hover:text-white"
+          >
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.75"
+                d="M15.232 5.232l3.536 3.536M4 20h3.5L19.768 7.732a2.5 2.5 0 00-3.536-3.536L4 16.464V20z"
+              />
+            </svg>
+          </span>
+          <span class="font-semibold text-zinc-950 dark:text-white">Edit Username</span>
+        </span>
+        <span
+          class="text-zinc-400 transition-colors group-hover:text-zinc-950 dark:text-zinc-600 dark:group-hover:text-white"
+          >&rarr;</span
+        >
+      </button>
 
-  <div class="w-full max-w-xs flex flex-col gap-3 mb-10">
-    <button
-      class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-xl py-3 px-6 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
-      @click="openPasswordModal"
-    >
-      Change Password
-    </button>
+      <button
+        class="group flex min-h-14 items-center justify-between rounded-[1.25rem] border border-zinc-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:border-zinc-950 dark:border-zinc-800 dark:bg-zinc-950/80 dark:hover:border-white"
+        @click="openPasswordModal"
+      >
+        <span class="flex items-center gap-3">
+          <span
+            class="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 transition-colors group-hover:border-zinc-950 group-hover:text-zinc-950 dark:border-zinc-800 dark:group-hover:border-white dark:group-hover:text-white"
+          >
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.75"
+                d="M12 3l7 3v5c0 4.5-2.8 8.5-7 10-4.2-1.5-7-5.5-7-10V6l7-3z"
+              />
+            </svg>
+          </span>
+          <span class="font-semibold text-zinc-950 dark:text-white">Change Password</span>
+        </span>
+        <span
+          class="text-zinc-400 transition-colors group-hover:text-zinc-950 dark:text-zinc-600 dark:group-hover:text-white"
+          >&rarr;</span
+        >
+      </button>
+    </div>
 
-    <button
-      class="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-xl py-3 px-6 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
-      @click="handleLogout"
+    <section
+      class="mb-8 rounded-[1.25rem] border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80 dark:shadow-glow"
     >
-      Log Out
-    </button>
-  </div>
+      <div class="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-black tracking-[-0.03em] text-zinc-950 dark:text-white">
+            Recommendation Limit
+          </h2>
+          <p class="mt-1 text-sm text-zinc-500">See how much quota you have left.</p>
+        </div>
+        <div class="text-right">
+          <p class="text-xl font-black text-zinc-950 dark:text-white">
+            {{ quota.remaining }} / {{ quota.limit }}
+          </p>
+          <p class="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">
+            Requests left
+          </p>
+        </div>
+      </div>
+
+      <div class="h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+        <div
+          class="h-full rounded-full bg-zinc-950 transition-[width] duration-500 dark:bg-white dark:shadow-[0_0_18px_rgba(255,255,255,0.35)]"
+          :style="{ width: quotaProgressWidth }"
+        />
+      </div>
+
+      <div class="mt-4 flex items-center justify-between gap-3 text-sm">
+        <p class="text-zinc-500">
+          <span v-if="quotaError">{{ quotaError }}</span>
+          <span v-else>{{ quotaUsedPercent }}% of daily quota used</span>
+        </p>
+        <button
+          class="font-bold text-zinc-950 transition-colors hover:text-zinc-600 disabled:opacity-50 dark:text-white dark:hover:text-zinc-300"
+          :disabled="quotaPending"
+          @click="fetchQuota"
+        >
+          {{ quotaPending ? 'Refreshing...' : 'Refresh' }}
+        </button>
+      </div>
+    </section>
+
+    <section class="mb-8">
+      <h2 class="mb-4 text-[11px] font-black uppercase tracking-[0.28em] text-zinc-500">
+        More Settings
+      </h2>
+
+      <div
+        class="overflow-hidden rounded-[1.25rem] border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80"
+      >
+        <div
+          class="flex min-h-14 items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800"
+        >
+          <span class="flex items-center gap-3">
+            <span
+              class="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 dark:border-zinc-800"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.75"
+                  d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.36-6.36l-1.42 1.42M7.06 16.94l-1.42 1.42m12.72 0l-1.42-1.42M7.06 7.06L5.64 5.64M12 8a4 4 0 100 8 4 4 0 000-8z"
+                />
+              </svg>
+            </span>
+            <span class="font-semibold text-zinc-950 dark:text-white">Appearance</span>
+          </span>
+
+          <span
+            class="flex rounded-full border border-zinc-200 bg-zinc-100 p-1 text-xs font-bold dark:border-zinc-700 dark:bg-black"
+          >
+            <button
+              class="rounded-full px-3 py-1 transition-colors"
+              :class="isDarkMode ? activeThemeClass : inactiveThemeClass"
+              @click="setTheme(darkThemeValue)"
+            >
+              Dark
+            </button>
+            <button
+              class="rounded-full px-3 py-1 transition-colors"
+              :class="!isDarkMode ? activeThemeClass : inactiveThemeClass"
+              @click="setTheme(lightThemeValue)"
+            >
+              Light
+            </button>
+          </span>
+        </div>
+
+        <div
+          v-for="setting in comingSoonSettings"
+          :key="setting.label"
+          class="flex min-h-14 items-center justify-between border-b border-zinc-200 px-4 py-3 last:border-b-0 dark:border-zinc-800"
+        >
+          <span class="flex items-center gap-3">
+            <span
+              class="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 dark:border-zinc-800"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.75"
+                  :d="setting.icon"
+                />
+              </svg>
+            </span>
+            <span class="font-semibold text-zinc-600 dark:text-zinc-400">{{ setting.label }}</span>
+          </span>
+          <span
+            class="rounded-full border border-zinc-200 px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400 dark:border-zinc-800 dark:text-zinc-500"
+          >
+            Coming soon
+          </span>
+        </div>
+
+        <button
+          class="group flex min-h-14 w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-red-50 dark:hover:bg-red-950/20"
+          @click="handleLogout"
+        >
+          <span class="flex items-center gap-3">
+            <span
+              class="flex h-8 w-8 items-center justify-center rounded-full border border-red-200 text-red-500 transition-colors group-hover:border-red-500 group-hover:text-red-600 dark:border-red-900 dark:text-red-400 dark:group-hover:border-red-300 dark:group-hover:text-red-300"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.75"
+                  d="M15.75 9V5.75A1.75 1.75 0 0014 4h-7a1.75 1.75 0 00-1.75 1.75v12.5C5.25 19.216 6.034 20 7 20h7a1.75 1.75 0 001.75-1.75V15M12 12h8m0 0l-3-3m3 3l-3 3"
+                />
+              </svg>
+            </span>
+            <span class="font-semibold text-red-600 dark:text-red-400">Log Out</span>
+          </span>
+        </button>
+      </div>
+    </section>
+  </section>
 
   <Teleport to="body">
     <Transition name="fade">
       <div
         v-if="isPasswordModalOpen"
-        class="fixed inset-0 z-50 bg-gray-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
         @click.self="closePasswordModal"
       >
         <div
-          class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6 flex flex-col gap-4"
+          class="flex w-full max-w-md flex-col gap-4 rounded-[1.25rem] border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-950 dark:shadow-glow"
         >
           <div class="flex items-start justify-between gap-4">
             <div>
-              <h3 class="text-2xl font-bold text-gray-900 dark:text-white">Change Password</h3>
-              <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Enter a new password for your account.
-              </p>
+              <h3 class="text-2xl font-black tracking-[-0.04em] text-zinc-950 dark:text-white">
+                Change Password
+              </h3>
+              <p class="mt-1 text-sm text-zinc-500">Enter a new password for your account.</p>
             </div>
             <button
-              class="text-gray-400 hover:text-rose-500 p-1 transition-colors"
+              class="text-zinc-500 transition-colors hover:text-zinc-950 disabled:opacity-50 dark:hover:text-white"
               :disabled="isSavingPassword"
               @click="closePasswordModal"
             >
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  stroke-width="2"
+                  stroke-width="1.75"
                   d="M6 18L18 6M6 6l12 12"
-                ></path>
+                />
               </svg>
             </button>
           </div>
 
           <AlertMessage type="error" :message="passwordErrorMessage" />
 
-          <form class="flex flex-col gap-4" @submit.prevent="savePassword">
+          <form class="flex flex-col gap-3" @submit.prevent="savePassword">
             <input
               v-model="currentPassword"
               type="password"
               autocomplete="current-password"
               placeholder="Current password"
               required
-              class="w-full bg-gray-100 dark:bg-gray-700 dark:text-white rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+              class="w-full rounded-full border border-zinc-200 bg-zinc-50 px-4 py-3 text-zinc-950 outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-950 dark:border-zinc-800 dark:bg-black dark:text-white dark:placeholder:text-zinc-600 dark:focus:border-white"
             />
 
             <input
@@ -138,7 +283,7 @@
               autocomplete="new-password"
               placeholder="New password"
               required
-              class="w-full bg-gray-100 dark:bg-gray-700 dark:text-white rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+              class="w-full rounded-full border border-zinc-200 bg-zinc-50 px-4 py-3 text-zinc-950 outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-950 dark:border-zinc-800 dark:bg-black dark:text-white dark:placeholder:text-zinc-600 dark:focus:border-white"
             />
 
             <input
@@ -147,15 +292,15 @@
               autocomplete="new-password"
               placeholder="Confirm new password"
               required
-              class="w-full bg-gray-100 dark:bg-gray-700 dark:text-white rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+              class="w-full rounded-full border border-zinc-200 bg-zinc-50 px-4 py-3 text-zinc-950 outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-950 dark:border-zinc-800 dark:bg-black dark:text-white dark:placeholder:text-zinc-600 dark:focus:border-white"
             />
 
             <button
               type="submit"
               :disabled="isSavingPassword"
-              class="btn-press w-full bg-rose-500 text-white rounded-xl py-3 px-6 font-semibold hover:bg-rose-600 transition-colors shadow-md mt-2 flex justify-center items-center h-12 disabled:opacity-70"
+              class="btn-press mt-2 flex h-12 w-full items-center justify-center rounded-full bg-zinc-950 px-6 py-3 font-bold text-white transition-colors hover:bg-zinc-800 disabled:opacity-70 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
             >
-              <LoadingSpinner v-if="isSavingPassword" size="h-5 w-5" color="text-white" />
+              <LoadingSpinner v-if="isSavingPassword" size="h-5 w-5" color="text-current" />
               <span v-else>Update Password</span>
             </button>
           </form>
@@ -166,10 +311,17 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
-const { user, logout, updatePassword } = useAuth()
+import { THEME_DARK_VALUE, THEME_LIGHT_VALUE, THEME_STORAGE_KEY } from '~/utils/theme'
+
+const { user, logout, updatePassword, setCurrentUser } = useAuth()
 const supabase = useSupabase()
+const mode = useColorMode({
+  initialValue: THEME_DARK_VALUE,
+  storageKey: THEME_STORAGE_KEY,
+})
+const { quota, pending: quotaPending, error: quotaError, fetchQuota } = useRecommendationQuota()
 
 const CURRENT_PASSWORD_ERROR_PATTERNS = [
   'current password',
@@ -177,6 +329,15 @@ const CURRENT_PASSWORD_ERROR_PATTERNS = [
   'incorrect password',
   'invalid password',
   'invalid credentials',
+]
+const MIN_PASSWORD_LENGTH = 6
+const activeThemeClass = 'bg-zinc-950 text-white dark:bg-white dark:text-black'
+const inactiveThemeClass = 'text-zinc-500 hover:text-zinc-950 dark:hover:text-white'
+const comingSoonSettings = [
+  {
+    label: 'Bring Your Own Key',
+    icon: 'M15 7a4 4 0 10-3.46 5.99L5 19.5V22h2.5l1-1H11v-2.5l3.01-3.01A4 4 0 1015 7z',
+  },
 ]
 
 const isEditingName = ref(false)
@@ -189,8 +350,32 @@ const confirmPassword = ref('')
 const passwordErrorMessage = ref('')
 const isSavingPassword = ref(false)
 
+const displayName = computed(
+  () => user.value?.user_metadata?.username || user.value?.user_metadata?.full_name || 'User'
+)
+const profileInitial = computed(() => displayName.value.trim().charAt(0) || 'U')
+const isDarkMode = computed(() => mode.value === THEME_DARK_VALUE)
+const darkThemeValue = THEME_DARK_VALUE
+const lightThemeValue = THEME_LIGHT_VALUE
+const quotaUsedPercent = computed(() => {
+  if (quota.value.limit <= 0) {
+    return 0
+  }
+
+  return Math.round(((quota.value.limit - quota.value.remaining) / quota.value.limit) * 100)
+})
+const quotaProgressWidth = computed(() => `${Math.min(100, Math.max(0, quotaUsedPercent.value))}%`)
+
+onMounted(() => {
+  void fetchQuota()
+})
+
+const setTheme = (theme) => {
+  mode.value = theme
+}
+
 const startEditing = () => {
-  newName.value = user.value?.user_metadata?.full_name || ''
+  newName.value = displayName.value
   isEditingName.value = true
 }
 
@@ -211,7 +396,7 @@ const saveName = async () => {
 
     if (error) throw error
 
-    user.value = data.user
+    setCurrentUser(data.user)
     isEditingName.value = false
   } catch {
     // Keep the editor open so the user can retry saving the name.
@@ -264,7 +449,7 @@ const validatePasswords = () => {
     throw new Error('Current password is required')
   }
 
-  if (newPassword.value.length < 6) {
+  if (newPassword.value.length < MIN_PASSWORD_LENGTH) {
     throw new Error('Password must be at least 6 characters')
   }
 

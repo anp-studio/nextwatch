@@ -1,11 +1,11 @@
 <template>
-  <header class="z-50 border-b border-zinc-800 bg-black">
+  <header class="z-50 border-b border-outline-variant bg-surface-container-lowest/95 backdrop-blur">
     <div
       class="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8"
     >
       <NuxtLink
         to="/"
-        class="text-2xl font-black uppercase tracking-[0.35em] text-white transition-colors hover:text-zinc-300"
+        class="text-2xl font-black uppercase tracking-[0.35em] text-on-surface transition-colors hover:text-on-surface-variant"
       >
         RECC
       </NuxtLink>
@@ -13,7 +13,7 @@
       <div class="flex items-center gap-2">
         <button
           v-if="isRecommendationRoute"
-          class="theme-toggle btn-press inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-800 text-zinc-400 transition-colors hover:border-white hover:text-white"
+          class="theme-toggle btn-press inline-flex h-10 w-10 items-center justify-center rounded-full border border-outline-variant text-on-surface-variant transition-colors hover:border-primary/40 hover:text-on-surface"
           aria-label="Refresh recommendation feed"
           title="Refresh recommendation feed"
           @click="handleRefreshAction"
@@ -29,7 +29,7 @@
         </button>
 
         <button
-          class="btn-press inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-800 text-zinc-400 transition-colors hover:border-white hover:text-white"
+          class="btn-press inline-flex h-10 w-10 items-center justify-center rounded-full border border-outline-variant text-on-surface-variant transition-colors hover:border-primary/40 hover:text-on-surface"
           aria-label="Open profile"
           title="Open profile"
           @click="navigateTo('/profile')"
@@ -56,6 +56,7 @@ const RECOMMENDATION_REFRESH_EVENT = 'recommendation:refresh-request'
 const route = useRoute()
 
 const isRecommendationRoute = computed(() => route.path === '/')
+
 const handleRefreshAction = () => {
   window.dispatchEvent(new CustomEvent(RECOMMENDATION_REFRESH_EVENT))
 }

@@ -9,8 +9,3 @@
     </div>
   </div>
 </template>
-
-<script setup>
-const mode = useColorMode()
-mode.value = 'dark'
-</script>

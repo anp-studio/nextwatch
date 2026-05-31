@@ -4,7 +4,7 @@ const INTERNAL_SERVER_ERROR_STATUS_CODE = 500
 const BAD_GATEWAY_STATUS_CODE = 502
 const SERVICE_UNAVAILABLE_STATUS_CODE = 503
 
-type ErrorSource = 'supabase' | 'gemini' | 'tmdb' | 'import' | 'config' | 'captcha' | 'unknown'
+type ErrorSource = 'supabase' | 'ai_provider' | 'tmdb' | 'import' | 'config' | 'captcha' | 'unknown'
 
 interface LogContext {
   event: string
@@ -34,12 +34,33 @@ interface PrivateErrorLogOptions {
   extra?: Record<string, unknown>
 }
 
+const SERIALIZED_ERROR_KEYS = [
+  'status',
+  'statusCode',
+  'code',
+  'provider',
+  'model',
+  'responseMode',
+  'causeMessage',
+  'originalStatusCode',
+  'attempts',
+] as const
+
+function getSerializedErrorMetadata(error: Error): Record<string, unknown> {
+  const record = error as unknown as Record<string, unknown>
+
+  return Object.fromEntries(
+    SERIALIZED_ERROR_KEYS.flatMap((key) => (record[key] === undefined ? [] : [[key, record[key]]]))
+  )
+}
+
 function toErrorDetails(cause: unknown): Record<string, unknown> {
   if (cause instanceof Error) {
     return {
       name: cause.name,
       message: cause.message,
       stack: cause.stack,
+      ...getSerializedErrorMetadata(cause),
     }
   }
 
@@ -133,7 +154,7 @@ export function throwSupabaseError(
   })
 }
 
-export function throwGeminiError(
+export function throwAiProviderError(
   event: H3Event,
   cause: unknown,
   options: Omit<PublicErrorOptions, 'cause' | 'source'>
@@ -141,7 +162,7 @@ export function throwGeminiError(
   return throwPublicError(event, {
     ...options,
     cause,
-    source: 'gemini',
+    source: 'ai_provider',
     statusCode: options.statusCode ?? BAD_GATEWAY_STATUS_CODE,
   })
 }

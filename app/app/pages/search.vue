@@ -5,29 +5,29 @@
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-8">
       <section class="flex flex-col gap-6">
         <div
-          class="flex flex-col gap-4 border-l-2 border-[#ffffff] pl-4 sm:flex-row sm:items-end sm:justify-between"
+          class="flex flex-col gap-4 border-l-2 border-primary pl-4 sm:flex-row sm:items-end sm:justify-between"
         >
           <div class="space-y-2">
-            <h1 class="text-3xl font-semibold uppercase tracking-[-0.04em] text-white sm:text-3xl">
+            <h1 class="text-3xl font-semibold uppercase tracking-[-0.04em] text-on-background sm:text-3xl">
               Search Movies
             </h1>
           </div>
 
           <div
             v-if="searchResults.length > 0"
-            class="inline-flex w-fit items-center gap-2 rounded-full border border-[#444748] bg-[#1c1b1b] px-4 py-2 text-[0.7rem] font-semibold uppercase tracking-[0.26em] text-[#c4c7c8]"
+            class="inline-flex w-fit items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-[0.7rem] font-semibold uppercase tracking-[0.26em] text-on-surface-variant"
           >
-            <span class="h-2 w-2 rounded-full bg-white"></span>
+            <span class="h-2 w-2 rounded-full bg-primary"></span>
             {{ resultCountLabel }}
           </div>
         </div>
 
         <div
-          class="rounded-[1.75rem] border border-white/[0.08] bg-[#1c1b1b] p-2 shadow-[0_24px_56px_rgb(0_0_0/0.32)]"
+          class="rounded-[1.75rem] border border-outline-variant bg-surface-container-low p-2 shadow-glow"
         >
           <div class="relative">
             <span
-              class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-[#8e9192]"
+              class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-outline"
             >
               <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
@@ -42,13 +42,13 @@
               v-model="searchQuery"
               type="text"
               placeholder="Find a movie..."
-              class="h-12 w-full rounded-[1.35rem] bg-[#2a2a2a] pl-11 pr-11 text-sm font-medium text-white outline-none transition placeholder:text-[#8e9192] focus:ring-1 focus:ring-white/40"
+              class="h-12 w-full rounded-[1.35rem] bg-surface-container-high pl-11 pr-11 text-sm font-medium text-on-surface outline-none transition placeholder:text-outline focus:ring-1 focus:ring-primary/30"
               @input="handleInput"
             />
             <button
               v-if="hasSearchQuery"
               type="button"
-              class="absolute inset-y-0 right-4 flex items-center text-[#8e9192] transition hover:text-white"
+              class="absolute inset-y-0 right-4 flex items-center text-outline transition hover:text-on-surface"
               @click="clearSearch"
             >
               <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -99,26 +99,26 @@
 
         <div
           v-else-if="!hasSearchQuery && searchResults.length === 0"
-          class="rounded-[1.75rem] border border-dashed border-[#444748] bg-[#1c1b1b] px-6 py-14 text-center shadow-[0_24px_56px_rgb(0_0_0/0.5)]"
+          class="rounded-[1.75rem] border border-dashed border-outline-variant bg-surface-container-low px-6 py-14 text-center shadow-glow"
         >
-          <p class="text-2xl font-semibold text-white">Enter a movie name to search</p>
+          <p class="text-2xl font-semibold text-on-background">Enter a movie name to search</p>
         </div>
 
         <div
           v-else-if="hasSearchQuery && searchResults.length === 0 && !isSearching"
-          class="rounded-[1.75rem] border border-dashed border-[#444748] bg-[#1c1b1b] px-6 py-14 text-center shadow-[0_24px_56px_rgb(0_0_0/0.5)]"
+          class="rounded-[1.75rem] border border-dashed border-outline-variant bg-surface-container-low px-6 py-14 text-center shadow-glow"
         >
-          <p class="text-2xl font-semibold text-white">No results for "{{ searchQuery }}"</p>
+          <p class="text-2xl font-semibold text-on-background">No results for "{{ searchQuery }}"</p>
         </div>
 
         <div
           v-else-if="searchResults.length > 0 && filteredResults.length === 0 && hasActiveFilters"
-          class="rounded-[1.75rem] border border-dashed border-[#444748] bg-[#1c1b1b] px-6 py-14 text-center shadow-[0_24px_56px_rgb(0_0_0/0.5)]"
+          class="rounded-[1.75rem] border border-dashed border-outline-variant bg-surface-container-low px-6 py-14 text-center shadow-glow"
         >
-          <p class="text-2xl font-semibold text-white">No results match these filters</p>
+          <p class="text-2xl font-semibold text-on-background">No results match these filters</p>
           <button
             type="button"
-            class="mt-8 inline-flex items-center justify-center rounded-full border border-white/10 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-black transition-colors hover:bg-zinc-200"
+            class="mt-8 inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-on-primary transition-colors hover:bg-primary/90"
             @click="clearFilters"
           >
             Clear Filters

@@ -1,7 +1,7 @@
 <template>
   <article class="group flex h-full flex-col gap-3">
     <div
-      class="relative aspect-[1/1.5] overflow-hidden rounded-[1.625rem] border border-white/[0.08] bg-[#1c1b1b] transition-transform duration-200 hover:scale-[1.02]"
+      class="relative aspect-[1/1.5] overflow-hidden rounded-[1.625rem] border border-outline-variant bg-surface-container-low transition-transform duration-200 hover:scale-[1.02]"
     >
       <button class="h-full w-full text-left" @click="$emit('open', movie.tmdbId)">
         <img
@@ -32,12 +32,12 @@
     <div class="space-y-2 px-1">
       <div class="space-y-1.5">
         <h2
-          class="truncate text-base font-semibold leading-tight text-white sm:text-lg"
+          class="truncate text-base font-semibold leading-tight text-on-background sm:text-lg"
           :title="movie.title"
         >
           {{ movie.title }}
         </h2>
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#c4c7c8]">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-on-surface-variant">
           <span>{{ movie.year }}</span>
           <span>{{ runtimeLabel }}</span>
         </div>

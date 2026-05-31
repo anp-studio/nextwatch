@@ -248,6 +248,10 @@ export const useAuth = () => {
     }
   }
 
+  const setCurrentUser = (updatedUser: User | null) => {
+    user.value = updatedUser
+  }
+
   return {
     user: computed(() => user.value),
     session: computed(() => session.value),
@@ -262,5 +266,6 @@ export const useAuth = () => {
     resetPassword,
     verifyPasswordResetOtp,
     updatePassword,
+    setCurrentUser,
   }
 }

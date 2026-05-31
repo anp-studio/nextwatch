@@ -1,10 +1,9 @@
-import { SchemaType } from '@google/generative-ai'
-import type { Schema } from '@google/generative-ai'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { H3Event } from 'h3'
+import { askPlatformAi } from './ai-client'
 import { searchMoviesBatch } from './searchMovies'
 import { fetchTmdb } from './tmdb'
-import { logPrivateError, throwGeminiError, throwSupabaseError } from './api-error'
+import { logPrivateError, throwAiProviderError, throwSupabaseError } from './api-error'
 
 export const WATCHED_MOVIES_TABLE = 'user_watched_movies'
 export const MY_LIST_TABLE = 'user_my_list'
@@ -27,24 +26,32 @@ Recommend exactly ${MAX_RECOMMENDATIONS} movies, obeying these rules:
 5. Respond ONLY with a valid JSON array of exactly ${MAX_RECOMMENDATIONS} objects with keys "name", "originalName", and "year". No explanation, no markdown, no code fences. Example:
 [{"name": "ゴジラ-1.0", "originalName": "ゴジラ-1.0", "year": 2023}]`
 
-const RECOMMENDATION_SCHEMA: Schema = {
-  type: SchemaType.ARRAY,
-  items: {
-    type: SchemaType.OBJECT,
-    properties: {
-      name: {
-        type: SchemaType.STRING,
-        description: 'Movie title in original release language/script',
+const RECOMMENDATION_RESPONSE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    recommendations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          name: {
+            type: 'string',
+            description: 'Movie title in original release language/script',
+          },
+          originalName: {
+            type: 'string',
+            description: 'Exact original TMDB title in original release language/script',
+          },
+          year: { type: 'integer', description: 'Release year' },
+        },
+        required: ['name', 'originalName', 'year'],
       },
-      originalName: {
-        type: SchemaType.STRING,
-        description: 'Exact original TMDB title in original release language/script',
-      },
-      year: { type: SchemaType.INTEGER, description: 'Release year' },
     },
-    required: ['name', 'originalName', 'year'],
   },
-}
+  required: ['recommendations'],
+} satisfies Record<string, unknown>
 
 const EXACT_ORIGINAL_TITLE_PROMPT_SUFFIX = `
 Additional hard requirements:
@@ -102,6 +109,10 @@ interface RecommendationErrorContext {
   userId?: string
 }
 
+interface RecommendationObjectResponse {
+  recommendations: unknown
+}
+
 function throwRecommendationSupabaseError(
   cause: unknown,
   publicMessage: string,
@@ -135,6 +146,36 @@ function throwRecommendationSupabaseError(
   })
 }
 
+function throwPlatformAiRecommendationError(
+  cause: unknown,
+  logEvent: string,
+  context: RecommendationErrorContext & { statusCode: number }
+): never {
+  const { event, userId, statusCode } = context
+
+  if (event) {
+    throwAiProviderError(event, cause, {
+      event: logEvent,
+      userId,
+      publicMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
+      statusCode,
+    })
+  }
+
+  logPrivateError({
+    cause,
+    event: logEvent,
+    source: 'ai_provider',
+    statusCode,
+    userId,
+  })
+
+  throw createError({
+    statusCode,
+    statusMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
+  })
+}
+
 export function hasValidTmdbId(
   recommendation: RecommendationWithId
 ): recommendation is RecommendationWithId & { tmdbId: number } {
@@ -157,6 +198,56 @@ export function isRecommendationArray(value: unknown): value is Recommendation[]
         typeof (item as Record<string, unknown>).year === 'number'
     )
   )
+}
+
+function isRecommendationObjectResponse(value: unknown): value is RecommendationObjectResponse {
+  return typeof value === 'object' && value !== null && 'recommendations' in value
+}
+
+function normalizeRecommendationPayload(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value
+  }
+
+  if (isRecommendationObjectResponse(value)) {
+    return value.recommendations
+  }
+
+  return value
+}
+
+function parseRecommendationResponse(
+  raw: string,
+  userId?: string,
+  event?: H3Event
+): Recommendation[] {
+  let parsed: unknown
+
+  try {
+    parsed = JSON.parse(raw)
+  } catch (error) {
+    throwPlatformAiRecommendationError(error, 'recommendation.ai_provider_parse_failed', {
+      event,
+      userId,
+      statusCode: 502,
+    })
+  }
+
+  const normalized = normalizeRecommendationPayload(parsed)
+
+  if (!isRecommendationArray(normalized)) {
+    throwPlatformAiRecommendationError(
+      new Error('AI provider response did not match the expected recommendation schema.'),
+      'recommendation.ai_provider_schema_failed',
+      {
+        event,
+        userId,
+        statusCode: 502,
+      }
+    )
+  }
+
+  return normalized
 }
 
 function getSearchCandidates(recommendation: Recommendation): string[] {
@@ -539,7 +630,7 @@ export async function appendTmdbIds(
   return { recommendations: results, tmdbFallbackCount }
 }
 
-export async function getRecommendationsFromGemini(
+export async function getRecommendationsFromPlatformAi(
   watchedMovies: Array<{ title: string; year: number }>,
   myListMovies: Array<{ title: string; year: number }>,
   userId?: string,
@@ -554,69 +645,16 @@ export async function getRecommendationsFromGemini(
   const systemPrompt = `${SYSTEM_PROMPT}\n${EXACT_ORIGINAL_TITLE_PROMPT_SUFFIX}\n${POPULAR_MOVIE_PROMPT_SUFFIX}`
   const userMessage = buildUserMessage(watchedMovies, myListMovies, excludedMovies)
 
-  const raw = await askGemini({
+  const raw = await askPlatformAi({
     systemPrompt,
     userMessage,
-    schema: RECOMMENDATION_SCHEMA,
+    schema: RECOMMENDATION_RESPONSE_SCHEMA,
+    schemaName: 'movie_recommendations',
     userId,
     event,
   })
 
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(raw)
-  } catch (error) {
-    if (event) {
-      throwGeminiError(event, error, {
-        event: 'recommendation.gemini_parse_failed',
-        userId,
-        publicMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
-        statusCode: 502,
-      })
-    }
-
-    logPrivateError({
-      cause: error,
-      event: 'recommendation.gemini_parse_failed',
-      source: 'gemini',
-      statusCode: 502,
-      userId,
-    })
-
-    throw createError({
-      statusCode: 502,
-      statusMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
-    })
-  }
-
-  if (!isRecommendationArray(parsed)) {
-    const schemaError = new Error(
-      'Gemini response did not match the expected recommendation schema.'
-    )
-
-    if (event) {
-      throwGeminiError(event, schemaError, {
-        event: 'recommendation.gemini_schema_failed',
-        userId,
-        publicMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
-        statusCode: 502,
-      })
-    }
-
-    logPrivateError({
-      cause: schemaError,
-      event: 'recommendation.gemini_schema_failed',
-      source: 'gemini',
-      statusCode: 502,
-      userId,
-    })
-
-    throw createError({
-      statusCode: 502,
-      statusMessage: GENERATE_RECOMMENDATIONS_MESSAGE,
-    })
-  }
-
+  const parsed = parseRecommendationResponse(raw, userId, event)
   const result = await appendTmdbIds(parsed, event)
   return { ...result, systemPrompt, userMessage }
 }

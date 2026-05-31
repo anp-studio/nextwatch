@@ -5,17 +5,19 @@
     <div class="relative w-full shrink-0 aspect-[1/1.5]">
       <div
         v-if="posterStackCount >= 2"
-        class="pointer-events-none absolute inset-0 rounded-[1.125rem] border border-[rgb(82_82_91/0.9)] bg-zinc-900 opacity-30 [box-shadow:0_10px_26px_rgb(0_0_0/0.2),0_0_0_1px_rgb(255_255_255/0.03)] [transform:translateX(-0.55rem)_rotate(-1.6deg)]"
+        class="pointer-events-none absolute inset-0 rounded-[1.125rem] border border-outline opacity-30 [transform:translateX(-0.55rem)_rotate(-1.6deg)]"
+        style="background-color: rgb(var(--color-surface-container-low)); box-shadow: 0 10px 26px rgb(0 0 0 / 0.2), 0 0 0 1px rgb(255 255 255 / 0.03);"
         aria-hidden="true"
       ></div>
       <div
         v-if="posterStackCount >= 1"
-        class="pointer-events-none absolute inset-0 rounded-[1.125rem] border border-[rgb(82_82_91/0.9)] bg-zinc-900 opacity-40 [box-shadow:0_10px_26px_rgb(0_0_0/0.2),0_0_0_1px_rgb(255_255_255/0.03)] [transform:translateX(0.55rem)_rotate(1.4deg)]"
+        class="pointer-events-none absolute inset-0 rounded-[1.125rem] border border-outline opacity-40 [transform:translateX(0.55rem)_rotate(1.4deg)]"
+        style="background-color: rgb(var(--color-surface-container-low)); box-shadow: 0 10px 26px rgb(0 0 0 / 0.2), 0 0 0 1px rgb(255 255 255 / 0.03);"
         aria-hidden="true"
       ></div>
 
       <div
-        class="relative z-10 w-full shrink-0 aspect-[1/1.5] overflow-hidden rounded-[1.125rem] border border-zinc-800 bg-zinc-900 shadow-glow"
+        class="relative z-10 w-full shrink-0 aspect-[1/1.5] overflow-hidden rounded-[1.125rem] border border-outline-variant bg-surface-container-low shadow-glow"
         :class="detailsEnabled ? 'cursor-pointer' : 'cursor-default'"
         @click="handleCardClick"
       >
@@ -100,14 +102,14 @@
           class="mb-[clamp(0.12rem,1.5cqw,0.4rem)] flex items-center justify-between gap-3 pb-[clamp(0.08rem,0.8cqw,0.18rem)]"
         >
           <h1
-            class="truncate whitespace-nowrap flex-1 text-[clamp(1.05rem,8.25cqw,1.9rem)] font-bold leading-[1.14] tracking-[-0.03em] text-white"
+            class="truncate whitespace-nowrap flex-1 text-[clamp(1.05rem,8.25cqw,1.9rem)] font-bold leading-[1.14] tracking-[-0.03em] text-on-background"
             :title="movie.title"
           >
             {{ displayedTitle }}
           </h1>
           <span
             v-if="movie.year"
-            class="shrink-0 text-[clamp(0.75rem,4.2cqw,0.98rem)] font-medium uppercase leading-none tracking-[0.08em] text-zinc-400 opacity-90"
+            class="shrink-0 text-[clamp(0.75rem,4.2cqw,0.98rem)] font-medium uppercase leading-none tracking-[0.08em] text-on-surface-variant opacity-90"
             >{{ movie.year }}</span
           >
         </div>
@@ -117,7 +119,7 @@
         <span
           v-for="tag in genreTags"
           :key="tag"
-          class="rounded-full border border-zinc-800 bg-zinc-900/60 px-[clamp(0.18rem,1.5cqw,0.35rem)] py-[clamp(0.4rem,3.4cqw,0.78rem)] text-[clamp(0.48rem,2.95cqw,0.68rem)] font-semibold tracking-[0.16em] text-zinc-400 [padding-inline:clamp(0.4rem,3.4cqw,0.78rem)] [padding-block:clamp(0.18rem,1.5cqw,0.35rem)]"
+          class="rounded-full border border-outline-variant bg-surface-container-low px-[clamp(0.18rem,1.5cqw,0.35rem)] py-[clamp(0.4rem,3.4cqw,0.78rem)] text-[clamp(0.48rem,2.95cqw,0.68rem)] font-semibold tracking-[0.16em] text-on-surface-variant [padding-inline:clamp(0.4rem,3.4cqw,0.78rem)] [padding-block:clamp(0.18rem,1.5cqw,0.35rem)]"
         >
           {{ tag }}
         </span>
@@ -128,7 +130,7 @@
       class="flex shrink-0 items-center justify-center gap-[clamp(0.25rem,3.5cqw,1rem)] pt-[clamp(0rem,0.35cqw,0.1rem)]"
     >
       <button
-        class="btn-press flex h-[clamp(2.1rem,16.1cqw,3.7rem)] w-[clamp(2.1rem,16.1cqw,3.7rem)] items-center justify-center rounded-full border border-zinc-800 bg-black text-zinc-500 transition-all hover:border-white hover:text-white [box-shadow:0_0_0_1px_rgb(255_255_255/0.04),0_8px_18px_rgb(0_0_0/0.18),0_0_18px_rgb(255_255_255/0.05)]"
+        class="btn-press flex h-[clamp(2.1rem,16.1cqw,3.7rem)] w-[clamp(2.1rem,16.1cqw,3.7rem)] items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant transition-all hover:border-primary/40 hover:text-on-surface [box-shadow:0_0_0_1px_rgb(255_255_255/0.04),0_8px_18px_rgb(0_0_0/0.18),0_0_18px_rgb(255_255_255/0.05)]"
         @click.stop="$emit('dislike', movie)"
       >
         <svg
@@ -147,8 +149,12 @@
       </button>
 
       <button
-        class="btn-press flex h-[clamp(2.7rem,20.4cqw,4.7rem)] w-[clamp(2.7rem,20.4cqw,4.7rem)] items-center justify-center rounded-full text-black transition-all shadow-xl [box-shadow:0_0_0_1px_rgb(255_255_255/0.08),0_10px_24px_rgb(0_0_0/0.22),0_0_22px_rgb(255_255_255/0.08)]"
-        :class="isInMyList ? 'bg-zinc-300' : 'bg-white hover:scale-105 hover:bg-zinc-200'"
+        class="btn-press flex h-[clamp(2.7rem,20.4cqw,4.7rem)] w-[clamp(2.7rem,20.4cqw,4.7rem)] items-center justify-center rounded-full transition-all shadow-xl [box-shadow:0_0_0_1px_rgb(255_255_255/0.08),0_10px_24px_rgb(0_0_0/0.22),0_0_22px_rgb(255_255_255/0.08)]"
+        :class="
+          isInMyList
+            ? 'bg-surface-container-highest text-on-background'
+            : 'bg-primary text-on-primary hover:scale-105 hover:bg-primary/90'
+        "
         @click.stop="$emit('to-watch', movie)"
       >
         <svg
@@ -178,8 +184,8 @@
         class="btn-press flex h-[clamp(2.1rem,16.1cqw,3.7rem)] w-[clamp(2.1rem,16.1cqw,3.7rem)] items-center justify-center rounded-full border transition-all [box-shadow:0_0_0_1px_rgb(255_255_255/0.04),0_8px_18px_rgb(0_0_0/0.18),0_0_18px_rgb(255_255_255/0.05)]"
         :class="
           isWatched
-            ? 'border-white bg-white text-black'
-            : 'border-zinc-800 bg-black text-zinc-500 hover:border-white hover:text-white'
+            ? 'border-primary/10 bg-primary text-on-primary'
+            : 'border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-primary/40 hover:text-on-surface'
         "
         @click.stop="$emit('watched', movie)"
       >

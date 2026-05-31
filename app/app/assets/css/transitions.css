@@ -1,3 +1,57 @@
+:root {
+  --color-background: 244 244 245;
+  --color-surface: 244 244 245;
+  --color-surface-dim: 228 228 231;
+  --color-surface-bright: 255 255 255;
+  --color-surface-container-lowest: 255 255 255;
+  --color-surface-container-low: 250 250 250;
+  --color-surface-container: 244 244 245;
+  --color-surface-container-high: 228 228 231;
+  --color-surface-container-highest: 212 212 216;
+  --color-surface-variant: 228 228 231;
+  --color-surface-tint: 39 39 42;
+  --color-on-background: 24 24 27;
+  --color-on-surface: 24 24 27;
+  --color-on-surface-variant: 82 82 91;
+  --color-outline: 113 113 122;
+  --color-outline-variant: 212 212 216;
+  --color-primary: 24 24 27;
+  --color-on-primary: 255 255 255;
+  --color-secondary: 63 63 70;
+  --color-on-secondary: 255 255 255;
+  --shadow-glow: 15 23 42;
+  --shadow-glow-alpha: 0.12;
+  --skeleton-base: 228 228 231;
+  --skeleton-highlight: 244 244 245;
+}
+
+.dark {
+  --color-background: 20 19 19;
+  --color-surface: 20 19 19;
+  --color-surface-dim: 20 19 19;
+  --color-surface-bright: 58 57 57;
+  --color-surface-container-lowest: 14 14 14;
+  --color-surface-container-low: 28 27 27;
+  --color-surface-container: 32 31 31;
+  --color-surface-container-high: 42 42 42;
+  --color-surface-container-highest: 53 52 52;
+  --color-surface-variant: 53 52 52;
+  --color-surface-tint: 198 198 199;
+  --color-on-background: 229 226 225;
+  --color-on-surface: 229 226 225;
+  --color-on-surface-variant: 196 199 200;
+  --color-outline: 142 145 146;
+  --color-outline-variant: 68 71 72;
+  --color-primary: 255 255 255;
+  --color-on-primary: 47 49 49;
+  --color-secondary: 185 200 222;
+  --color-on-secondary: 35 49 67;
+  --shadow-glow: 0 0 0;
+  --shadow-glow-alpha: 0.45;
+  --skeleton-base: 32 31 31;
+  --skeleton-highlight: 42 42 42;
+}
+
 html,
 body,
 #__nuxt {
@@ -6,66 +60,17 @@ body,
 
 html,
 body {
-  background-color: #141313;
-  color: #e5e2e1;
+  background-color: rgb(var(--color-background));
+  color: rgb(var(--color-on-background));
   font-family: 'Inter', sans-serif;
 }
 
-[class*='text-rose-'],
-[class*='dark:text-rose-'],
-[class*='text-green-'],
-[class*='dark:text-green-'],
-[class*='text-emerald-'],
-[class*='dark:text-emerald-'] {
-  color: #ffffff !important;
+html {
+  color-scheme: light;
 }
 
-[class*='hover:text-rose-']:hover,
-[class*='dark:hover:text-rose-']:hover,
-[class*='hover:text-red-']:hover,
-[class*='dark:hover:text-red-']:hover,
-[class*='hover:text-green-']:hover,
-[class*='dark:hover:text-green-']:hover,
-[class*='hover:text-emerald-']:hover,
-[class*='dark:hover:text-emerald-']:hover {
-  color: #ffffff !important;
-}
-
-[class*='bg-rose-500'],
-[class*='bg-rose-300'],
-[class*='dark:bg-rose-700'],
-[class*='bg-green-500'],
-[class*='dark:bg-green-600'],
-[class*='bg-red-500'],
-[class*='bg-emerald-500'] {
-  background-color: #ffffff !important;
-  border-color: #ffffff !important;
-  color: #141313 !important;
-}
-
-[class*='bg-rose-50'],
-[class*='bg-rose-100'],
-[class*='dark:bg-rose-900'],
-[class*='bg-emerald-50'],
-[class*='dark:bg-emerald-900'],
-[class*='bg-red-50'],
-[class*='dark:bg-red-900'] {
-  background-color: #201f1f !important;
-  color: #e5e2e1 !important;
-}
-
-[class*='border-rose-'],
-[class*='dark:border-rose-'],
-[class*='border-green-'],
-[class*='dark:border-green-'],
-[class*='border-red-'],
-[class*='dark:border-red-'] {
-  border-color: #444748 !important;
-}
-
-[class*='ring-rose-'],
-[class*='focus:ring-rose-'] {
-  --tw-ring-color: #ffffff !important;
+html.dark {
+  color-scheme: dark;
 }
 
 /* ===== Page Transitions ===== */
@@ -161,13 +166,14 @@ body {
   }
 }
 .skeleton-shimmer {
-  background: linear-gradient(90deg, #201f1f 25%, #2a2a2a 50%, #201f1f 75%);
+  background: linear-gradient(
+    90deg,
+    rgb(var(--skeleton-base)) 25%,
+    rgb(var(--skeleton-highlight)) 50%,
+    rgb(var(--skeleton-base)) 75%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
-}
-:is(.dark) .skeleton-shimmer {
-  background: linear-gradient(90deg, #201f1f 25%, #2a2a2a 50%, #201f1f 75%);
-  background-size: 200% 100%;
 }
 
 /* ===== Button press micro-interaction ===== */
@@ -282,7 +288,7 @@ body {
   left: 50%;
   width: 28px;
   height: 2px;
-  background: #ffffff;
+  background: rgb(var(--color-primary));
   transform: translateX(-50%) scaleX(0);
   transition: transform 200ms ease;
 }
