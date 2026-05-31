@@ -60,7 +60,10 @@
           </span>
           <span class="font-semibold text-zinc-950 dark:text-white">Edit Username</span>
         </span>
-        <span class="text-zinc-400 transition-colors group-hover:text-zinc-950 dark:text-zinc-600 dark:group-hover:text-white">&rarr;</span>
+        <span
+          class="text-zinc-400 transition-colors group-hover:text-zinc-950 dark:text-zinc-600 dark:group-hover:text-white"
+          >&rarr;</span
+        >
       </button>
 
       <button
@@ -76,17 +79,22 @@
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 stroke-width="1.75"
-                d="M15 7a3 3 0 11-5.83 1M15 7l3-3m-3 3h4V3M7 11h10a2 2 0 012 2v6H5v-6a2 2 0 012-2z"
+                d="M12 3l7 3v5c0 4.5-2.8 8.5-7 10-4.2-1.5-7-5.5-7-10V6l7-3z"
               />
             </svg>
           </span>
           <span class="font-semibold text-zinc-950 dark:text-white">Change Password</span>
         </span>
-        <span class="text-zinc-400 transition-colors group-hover:text-zinc-950 dark:text-zinc-600 dark:group-hover:text-white">&rarr;</span>
+        <span
+          class="text-zinc-400 transition-colors group-hover:text-zinc-950 dark:text-zinc-600 dark:group-hover:text-white"
+          >&rarr;</span
+        >
       </button>
     </div>
 
-    <section class="mb-8 rounded-card border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80 dark:shadow-glow">
+    <section
+      class="mb-8 rounded-card border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80 dark:shadow-glow"
+    >
       <div class="mb-5 flex items-start justify-between gap-4">
         <div>
           <h2 class="text-xl font-black tracking-[-0.03em] text-zinc-950 dark:text-white">
@@ -131,10 +139,16 @@
         More Settings
       </h2>
 
-      <div class="overflow-hidden rounded-card border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80">
-        <div class="flex min-h-14 items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+      <div
+        class="overflow-hidden rounded-card border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80"
+      >
+        <div
+          class="flex min-h-14 items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800"
+        >
           <span class="flex items-center gap-3">
-            <span class="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 dark:border-zinc-800">
+            <span
+              class="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 dark:border-zinc-800"
+            >
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   stroke-linecap="round"
@@ -147,18 +161,20 @@
             <span class="font-semibold text-zinc-950 dark:text-white">Appearance</span>
           </span>
 
-          <span class="flex rounded-full border border-zinc-200 bg-zinc-100 p-1 text-xs font-bold dark:border-zinc-700 dark:bg-black">
+          <span
+            class="flex rounded-full border border-zinc-200 bg-zinc-100 p-1 text-xs font-bold dark:border-zinc-700 dark:bg-black"
+          >
             <button
               class="rounded-full px-3 py-1 transition-colors"
               :class="isDarkMode ? activeThemeClass : inactiveThemeClass"
-              @click="setTheme('dark')"
+              @click="setTheme(darkThemeValue)"
             >
               Dark
             </button>
             <button
               class="rounded-full px-3 py-1 transition-colors"
               :class="!isDarkMode ? activeThemeClass : inactiveThemeClass"
-              @click="setTheme('light')"
+              @click="setTheme(lightThemeValue)"
             >
               Light
             </button>
@@ -171,7 +187,9 @@
           class="flex min-h-14 items-center justify-between border-b border-zinc-200 px-4 py-3 last:border-b-0 dark:border-zinc-800"
         >
           <span class="flex items-center gap-3">
-            <span class="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 dark:border-zinc-800">
+            <span
+              class="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 dark:border-zinc-800"
+            >
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   stroke-linecap="round"
@@ -183,7 +201,9 @@
             </span>
             <span class="font-semibold text-zinc-600 dark:text-zinc-400">{{ setting.label }}</span>
           </span>
-          <span class="rounded-full border border-zinc-200 px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400 dark:border-zinc-800 dark:text-zinc-500">
+          <span
+            class="rounded-full border border-zinc-200 px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400 dark:border-zinc-800 dark:text-zinc-500"
+          >
             Coming soon
           </span>
         </div>
@@ -193,7 +213,9 @@
           @click="handleLogout"
         >
           <span class="flex items-center gap-3">
-            <span class="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 transition-colors group-hover:border-zinc-950 group-hover:text-zinc-950 dark:border-zinc-800 dark:group-hover:border-white dark:group-hover:text-white">
+            <span
+              class="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 transition-colors group-hover:border-zinc-950 group-hover:text-zinc-950 dark:border-zinc-800 dark:group-hover:border-white dark:group-hover:text-white"
+            >
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   stroke-linecap="round"
@@ -291,7 +313,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 
-import { THEME_DARK_VALUE, THEME_LIGHT_VALUE, THEME_STORAGE_KEY, type ThemeValue } from '~/utils/theme'
+import { THEME_DARK_VALUE, THEME_LIGHT_VALUE, THEME_STORAGE_KEY } from '~/utils/theme'
 
 const { user, logout, updatePassword, setCurrentUser } = useAuth()
 const supabase = useSupabase()
@@ -299,12 +321,7 @@ const mode = useColorMode({
   initialValue: THEME_DARK_VALUE,
   storageKey: THEME_STORAGE_KEY,
 })
-const {
-  quota,
-  pending: quotaPending,
-  error: quotaError,
-  fetchQuota,
-} = useRecommendationQuota()
+const { quota, pending: quotaPending, error: quotaError, fetchQuota } = useRecommendationQuota()
 
 const CURRENT_PASSWORD_ERROR_PATTERNS = [
   'current password',
@@ -318,20 +335,8 @@ const activeThemeClass = 'bg-zinc-950 text-white dark:bg-white dark:text-black'
 const inactiveThemeClass = 'text-zinc-500 hover:text-zinc-950 dark:hover:text-white'
 const comingSoonSettings = [
   {
-    label: 'Subscription & Billing',
-    icon: 'M3.75 7.5h16.5v9A1.5 1.5 0 0118.75 18h-13.5a1.5 1.5 0 01-1.5-1.5v-9zM3.75 9.75h16.5M7 14h3',
-  },
-  {
-    label: 'Managed Devices',
-    icon: 'M8 18h8M10 21h4M6 3h12a1.5 1.5 0 011.5 1.5v10A1.5 1.5 0 0118 16H6a1.5 1.5 0 01-1.5-1.5v-10A1.5 1.5 0 016 3z',
-  },
-  {
     label: 'Bring Your Own Key',
     icon: 'M15 7a4 4 0 10-3.46 5.99L5 19.5V22h2.5l1-1H11v-2.5l3.01-3.01A4 4 0 1015 7z',
-  },
-  {
-    label: 'Privacy Controls',
-    icon: 'M12 3l7 3v5c0 4.5-2.8 8.5-7 10-4.2-1.5-7-5.5-7-10V6l7-3z',
   },
 ]
 
@@ -350,6 +355,8 @@ const displayName = computed(
 )
 const profileInitial = computed(() => displayName.value.trim().charAt(0) || 'U')
 const isDarkMode = computed(() => mode.value === THEME_DARK_VALUE)
+const darkThemeValue = THEME_DARK_VALUE
+const lightThemeValue = THEME_LIGHT_VALUE
 const quotaUsedPercent = computed(() => {
   if (quota.value.limit <= 0) {
     return 0
@@ -363,7 +370,7 @@ onMounted(() => {
   void fetchQuota()
 })
 
-const setTheme = (theme: ThemeValue) => {
+const setTheme = (theme) => {
   mode.value = theme
 }
 

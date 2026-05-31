@@ -1,12 +1,12 @@
 <template>
-  <nav class="z-50 border-t border-zinc-800 bg-black">
+  <nav class="z-50 border-t border-outline-variant bg-surface-container-lowest/95 backdrop-blur">
     <div
       class="mx-auto flex h-16 w-full max-w-7xl items-center justify-around gap-2 px-3 sm:h-[4.25rem] sm:px-6 lg:px-8"
     >
       <NuxtLink
         to="/"
-        class="nav-link flex min-w-16 flex-1 flex-col items-center justify-center gap-0.5 pt-1 text-[9px] font-medium uppercase tracking-[0.24em] text-zinc-500 transition-colors hover:text-zinc-200 sm:gap-1 sm:pt-2 sm:text-[10px] sm:tracking-[0.28em]"
-        exact-active-class="!text-white nav-link-active"
+        class="nav-link flex min-w-16 flex-1 flex-col items-center justify-center gap-0.5 pt-1 text-[9px] font-medium uppercase tracking-[0.24em] text-on-surface-variant transition-colors hover:text-on-surface sm:gap-1 sm:pt-2 sm:text-[10px] sm:tracking-[0.28em]"
+        exact-active-class="!text-on-surface nav-link-active"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -28,8 +28,8 @@
 
       <NuxtLink
         to="/mylist"
-        class="nav-link flex min-w-16 flex-1 flex-col items-center justify-center gap-0.5 pt-1 text-[9px] font-medium uppercase tracking-[0.24em] text-zinc-500 transition-colors hover:text-zinc-200 sm:gap-1 sm:pt-2 sm:text-[10px] sm:tracking-[0.28em]"
-        active-class="!text-white nav-link-active"
+        class="nav-link flex min-w-16 flex-1 flex-col items-center justify-center gap-0.5 pt-1 text-[9px] font-medium uppercase tracking-[0.24em] text-on-surface-variant transition-colors hover:text-on-surface sm:gap-1 sm:pt-2 sm:text-[10px] sm:tracking-[0.28em]"
+        active-class="!text-on-surface nav-link-active"
       >
         <svg class="h-5 w-5 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -44,8 +44,8 @@
 
       <NuxtLink
         to="/watched"
-        class="nav-link flex min-w-16 flex-1 flex-col items-center justify-center gap-0.5 pt-1 text-[9px] font-medium uppercase tracking-[0.24em] text-zinc-500 transition-colors hover:text-zinc-200 sm:gap-1 sm:pt-2 sm:text-[10px] sm:tracking-[0.28em]"
-        active-class="!text-white nav-link-active"
+        class="nav-link flex min-w-16 flex-1 flex-col items-center justify-center gap-0.5 pt-1 text-[9px] font-medium uppercase tracking-[0.24em] text-on-surface-variant transition-colors hover:text-on-surface sm:gap-1 sm:pt-2 sm:text-[10px] sm:tracking-[0.28em]"
+        active-class="!text-on-surface nav-link-active"
       >
         <svg class="h-5 w-5 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -61,8 +61,8 @@
 
       <NuxtLink
         to="/search"
-        class="nav-link flex min-w-16 flex-1 flex-col items-center justify-center gap-0.5 pt-1 text-[9px] font-medium uppercase tracking-[0.24em] text-zinc-500 transition-colors hover:text-zinc-200 sm:gap-1 sm:pt-2 sm:text-[10px] sm:tracking-[0.28em]"
-        active-class="!text-white nav-link-active"
+        class="nav-link flex min-w-16 flex-1 flex-col items-center justify-center gap-0.5 pt-1 text-[9px] font-medium uppercase tracking-[0.24em] text-on-surface-variant transition-colors hover:text-on-surface sm:gap-1 sm:pt-2 sm:text-[10px] sm:tracking-[0.28em]"
+        active-class="!text-on-surface nav-link-active"
       >
         <svg class="h-5 w-5 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path

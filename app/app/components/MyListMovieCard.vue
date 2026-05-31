@@ -1,7 +1,7 @@
 <template>
   <article class="group flex h-full flex-col gap-3">
     <button
-      class="relative aspect-[1/1.5] overflow-hidden rounded-[1.625rem] border border-white/[0.08] bg-[#1c1b1b] text-left transition-transform duration-200 hover:scale-[1.02]"
+      class="relative aspect-[1/1.5] overflow-hidden rounded-[1.625rem] border border-outline-variant bg-surface-container-low text-left transition-transform duration-200 hover:scale-[1.02]"
       @click="$emit('open', movie.tmdbId)"
     >
       <img
@@ -17,12 +17,12 @@
     <div class="space-y-3 px-1">
       <div class="space-y-1.5">
         <h2
-          class="truncate text-base font-semibold leading-tight text-white sm:text-lg"
+          class="truncate text-base font-semibold leading-tight text-on-background sm:text-lg"
           :title="movie.title"
         >
           {{ movie.title }}
         </h2>
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#c4c7c8]">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-on-surface-variant">
           <span>{{ movie.year }}</span>
           <span v-if="ratingLabel" class="inline-flex items-center gap-1">
             <svg
@@ -43,14 +43,14 @@
 
       <div class="flex items-center gap-2">
         <button
-          class="inline-flex flex-1 items-center justify-center rounded-full bg-white px-3 py-2 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-black transition-colors hover:bg-[#e2e2e2]"
+          class="inline-flex flex-1 items-center justify-center rounded-full bg-primary px-3 py-2 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-on-primary transition-colors hover:bg-primary/90"
           title="Mark as watched"
           @click.stop="$emit('mark-watched', movie)"
         >
           Watched
         </button>
         <button
-          class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] text-[#8e9192] transition-colors hover:border-white/40 hover:text-white"
+          class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-outline-variant text-outline transition-colors hover:border-primary/40 hover:text-on-surface"
           title="Remove from watchlist"
           @click.stop="$emit('remove', movie)"
         >

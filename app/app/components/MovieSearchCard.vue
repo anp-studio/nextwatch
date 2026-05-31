@@ -1,16 +1,16 @@
 <template>
   <div
-    class="relative flex cursor-pointer flex-col overflow-hidden rounded-[1.35rem] border border-white/[0.08] bg-[#1c1b1b] shadow-[0_18px_44px_rgb(0_0_0/0.32)] transition-transform duration-200 hover:scale-[1.02]"
+    class="relative flex cursor-pointer flex-col overflow-hidden rounded-[1.35rem] border border-outline-variant bg-surface-container-low shadow-glow transition-transform duration-200 hover:scale-[1.02]"
     @click="$emit('details', movie)"
   >
-    <div class="relative aspect-[2/3] bg-[#2a2a2a]">
+    <div class="relative aspect-[2/3] bg-surface-container-high">
       <img
         v-if="movie.poster_path"
         :src="posterUrl(movie.poster_path)"
         :alt="movie.title"
         class="h-full w-full object-cover"
       />
-      <div v-else class="flex h-full w-full items-center justify-center text-xs text-[#8e9192]">
+      <div v-else class="flex h-full w-full items-center justify-center text-xs text-outline">
         No image
       </div>
 
@@ -28,10 +28,10 @@
 
     <div class="flex flex-1 flex-col justify-between p-3">
       <div>
-        <h3 class="mb-1 line-clamp-1 text-sm font-bold text-white">
+        <h3 class="mb-1 line-clamp-1 text-sm font-bold text-on-surface">
           {{ movie.title }}
         </h3>
-        <p class="mb-3 text-xs text-[#8e9192]">
+        <p class="mb-3 text-xs text-on-surface-variant">
           {{ movie.release_date ? movie.release_date.split('-')[0] : 'Unknown' }}
         </p>
       </div>
@@ -39,7 +39,7 @@
       <div class="flex gap-2">
         <button
           v-if="isWatched"
-          class="group flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#2a2a2a] py-2 text-xs font-bold text-[#8e9192] transition-colors hover:bg-red-500 hover:text-white"
+          class="group flex flex-1 items-center justify-center gap-1 rounded-lg bg-surface-container-high py-2 text-xs font-bold text-on-surface-variant transition-colors hover:bg-red-500 hover:text-white"
           title="Remove from watched"
           @click.stop="$emit('remove', movie)"
         >
@@ -74,7 +74,7 @@
         </button>
         <button
           v-else
-          class="flex flex-1 items-center justify-center gap-1 rounded-lg bg-white py-2 text-xs font-bold text-black transition-colors hover:bg-zinc-200"
+          class="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary py-2 text-xs font-bold text-on-primary transition-colors hover:bg-primary/90"
           @click.stop="$emit('add', movie)"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,10 +91,10 @@
           class="flex items-center justify-center rounded-lg px-2 py-2 transition-colors"
           :class="
             isWatched
-              ? 'cursor-not-allowed bg-[#2a2a2a] text-[#555858]'
+              ? 'cursor-not-allowed bg-surface-container-high text-outline'
               : isInMyList
-                ? 'bg-white text-black hover:bg-zinc-200'
-                : 'bg-[#2a2a2a] text-[#c4c7c8] hover:bg-[#343333] hover:text-white'
+                ? 'bg-primary text-on-primary hover:bg-primary/90'
+                : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
           "
           :title="
             isWatched ? 'Already in watched' : isInMyList ? 'Remove from My List' : 'Add to My List'

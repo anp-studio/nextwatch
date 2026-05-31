@@ -28,7 +28,7 @@
           <span>Filters</span>
           <span
             v-if="activeFilterCount > 0"
-            class="rounded-full border border-white/10 bg-white/10 px-1.5 py-0.5 text-[0.65rem] uppercase tracking-[0.18em]"
+            class="rounded-full border border-primary/10 bg-primary/10 px-1.5 py-0.5 text-[0.65rem] uppercase tracking-[0.18em]"
           >
             {{ activeFilterCount }}
           </span>
@@ -50,7 +50,7 @@
       >
         <label v-if="showSearch" class="relative min-w-0 flex-1">
           <span
-            class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-[#8e9192]"
+            class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-outline"
           >
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -65,13 +65,13 @@
             :value="searchQuery"
             type="text"
             :placeholder="searchPlaceholder"
-            class="h-12 w-full rounded-full bg-[#2a2a2a] pl-11 pr-10 text-sm text-white outline-none transition focus:ring-1 focus:ring-white/40"
+            class="h-12 w-full rounded-full bg-surface-container-high pl-11 pr-10 text-sm text-on-surface outline-none transition placeholder:text-outline focus:ring-1 focus:ring-primary/30"
             @input="handleSearchInput"
           />
           <button
             v-if="searchQuery"
             type="button"
-            class="absolute inset-y-0 right-3 flex items-center text-[#8e9192] transition hover:text-white"
+            class="absolute inset-y-0 right-3 flex items-center text-outline transition hover:text-on-surface"
             @click="$emit('update:searchQuery', '')"
           >
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -85,7 +85,7 @@
           </button>
         </label>
 
-        <div v-if="showSearch" class="hidden h-8 w-px bg-white/[0.08] lg:block"></div>
+        <div v-if="showSearch" class="hidden h-8 w-px bg-outline-variant lg:block"></div>
 
         <div class="flex flex-wrap items-center gap-2">
           <div class="relative" data-movie-filter-dropdown>
@@ -98,7 +98,7 @@
               <span>Genre</span>
               <span
                 v-if="selectedGenres.length > 0"
-                class="rounded-full border border-white/10 bg-white/10 px-1.5 py-0.5 text-[0.65rem] uppercase tracking-[0.18em]"
+                class="rounded-full border border-primary/10 bg-primary/10 px-1.5 py-0.5 text-[0.65rem] uppercase tracking-[0.18em]"
               >
                 {{ selectedGenres.length }}
               </span>
@@ -120,7 +120,7 @@
 
             <div
               v-if="openDropdown === 'genre'"
-              class="absolute left-0 top-[calc(100%+0.5rem)] z-30 w-64 rounded-[1.25rem] border border-[#2a2a2a] bg-[#121212] p-3 shadow-[0_18px_48px_rgb(0_0_0/0.42)]"
+              class="absolute left-0 top-[calc(100%+0.5rem)] z-30 w-64 rounded-[1.25rem] border border-outline-variant bg-surface-container-lowest p-3 shadow-glow"
             >
               <div class="max-h-64 space-y-1 overflow-y-auto pr-1">
                 <button
@@ -148,7 +148,7 @@
                   </svg>
                 </button>
               </div>
-              <p v-if="availableGenres.length === 0" class="px-2 py-3 text-sm text-[#8e9192]">
+              <p v-if="availableGenres.length === 0" class="px-2 py-3 text-sm text-outline">
                 {{ genreEmptyLabel }}
               </p>
             </div>
@@ -180,7 +180,7 @@
 
             <div
               v-if="openDropdown === 'length'"
-              class="absolute left-0 top-[calc(100%+0.5rem)] z-30 w-56 rounded-[1.25rem] border border-[#2a2a2a] bg-[#121212] p-2 shadow-[0_18px_48px_rgb(0_0_0/0.42)]"
+              class="absolute left-0 top-[calc(100%+0.5rem)] z-30 w-56 rounded-[1.25rem] border border-outline-variant bg-surface-container-lowest p-2 shadow-glow"
             >
               <button
                 type="button"
@@ -231,7 +231,7 @@
 
             <div
               v-if="openDropdown === 'rating'"
-              class="absolute left-0 top-[calc(100%+0.5rem)] z-30 w-56 rounded-[1.25rem] border border-[#2a2a2a] bg-[#121212] p-2 shadow-[0_18px_48px_rgb(0_0_0/0.42)]"
+              class="absolute left-0 top-[calc(100%+0.5rem)] z-30 w-56 rounded-[1.25rem] border border-outline-variant bg-surface-container-lowest p-2 shadow-glow"
             >
               <button
                 type="button"
@@ -280,7 +280,7 @@
 
             <div
               v-if="openDropdown === 'sort'"
-              class="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-56 rounded-[1.25rem] border border-[#2a2a2a] bg-[#121212] p-2 shadow-[0_18px_48px_rgb(0_0_0/0.42)]"
+              class="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-56 rounded-[1.25rem] border border-outline-variant bg-surface-container-lowest p-2 shadow-glow"
             >
               <button
                 v-for="option in sortOptions"
@@ -301,7 +301,7 @@
         <button
           v-if="showSearch && searchQuery.trim()"
           type="button"
-          class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-[#141313] px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-white transition hover:border-white/30"
+          class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-lowest px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-on-surface transition hover:border-primary/40"
           @click="$emit('update:searchQuery', '')"
         >
           <span>Search: {{ searchQuery.trim() }}</span>
@@ -319,7 +319,7 @@
           v-for="genre in selectedGenres"
           :key="genre"
           type="button"
-          class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-[#18181b] px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-white transition hover:border-white/30"
+          class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-lowest px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-on-surface transition hover:border-primary/40"
           @click="$emit('toggleGenre', genre)"
         >
           <span>{{ genre }}</span>
@@ -336,7 +336,7 @@
         <button
           v-if="selectedRuntime"
           type="button"
-          class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-[#141313] px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-white transition hover:border-white/30"
+          class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-lowest px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-on-surface transition hover:border-primary/40"
           @click="selectRuntime(null)"
         >
           <span>{{ selectedRuntime.label }}</span>
@@ -353,7 +353,7 @@
         <button
           v-if="minRating !== null"
           type="button"
-          class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-[#141313] px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-white transition hover:border-white/30"
+          class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-lowest px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-on-surface transition hover:border-primary/40"
           @click="selectRating(null)"
         >
           <span>{{ minRatingLabel }}</span>
@@ -369,7 +369,7 @@
 
         <button
           type="button"
-          class="inline-flex shrink-0 items-center self-center px-1 text-[0.62rem] uppercase tracking-[0.16em] text-[#8e9192] transition hover:text-white"
+          class="inline-flex shrink-0 items-center self-center px-1 text-[0.62rem] uppercase tracking-[0.16em] text-outline transition hover:text-on-surface"
           @click="$emit('clearFilters')"
         >
           Clear all
@@ -377,9 +377,9 @@
       </div>
 
       <div v-if="isLoadingMetadata" class="space-y-2 px-1">
-        <div class="flex items-center gap-2 text-xs text-[#8e9192]">
+        <div class="flex items-center gap-2 text-xs text-outline">
           <span
-            class="h-3.5 w-3.5 animate-spin rounded-full border border-white/20 border-t-white"
+            class="h-3.5 w-3.5 animate-spin rounded-full border border-outline-variant border-t-primary"
           ></span>
           <span>
             Loading movie metadata for filters... {{ metadataProgress.loaded }}/{{
@@ -387,9 +387,9 @@
             }}
           </span>
         </div>
-        <div class="h-1 overflow-hidden rounded-full bg-white/[0.06]">
+        <div class="h-1 overflow-hidden rounded-full bg-surface-container-high">
           <div
-            class="h-full rounded-full bg-white transition-[width] duration-300"
+            class="h-full rounded-full bg-primary transition-[width] duration-300"
             :style="{ width: metadataWidth }"
           />
         </div>
@@ -445,9 +445,9 @@
         >
           <div class="flex max-h-[95dvh] w-full max-w-sm flex-col overflow-hidden bg-transparent">
             <div class="flex items-center justify-between px-5 pb-2 pt-4">
-              <p class="text-sm text-[#8e9192]">{{ sortModalTitle }}</p>
+              <p class="text-sm text-outline">{{ sortModalTitle }}</p>
               <button
-                class="rounded-full p-1 text-[#8e9192] transition hover:text-white"
+                class="rounded-full p-1 text-outline transition hover:text-on-surface"
                 @click="isSortModalOpen = false"
               >
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -462,7 +462,7 @@
             </div>
 
             <div
-              class="space-y-2 rounded-[1.75rem] border border-white/[0.08] bg-[#141313] px-4 pb-4 pt-4"
+              class="space-y-2 rounded-[1.75rem] border border-outline-variant bg-surface-container-low px-4 pb-4 pt-4"
             >
               <button
                 v-for="option in sortOptions"
@@ -494,19 +494,19 @@ const SORT_MODAL_TITLE = 'Sort watchlist'
 const EMPTY_GENRE_LABEL = 'No genres available yet'
 const SURFACE_RADIUS_CLASS = 'rounded-[1.5rem]'
 const ACTIVE_CHIP_CLASS =
-  'border-white/30 bg-[#18181b] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.05)]'
+  'border-primary/10 bg-primary text-on-primary shadow-sm'
 const INACTIVE_CHIP_CLASS =
-  'border-white/[0.08] bg-[#141313] text-[#c4c7c8] hover:border-white/30 hover:text-white'
-const SELECTED_ROW_CLASS = 'bg-[#2a2a2a] text-white border-white/20'
-const INACTIVE_ROW_CLASS = 'text-[#c4c7c8] hover:bg-white/[0.06] hover:text-white'
+  'border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-primary/40 hover:text-on-surface'
+const SELECTED_ROW_CLASS = 'border-outline-variant bg-surface-container-high text-on-surface'
+const INACTIVE_ROW_CLASS = 'border-transparent text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
 const MOBILE_ACTION_ACTIVE_CLASS =
-  'border-white/30 bg-[#262525] text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]'
+  'border-primary/10 bg-surface-container-high text-on-surface shadow-glow'
 const MOBILE_ACTION_INACTIVE_CLASS =
-  'border-white/[0.08] bg-[#1f1e1e] text-[#c4c7c8] shadow-[0_10px_24px_rgba(0,0,0,0.18)] hover:border-white/30 hover:bg-[#282727] hover:text-white'
+  'border-outline-variant bg-surface-container-low text-on-surface-variant shadow-sm hover:border-primary/40 hover:bg-surface-container-high hover:text-on-surface'
 const MOBILE_SORT_ACTIVE_CLASS =
-  'border-white/20 bg-[#292727] text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]'
+  'border-outline-variant bg-surface-container-high text-on-surface shadow-glow'
 const MOBILE_SORT_INACTIVE_CLASS =
-  'border-white/[0.08] bg-[#202020] text-[#c4c7c8] shadow-[0_10px_24px_rgba(0,0,0,0.18)] hover:border-white/30 hover:bg-[#292828] hover:text-white'
+  'border-outline-variant bg-surface-container-low text-on-surface-variant shadow-sm hover:border-primary/40 hover:bg-surface-container-high hover:text-on-surface'
 const MOBILE_BREAKPOINT_QUERY = '(max-width: 449px)'
 
 interface RatingOption {
@@ -584,7 +584,7 @@ const filterSurfaceClass = computed(() => {
     return 'bg-transparent p-0'
   }
 
-  return `border border-white/[0.08] bg-[#1c1b1b] p-2.5 sm:p-2.5 ${surfaceRadiusClass}`
+  return `border border-outline-variant bg-surface-container-low p-2.5 sm:p-2.5 ${surfaceRadiusClass}`
 })
 
 const sortOptions = computed(() => {

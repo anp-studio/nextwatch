@@ -15,14 +15,14 @@
 
       <div
         v-else-if="!isAuthenticated"
-        class="mx-auto flex w-full max-w-md flex-1 flex-col justify-center pt-16 text-center text-zinc-400"
+        class="mx-auto flex w-full max-w-md flex-1 flex-col justify-center pt-16 text-center text-on-surface-variant"
       >
-        <p class="mb-2 text-2xl font-semibold text-white">Sign in to get recommendations</p>
-        <p class="mb-8 text-[12px] uppercase tracking-[0.24em] text-zinc-500">
+        <p class="mb-2 text-2xl font-semibold text-on-background">Sign in to get recommendations</p>
+        <p class="mb-8 text-[12px] uppercase tracking-[0.24em] text-on-surface-variant">
           We'll suggest movies based on what you've watched.
         </p>
         <button
-          class="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 font-semibold text-black transition-colors hover:bg-zinc-200"
+          class="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-on-primary transition-colors hover:bg-primary/90"
           @click="showLoginModal = true"
         >
           Sign in
@@ -31,9 +31,9 @@
 
       <div
         v-else-if="showBlockingRecommendationFailure"
-        class="mx-auto max-w-md pt-16 text-center text-zinc-400"
+        class="mx-auto max-w-md pt-16 text-center text-on-surface-variant"
       >
-        <p v-if="isLimitReachedFailure" class="mb-2 text-2xl font-semibold text-white">
+        <p v-if="isLimitReachedFailure" class="mb-2 text-2xl font-semibold text-on-background">
           Daily limit reached
         </p>
         <AlertMessage type="error" :message="recommendationFailureMessage" />
@@ -43,7 +43,7 @@
         >
           <button
             v-if="canLoadPreviousRecommendations"
-            class="inline-flex items-center gap-2 rounded-full border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 transition-colors hover:border-white hover:text-white disabled:opacity-50"
+            class="inline-flex items-center gap-2 rounded-full border border-outline-variant px-4 py-2 text-sm font-semibold text-on-surface transition-colors hover:border-primary/40 hover:text-on-background disabled:opacity-50"
             :disabled="pending"
             @click="loadPreviousRecommendations"
           >
@@ -51,7 +51,7 @@
           </button>
           <button
             v-if="canRetryRecommendations"
-            class="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 font-semibold text-black transition-colors hover:bg-zinc-200 disabled:opacity-50"
+            class="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-on-primary transition-colors hover:bg-primary/90 disabled:opacity-50"
             :disabled="pending || retrySecondsLeft > 0"
             @click="retryRecommendations"
           >
@@ -62,31 +62,31 @@
 
       <div
         v-else-if="showRecommendationEmptyState"
-        class="mx-auto flex min-h-0 flex-1 flex-col items-center justify-center text-center text-zinc-400"
+        class="mx-auto flex min-h-0 flex-1 flex-col items-center justify-center text-center text-on-surface-variant"
       >
-        <p class="mb-2 text-2xl font-semibold text-white">You're all caught up</p>
-        <p class="mb-6 text-sm uppercase tracking-[0.24em] text-zinc-500">
+        <p class="mb-2 text-2xl font-semibold text-on-background">You're all caught up</p>
+        <p class="mb-6 text-sm uppercase tracking-[0.24em] text-on-surface-variant">
           Ready for another round?
         </p>
         <div
           class="flex w-full max-w-md items-center justify-center gap-3 max-[720px]:flex-col max-[720px]:[&>button]:w-full max-[390px]:flex-col max-[390px]:[&>button]:w-full"
         >
           <button
-            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-200 transition-colors hover:border-white hover:text-white disabled:opacity-50"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-outline-variant px-3 py-2 text-sm font-semibold text-on-surface transition-colors hover:border-primary/40 hover:text-on-background disabled:opacity-50"
             :disabled="pending"
             @click="resetMovies"
           >
             Start Over
           </button>
           <button
-            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-200 transition-colors hover:border-white hover:text-white disabled:opacity-50"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-outline-variant px-3 py-2 text-sm font-semibold text-on-surface transition-colors hover:border-primary/40 hover:text-on-background disabled:opacity-50"
             :disabled="pending"
             @click="refreshMovies"
           >
             Refresh
           </button>
           <button
-            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-zinc-200 disabled:opacity-50"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary/90 disabled:opacity-50"
             :disabled="pending"
             @click="getNewMovies"
           >
@@ -124,7 +124,7 @@
               >
                 <div
                   v-if="showInlineRecommendationFailure"
-                  class="w-full text-center text-zinc-400"
+                  class="w-full text-center text-on-surface-variant"
                 >
                   <AlertMessage type="error" :message="recommendationFailureMessage" />
                   <div
@@ -133,7 +133,7 @@
                   >
                     <button
                       v-if="canLoadPreviousRecommendations"
-                      class="inline-flex items-center gap-2 rounded-full border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 transition-colors hover:border-white hover:text-white disabled:opacity-50"
+                      class="inline-flex items-center gap-2 rounded-full border border-outline-variant px-4 py-2 text-sm font-semibold text-on-surface transition-colors hover:border-primary/40 hover:text-on-background disabled:opacity-50"
                       :disabled="pending"
                       @click="loadPreviousRecommendations"
                     >
@@ -141,7 +141,7 @@
                     </button>
                     <button
                       v-if="canRetryRecommendations"
-                      class="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-semibold text-black transition-colors hover:bg-zinc-200 disabled:opacity-50"
+                      class="inline-flex items-center gap-2 rounded-full bg-primary px-3 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary/90 disabled:opacity-50"
                       :disabled="pending || retrySecondsLeft > 0"
                       @click="retryRecommendations"
                     >
@@ -182,7 +182,7 @@
               />
               <div
                 v-else
-                class="flex h-full min-h-0 items-center justify-center rounded-[1.75rem] border border-zinc-800 bg-zinc-950 px-8 text-center text-zinc-500 shadow-2xl"
+                class="flex h-full min-h-0 items-center justify-center rounded-[1.75rem] border border-outline-variant bg-surface-container-low px-8 text-center text-on-surface-variant shadow-glow"
               >
                 Movie details are unavailable for this title.
               </div>
@@ -197,14 +197,14 @@
     <Transition name="fade">
       <div
         v-if="undoAction"
-        class="fixed left-1/2 top-6 z-50 flex max-w-sm -translate-x-1/2 items-center gap-3 rounded-full border border-zinc-800 bg-black px-5 py-3 text-zinc-200 shadow-glow"
+        class="fixed left-1/2 top-6 z-50 flex max-w-sm -translate-x-1/2 items-center gap-3 rounded-full border border-outline-variant bg-surface-container-lowest px-5 py-3 text-on-surface shadow-glow"
       >
         <span class="truncate text-sm">
           <strong>{{ undoAction.movie.title }}</strong>
           {{ undoAction.type === 'watched' ? 'marked as watched' : 'added to watchlist' }}
         </span>
         <button
-          class="whitespace-nowrap text-sm font-semibold text-white transition-colors hover:text-zinc-300"
+          class="whitespace-nowrap text-sm font-semibold text-on-surface transition-colors hover:text-on-surface-variant"
           @click="handleUndo"
         >
           Undo

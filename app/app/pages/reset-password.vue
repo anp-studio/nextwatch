@@ -1,14 +1,14 @@
 <template>
   <div
-    class="flex-1 flex flex-col justify-center items-center h-full p-4 w-full bg-gray-50 dark:bg-gray-900"
+    class="flex h-full w-full flex-1 flex-col items-center justify-center bg-background p-4"
   >
     <div
-      class="auth-card-enter w-full max-w-md bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 flex flex-col gap-4"
+      class="auth-card-enter flex w-full max-w-md flex-col gap-4 rounded-2xl border border-outline-variant bg-surface-container-low p-8 shadow-glow"
     >
       <Transition name="auth-switch" mode="out-in">
         <div :key="resetStep" class="text-center mb-6">
-          <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Reset Password</h2>
-          <p class="text-gray-500 dark:text-gray-400 text-sm">
+          <h2 class="mb-2 text-3xl font-bold text-on-surface">Reset Password</h2>
+          <p class="text-sm text-on-surface-variant">
             {{ resetStepDescription }}
           </p>
         </div>
@@ -25,12 +25,12 @@
           @submit.prevent="verifyOtpCode"
         >
           <div
-            class="w-full bg-gray-100 dark:bg-gray-700 rounded-xl py-3 px-4 text-left border border-transparent"
+            class="w-full rounded-xl border border-transparent bg-surface-container px-4 py-3 text-left"
           >
-            <span class="block text-xs font-semibold uppercase text-gray-400 dark:text-gray-500">
+            <span class="block text-xs font-semibold uppercase text-outline">
               Email address
             </span>
-            <span class="block text-gray-900 dark:text-white truncate">
+            <span class="block truncate text-on-surface">
               {{ email || 'No email address found' }}
             </span>
           </div>
@@ -42,15 +42,15 @@
             autocomplete="one-time-code"
             placeholder="Reset code"
             required
-            class="w-full bg-gray-100 dark:bg-gray-700 dark:text-white rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+            class="w-full rounded-xl bg-surface-container px-4 py-3 text-on-surface outline-none transition-all placeholder:text-outline focus:ring-2 focus:ring-primary/20"
           />
 
           <button
             type="submit"
             :disabled="isLoading || !email"
-            class="btn-press w-full bg-rose-500 text-white rounded-xl py-3 px-6 font-semibold hover:bg-rose-600 transition-colors shadow-md mt-2 flex justify-center items-center h-12 disabled:opacity-70"
+            class="btn-press mt-2 flex h-12 w-full items-center justify-center rounded-xl bg-primary px-6 py-3 font-semibold text-on-primary transition-colors hover:bg-primary/90 disabled:opacity-70"
           >
-            <LoadingSpinner v-if="isLoading" size="h-5 w-5" color="text-white" />
+            <LoadingSpinner v-if="isLoading" size="h-5 w-5" color="text-on-primary" />
             <span v-else>Verify Code</span>
           </button>
         </form>
@@ -67,7 +67,7 @@
             autocomplete="new-password"
             placeholder="New password"
             required
-            class="w-full bg-gray-100 dark:bg-gray-700 dark:text-white rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+            class="w-full rounded-xl bg-surface-container px-4 py-3 text-on-surface outline-none transition-all placeholder:text-outline focus:ring-2 focus:ring-primary/20"
           />
 
           <input
@@ -76,15 +76,15 @@
             autocomplete="new-password"
             placeholder="Confirm new password"
             required
-            class="w-full bg-gray-100 dark:bg-gray-700 dark:text-white rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+            class="w-full rounded-xl bg-surface-container px-4 py-3 text-on-surface outline-none transition-all placeholder:text-outline focus:ring-2 focus:ring-primary/20"
           />
 
           <button
             type="submit"
             :disabled="isLoading"
-            class="btn-press w-full bg-rose-500 text-white rounded-xl py-3 px-6 font-semibold hover:bg-rose-600 transition-colors shadow-md mt-2 flex justify-center items-center h-12 disabled:opacity-70"
+            class="btn-press mt-2 flex h-12 w-full items-center justify-center rounded-xl bg-primary px-6 py-3 font-semibold text-on-primary transition-colors hover:bg-primary/90 disabled:opacity-70"
           >
-            <LoadingSpinner v-if="isLoading" size="h-5 w-5" color="text-white" />
+            <LoadingSpinner v-if="isLoading" size="h-5 w-5" color="text-on-primary" />
             <span v-else>Update Password</span>
           </button>
         </form>
@@ -93,7 +93,7 @@
       <div class="mt-4 flex flex-col items-center gap-3 text-sm">
         <NuxtLink
           to="/profile?auth=login"
-          class="text-gray-500 hover:text-rose-500 transition-colors flex items-center gap-1"
+          class="flex items-center gap-1 text-on-surface-variant transition-colors hover:text-on-surface"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path

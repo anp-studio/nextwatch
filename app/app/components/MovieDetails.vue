@@ -35,12 +35,12 @@
           />
         </div>
 
-        <div class="overflow-y-auto p-6 text-white">
+        <div class="overflow-y-auto p-6 text-on-surface">
           <h2 class="mb-2 text-2xl font-bold tracking-[-0.03em] sm:text-3xl">
             {{ activeMovie.title }}
           </h2>
 
-          <div class="mb-4 flex flex-wrap items-center gap-3 text-sm text-zinc-400">
+          <div class="mb-4 flex flex-wrap items-center gap-3 text-sm text-on-surface-variant">
             <span v-if="activeMovie.year">{{ activeMovie.year }}</span>
             <span v-if="activeMovie.duration && activeMovie.duration !== 'N/A'">
               {{ activeMovie.duration }}
@@ -67,31 +67,31 @@
             <span
               v-for="genre in activeMovie.genres"
               :key="genre"
-              class="rounded-full border border-zinc-800 bg-zinc-900/60 px-3 py-1 text-xs font-semibold tracking-[0.16em] text-zinc-400"
+              class="rounded-full border border-outline-variant bg-surface-container px-3 py-1 text-xs font-semibold tracking-[0.16em] text-on-surface-variant"
             >
               {{ genre }}
             </span>
           </div>
 
           <div v-if="activeMovie.directors?.length" class="mb-4">
-            <h3 class="mb-1 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+            <h3 class="mb-1 text-sm font-semibold uppercase tracking-wide text-on-surface-variant">
               {{ activeMovie.directors.length > 1 ? 'Directors' : 'Director' }}
             </h3>
-            <p class="text-sm text-zinc-300">{{ activeMovie.directors.join(', ') }}</p>
+            <p class="text-sm text-on-surface-variant">{{ activeMovie.directors.join(', ') }}</p>
           </div>
 
           <div v-if="activeMovie.actors?.length" class="mb-4">
-            <h3 class="mb-1 text-sm font-semibold uppercase tracking-wide text-zinc-500">Cast</h3>
-            <p class="text-sm text-zinc-300">{{ activeMovie.actors.join(', ') }}</p>
+            <h3 class="mb-1 text-sm font-semibold uppercase tracking-wide text-on-surface-variant">Cast</h3>
+            <p class="text-sm text-on-surface-variant">{{ activeMovie.actors.join(', ') }}</p>
           </div>
 
-          <p class="leading-relaxed text-zinc-300">{{ activeMovie.description }}</p>
+          <p class="leading-relaxed text-on-surface-variant">{{ activeMovie.description }}</p>
 
           <div v-if="showAddButton" class="mt-6 flex flex-col gap-3">
             <div class="flex gap-3">
               <button
                 v-if="isWatched"
-                class="group btn-press flex flex-1 items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900 py-3 text-sm font-bold text-zinc-400 transition-colors hover:border-white hover:bg-black hover:text-white"
+                class="group btn-press flex flex-1 items-center justify-center gap-2 rounded-xl border border-outline-variant bg-surface-container py-3 text-sm font-bold text-on-surface-variant transition-colors hover:border-primary/40 hover:bg-surface-container-lowest hover:text-on-surface"
                 title="Remove from watched"
                 @click="$emit('remove')"
               >
@@ -126,7 +126,7 @@
               </button>
               <button
                 v-else
-                class="btn-press flex flex-1 items-center justify-center gap-2 rounded-xl bg-white py-3 text-sm font-bold text-black transition-colors hover:bg-zinc-200"
+                class="btn-press flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-on-primary transition-colors hover:bg-primary/90"
                 @click="$emit('add')"
               >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -144,8 +144,8 @@
                 class="btn-press flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-colors"
                 :class="
                   isInMyList
-                    ? 'bg-white text-black hover:bg-zinc-200'
-                    : 'border border-zinc-800 bg-zinc-900 text-zinc-500 hover:border-white hover:text-white'
+                    ? 'bg-primary text-on-primary hover:bg-primary/90'
+                    : 'border border-outline-variant bg-surface-container text-on-surface-variant hover:border-primary/40 hover:text-on-surface'
                 "
                 :title="isInMyList ? 'Remove from My List' : 'Add to My List'"
                 @click="$emit('toggle-mylist')"
@@ -196,13 +196,13 @@ const rootClasses = computed(() =>
 )
 const panelClasses = computed(() =>
   isInline.value
-    ? 'relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[1.75rem] border border-zinc-800 bg-zinc-950 shadow-2xl'
-    : 'relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl'
+    ? 'relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[1.75rem] border border-outline-variant bg-surface-container-low shadow-glow'
+    : 'relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-low shadow-glow'
 )
 const mediaClasses = computed(() =>
   isInline.value
-    ? 'relative w-full flex-shrink-0 bg-black pt-[48%] xl:pt-[44%]'
-    : 'relative w-full flex-shrink-0 bg-black pt-[56.25%]'
+    ? 'relative w-full flex-shrink-0 bg-surface-container-high pt-[48%] xl:pt-[44%]'
+    : 'relative w-full flex-shrink-0 bg-surface-container-high pt-[56.25%]'
 )
 const showPanel = ref(false)
 
