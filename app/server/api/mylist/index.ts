@@ -7,6 +7,7 @@ interface HydratedMovie {
   title: string
   year: number
   posterPath: string
+  rating?: number | null
   genres?: string[]
   runtime?: number | null
 }
@@ -18,6 +19,7 @@ interface MovieRow {
   release_date: string
   runtime: number
   genres: string[]
+  vote_average: number
 }
 
 const USER_MY_LIST_TABLE = 'user_my_list'
@@ -67,6 +69,10 @@ function toHydratedMovie(row: MovieRow): HydratedMovie {
     posterPath: row.poster_path,
   }
 
+  if (row.vote_average > 0) {
+    movie.rating = row.vote_average
+  }
+
   if (row.genres.length > 0) {
     movie.genres = row.genres
   }
@@ -89,7 +95,7 @@ async function hydrateMovies(
 
   const { data, error } = await supabase
     .from(MOVIES_TABLE)
-    .select('tmdb_id, title, poster_path, release_date, runtime, genres')
+    .select('tmdb_id, title, poster_path, release_date, runtime, genres, vote_average')
     .in('tmdb_id', tmdbIds)
 
   if (error) {

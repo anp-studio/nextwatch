@@ -1,24 +1,14 @@
-import type { WatchedMovie } from '~/types/movie'
-
-export type SortOption = 'default' | 'title-asc' | 'title-desc' | 'year-desc' | 'year-asc'
-
-export interface RuntimeRange {
-  label: string
-  min: number
-  max: number
-}
+import type { MyListMovie } from '~/types/movie'
+import {
+  RUNTIME_RANGES,
+  type RuntimeRange,
+  type SortOption,
+} from '~/composables/useWatchedFilters'
 
 const METADATA_BATCH_SIZE = 5
-const DEFAULT_SORT: SortOption = 'default'
+const SEARCH_RESULT_SORT_DEFAULT: SortOption = 'default'
 
-export const RUNTIME_RANGES: RuntimeRange[] = [
-  { label: 'Under 90 min', min: 0, max: 89 },
-  { label: '90-120 min', min: 90, max: 120 },
-  { label: '120-150 min', min: 120, max: 150 },
-  { label: 'Over 150 min', min: 151, max: Infinity },
-]
-
-export const WATCHED_SORT_LABELS: Record<SortOption, string> = {
+export const MY_LIST_SORT_LABELS: Record<SortOption, string> = {
   default: 'Default',
   'title-asc': 'Title A-Z',
   'title-desc': 'Title Z-A',
@@ -26,30 +16,30 @@ export const WATCHED_SORT_LABELS: Record<SortOption, string> = {
   'year-asc': 'Oldest first',
 }
 
-export const useWatchedFilters = (watchedMovies: Ref<WatchedMovie[]>) => {
+export const useMyListFilters = (myList: Ref<MyListMovie[]>) => {
   const { getMovieDetails } = useMovieDetails()
 
   const searchQuery = ref('')
   const selectedGenres = ref<string[]>([])
   const selectedRuntime = ref<RuntimeRange | null>(null)
-  const sortBy = ref<SortOption>(DEFAULT_SORT)
+  const sortBy = ref<SortOption>(SEARCH_RESULT_SORT_DEFAULT)
 
   const enrichedMap = ref<Record<number, { genres: string[]; runtime: number | null }>>({})
   const isLoadingMetadata = ref(false)
   const metadataProgress = ref({ loaded: 0, total: 0 })
 
-  const getGenres = (movie: WatchedMovie): string[] => {
+  const getGenres = (movie: MyListMovie): string[] => {
     return movie.genres ?? enrichedMap.value[movie.tmdbId]?.genres ?? []
   }
 
-  const getRuntime = (movie: WatchedMovie): number | null => {
+  const getRuntime = (movie: MyListMovie): number | null => {
     return movie.runtime ?? enrichedMap.value[movie.tmdbId]?.runtime ?? null
   }
 
   const availableGenres = computed(() => {
     const genreSet = new Set<string>()
 
-    for (const movie of watchedMovies.value) {
+    for (const movie of myList.value) {
       for (const genre of getGenres(movie)) {
         genreSet.add(genre)
       }
@@ -59,7 +49,7 @@ export const useWatchedFilters = (watchedMovies: Ref<WatchedMovie[]>) => {
   })
 
   const filteredMovies = computed(() => {
-    let result = [...watchedMovies.value]
+    let result = [...myList.value]
 
     if (searchQuery.value.trim()) {
       const normalizedQuery = searchQuery.value.trim().toLowerCase()
@@ -86,7 +76,7 @@ export const useWatchedFilters = (watchedMovies: Ref<WatchedMovie[]>) => {
       })
     }
 
-    if (sortBy.value !== DEFAULT_SORT) {
+    if (sortBy.value !== SEARCH_RESULT_SORT_DEFAULT) {
       result.sort((firstMovie, secondMovie) => {
         switch (sortBy.value) {
           case 'title-asc':
@@ -111,7 +101,7 @@ export const useWatchedFilters = (watchedMovies: Ref<WatchedMovie[]>) => {
       searchQuery.value.trim() !== '' ||
       selectedGenres.value.length > 0 ||
       selectedRuntime.value !== null ||
-      sortBy.value !== DEFAULT_SORT
+      sortBy.value !== SEARCH_RESULT_SORT_DEFAULT
     )
   })
 
@@ -119,7 +109,7 @@ export const useWatchedFilters = (watchedMovies: Ref<WatchedMovie[]>) => {
     searchQuery.value = ''
     selectedGenres.value = []
     selectedRuntime.value = null
-    sortBy.value = DEFAULT_SORT
+    sortBy.value = SEARCH_RESULT_SORT_DEFAULT
   }
 
   const toggleGenre = (genre: string) => {
@@ -134,7 +124,7 @@ export const useWatchedFilters = (watchedMovies: Ref<WatchedMovie[]>) => {
   }
 
   const fetchMissingMetadata = async () => {
-    const missingMovies = watchedMovies.value.filter(
+    const missingMovies = myList.value.filter(
       (movie) => !movie.genres?.length && !enrichedMap.value[movie.tmdbId]
     )
 
@@ -184,8 +174,6 @@ export const useWatchedFilters = (watchedMovies: Ref<WatchedMovie[]>) => {
     sortBy,
     availableGenres,
     filteredMovies,
-    getGenres,
-    getRuntime,
     hasActiveFilters,
     isLoadingMetadata,
     metadataProgress,

@@ -1,73 +1,99 @@
 <template>
-  <div class="p-4 pt-6 pb-20 text-gray-900 dark:text-white h-full overflow-y-auto">
-    <div class="flex justify-between items-end mb-4">
-      <h1 class="text-3xl font-bold">My List</h1>
-      <span class="text-gray-400 text-sm">{{ myList.length }} movies</span>
-    </div>
+  <div
+    class="h-full min-h-0 overflow-y-auto bg-background px-4 pb-24 pt-6 text-on-background sm:px-6 lg:px-8"
+  >
+    <div class="mx-auto flex w-full max-w-7xl flex-col gap-8">
+      <section class="flex flex-col gap-6">
+        <div
+          class="flex flex-col gap-4 border-l-2 border-primary pl-4 sm:flex-row sm:items-end sm:justify-between"
+        >
+          <div class="space-y-2">
+            <div class="space-y-2">
+              <h1
+                class="text-3xl font-semibold uppercase tracking-[-0.04em] text-on-background sm:text-3xl"
+              >
+                Your Watchlist
+              </h1>
+            </div>
+          </div>
 
-    <div v-if="myList.length === 0" class="text-center text-gray-500 mt-20">
-      <p>You haven't added any movies to your list yet.</p>
-      <NuxtLink to="/" class="text-rose-500 mt-2 inline-block">Go to Home</NuxtLink>
-    </div>
+          <div
+            class="inline-flex w-fit items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-[0.7rem] font-semibold uppercase tracking-[0.26em] text-on-surface-variant"
+          >
+            <span class="h-2 w-2 rounded-full bg-primary"></span>
+            {{ movieCountLabel }}
+          </div>
+        </div>
 
-    <div v-else class="space-y-3">
-      <div
-        v-for="movie in myList"
-        :key="movie.tmdbId"
-        class="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-3 gap-3 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-750 transition-colors"
-        @click="openDetails(movie.tmdbId)"
-      >
-        <img
-          :src="posterUrl(movie.posterPath)"
-          class="w-20 h-28 object-cover rounded-lg flex-shrink-0"
+        <MovieFilterBarHorizontal
+          v-if="hasMovies"
+          :search-query="searchQuery"
+          :selected-genres="selectedGenres"
+          :selected-runtime="selectedRuntime"
+          :sort-by="sortBy"
+          :available-genres="availableGenres"
+          :runtime-ranges="RUNTIME_RANGES"
+          :has-active-filters="hasActiveFilters"
+          :filtered-count="filteredMovies.length"
+          :total-count="myList.length"
+          :is-loading-metadata="isLoadingMetadata"
+          :metadata-progress="metadataProgress"
+          @update:search-query="searchQuery = $event"
+          @update:selected-runtime="selectedRuntime = $event"
+          @update:sort-by="sortBy = $event"
+          @toggle-genre="toggleGenre"
+          @clear-filters="clearFilters"
         />
-        <div class="flex flex-col justify-center flex-1 min-w-0">
-          <h3 class="font-bold text-lg leading-tight">{{ movie.title }}</h3>
-          <p class="text-sm text-gray-400 mt-0.5">{{ movie.year }}</p>
+
+        <div
+          v-if="!hasMovies"
+          class="rounded-[1.75rem] border border-dashed border-outline-variant bg-surface-container-low px-6 py-14 text-center shadow-glow"
+        >
+          <p class="text-2xl font-semibold text-on-background">Your watchlist is empty</p>
+          <NuxtLink
+            to="/"
+            class="mt-8 inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-on-primary transition-colors hover:bg-primary/90"
+          >
+            Go to Recommendations
+          </NuxtLink>
         </div>
-        <div class="flex flex-col justify-center gap-2 flex-shrink-0">
+
+        <div
+          v-else-if="!hasFilteredMovies"
+          class="rounded-[1.75rem] border border-dashed border-outline-variant bg-surface-container-low px-6 py-14 text-center shadow-glow"
+        >
+          <p class="text-2xl font-semibold text-on-background">No movies match these filters</p>
           <button
-            class="px-3 py-2 text-xs font-semibold border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-full transition-colors flex items-center gap-1"
-            title="Mark as Watched"
-            @click.stop="handleMarkWatched(movie)"
+            class="mt-8 inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-on-primary transition-colors hover:bg-primary/90"
+            @click="clearFilters"
           >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-              />
-            </svg>
-            Watched
-          </button>
-          <button
-            class="px-3 py-2 text-xs font-medium text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center justify-center gap-1"
-            title="Remove from My List"
-            @click.stop="handleRemove(movie)"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="w-4 h-4"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                clip-rule="evenodd"
-              />
-            </svg>
-            Remove
+            Clear Filters
           </button>
         </div>
-      </div>
+
+        <TransitionGroup
+          v-else
+          name="watchlist"
+          tag="div"
+          class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-2 md:grid-cols-3 md:gap-x-6 md:gap-y-10 lg:grid-cols-4 xl:grid-cols-5"
+          move-class="transition-transform duration-[280ms] ease-in-out"
+          leave-active-class="absolute transition duration-[280ms] ease-in-out"
+          leave-to-class="scale-[0.96] opacity-0"
+          @before-enter="onBeforeEnter"
+          @enter="onEnter"
+          @leave="onLeave"
+        >
+          <MyListMovieCard
+            v-for="(movie, index) in filteredMovies"
+            :key="movie.tmdbId"
+            :movie="movie"
+            :data-index="index"
+            @open="openDetails"
+            @mark-watched="handleMarkWatched"
+            @remove="handleRemove"
+          />
+        </TransitionGroup>
+      </section>
     </div>
 
     <MovieDetails
@@ -77,17 +103,22 @@
       @close="selectedMovie = null"
     />
 
-    <Transition name="fade">
+    <Transition
+      enter-active-class="transition-opacity duration-300 ease-out"
+      enter-from-class="opacity-0"
+      leave-active-class="transition-opacity duration-300 ease-in"
+      leave-to-class="opacity-0"
+    >
       <div
         v-if="undoAction"
-        class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-white dark:bg-gray-700 text-gray-800 dark:text-white rounded-full px-5 py-3 shadow-lg border border-gray-200 dark:border-transparent flex items-center gap-3 max-w-sm"
+        class="fixed left-1/2 top-6 z-50 flex max-w-sm -translate-x-1/2 items-center gap-3 rounded-full border border-outline-variant bg-surface-container-lowest px-5 py-3 text-on-surface shadow-glow"
       >
-        <span class="text-sm truncate">
+        <span class="truncate text-sm">
           <strong>{{ undoAction.movie.title }}</strong>
-          {{ undoAction.type === 'watched' ? 'marked as watched' : 'removed from My List' }}
+          {{ undoAction.type === 'watched' ? 'marked as watched' : 'removed from watchlist' }}
         </span>
         <button
-          class="text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 font-semibold text-sm whitespace-nowrap transition-colors"
+          class="whitespace-nowrap text-sm font-semibold text-on-surface transition-colors hover:text-on-surface-variant"
           @click="handleUndo"
         >
           Undo
@@ -100,45 +131,102 @@
 <script setup lang="ts">
 import type { Movie, MyListMovie } from '~/types/movie'
 
+const UNDO_TIMEOUT_MS = 5000
+
 const { myList, removeFromMyList, addToMyList } = useMyList()
 const { markAsWatched, removeFromWatched } = useWatchedMovies()
 const { getMovieDetails: fetchMovieDetails } = useMovieDetails()
+const {
+  searchQuery,
+  selectedGenres,
+  selectedRuntime,
+  sortBy,
+  availableGenres,
+  filteredMovies,
+  hasActiveFilters,
+  isLoadingMetadata,
+  metadataProgress,
+  clearFilters,
+  toggleGenre,
+  fetchMissingMetadata,
+  RUNTIME_RANGES,
+} = useMyListFilters(myList)
+
 const selectedMovie = ref<Movie | null>(null)
 const undoAction = ref<{ movie: MyListMovie; type: 'watched' | 'removed' } | null>(null)
+const hasMovies = computed(() => myList.value.length > 0)
+const hasFilteredMovies = computed(() => filteredMovies.value.length > 0)
+const movieCountLabel = computed(() => {
+  const count = myList.value.length
+  const noun = count === 1 ? 'item' : 'items'
+
+  if (!hasActiveFilters.value) {
+    return `${count} ${noun}`
+  }
+
+  const filteredCount = filteredMovies.value.length
+  return `${filteredCount} of ${count} ${noun}`
+})
+
 let undoTimer: ReturnType<typeof setTimeout> | null = null
 
 const dismissUndo = () => {
-  if (undoTimer) clearTimeout(undoTimer)
+  if (undoTimer) {
+    clearTimeout(undoTimer)
+  }
+
   undoTimer = null
   undoAction.value = null
 }
 
+const showUndo = (movie: MyListMovie, type: 'watched' | 'removed') => {
+  dismissUndo()
+  undoAction.value = { movie: { ...movie }, type }
+  undoTimer = setTimeout(dismissUndo, UNDO_TIMEOUT_MS)
+}
+
 const handleRemove = async (movie: MyListMovie) => {
   dismissUndo()
-  await removeFromMyList(movie.tmdbId)
-  undoAction.value = { movie: { ...movie }, type: 'removed' }
-  undoTimer = setTimeout(dismissUndo, 5000)
+  const status = await removeFromMyList(movie.tmdbId)
+
+  if (status !== 'ok') {
+    return
+  }
+
+  showUndo(movie, 'removed')
 }
 
 const handleMarkWatched = async (movie: MyListMovie) => {
   dismissUndo()
-  await markAsWatched({
+  const status = await markAsWatched({
     id: movie.tmdbId,
     title: movie.title,
     year: movie.year,
     poster: movie.posterPath,
   })
-  undoAction.value = { movie: { ...movie }, type: 'watched' }
-  undoTimer = setTimeout(dismissUndo, 5000)
+
+  if (status !== 'ok') {
+    return
+  }
+
+  showUndo(movie, 'watched')
 }
 
 const handleUndo = async () => {
   const action = undoAction.value
-  if (!action) return
+
+  if (!action) {
+    return
+  }
+
   dismissUndo()
 
   if (action.type === 'watched') {
-    await removeFromWatched(action.movie.tmdbId)
+    const status = await removeFromWatched(action.movie.tmdbId)
+
+    if (status !== 'ok') {
+      return
+    }
   }
 
   await addToMyList({
@@ -158,15 +246,42 @@ const openDetails = async (tmdbId: number) => {
     // Leave the modal closed when details cannot be loaded.
   }
 }
-</script>
 
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
+const onBeforeEnter = (element: Element) => {
+  const htmlElement = element as HTMLElement
+  htmlElement.style.opacity = '0'
+  htmlElement.style.transform = 'translateY(24px)'
 }
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+
+const onEnter = (element: Element, done: () => void) => {
+  const htmlElement = element as HTMLElement
+  const delay = Math.min(Number(htmlElement.dataset.index ?? 0) * 45, 360)
+
+  htmlElement.style.transition = `opacity 280ms ease ${delay}ms, transform 280ms ease ${delay}ms`
+  void htmlElement.offsetHeight
+  htmlElement.style.opacity = '1'
+  htmlElement.style.transform = 'translateY(0)'
+
+  setTimeout(done, 280 + delay)
 }
-</style>
+
+const onLeave = (_element: Element, done: () => void) => {
+  done()
+}
+
+onMounted(() => {
+  if (myList.value.length > 0) {
+    fetchMissingMetadata()
+  }
+})
+
+// Refetch detail metadata when new watchlist items arrive so filters stay accurate.
+watch(
+  () => myList.value.length,
+  (newLength, previousLength) => {
+    if (newLength > previousLength) {
+      fetchMissingMetadata()
+    }
+  }
+)
+</script>

@@ -54,6 +54,7 @@ interface MovieResponse {
   id: number
   title: string
   poster: string
+  backdrop: string
   rating: number
   year: number
   duration: string
@@ -152,6 +153,7 @@ function toMovieResponse(row: MovieRow): MovieResponse {
     id: row.tmdb_id,
     title: row.title,
     poster: row.poster_path ? `${IMAGE_BASE}${row.poster_path}` : '',
+    backdrop: row.backdrop_path ? `${IMAGE_BASE}${row.backdrop_path}` : '',
     rating: Math.round(row.vote_average * 10) / 10,
     year: parseYear(row.release_date),
     duration: runtime ? formatDuration(runtime) : 'N/A',

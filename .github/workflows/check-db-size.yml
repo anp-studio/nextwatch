@@ -40,5 +40,5 @@ jobs:
       - name: Warn if over 80%
         if: ${{ fromJson(steps.dbsize.outputs.used_pct) >= 80 }}
         run: |
-          echo "::error::Baza je na ${{ steps.dbsize.outputs.used_pct }}% kapaciteta!"
+          echo "::warning::Database is at ${{ steps.dbsize.outputs.used_pct }}% capacity (>= 80%)!"
           exit 1

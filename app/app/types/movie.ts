@@ -51,6 +51,7 @@ export interface Movie {
   id: number
   title: string
   poster: string
+  backdrop: string
   rating: number
   year: number
   duration: string
@@ -104,6 +105,7 @@ export interface MyListMovie {
   title: string
   year: number
   posterPath: string
+  rating?: number | null
   genres?: string[]
   runtime?: number | null
 }
@@ -113,12 +115,14 @@ export interface PendingMyListMovie {
   title: string
   year: number
   posterPath: string
+  rating?: number | null
   genres?: string[]
   runtime?: number | null
 }
 
 export interface MyListPatchBody {
   tmdbId?: number
+  rating?: number | null
   genres?: string[]
   runtime?: number | null
   posterPath?: string

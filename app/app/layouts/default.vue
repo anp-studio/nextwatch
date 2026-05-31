@@ -1,6 +1,6 @@
 <template>
-  <div class="bg-gray-100 dark:bg-gray-950 h-screen w-full flex font-sans overflow-hidden">
-    <div class="bg-white dark:bg-gray-900 w-full h-full flex flex-col relative overflow-hidden">
+  <div class="h-screen w-full overflow-hidden bg-background text-on-background">
+    <div class="flex h-full w-full flex-col overflow-hidden bg-surface">
       <TopHeader />
       <main class="flex-1 relative overflow-hidden">
         <slot />

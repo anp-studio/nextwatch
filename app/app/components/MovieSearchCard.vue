@@ -1,23 +1,23 @@
 <template>
   <div
-    class="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col relative cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+    class="relative flex cursor-pointer flex-col overflow-hidden rounded-[1.35rem] border border-outline-variant bg-surface-container-low shadow-glow transition-transform duration-200 hover:scale-[1.02]"
     @click="$emit('details', movie)"
   >
-    <div class="aspect-[2/3] bg-gray-200 dark:bg-gray-700 relative">
+    <div class="relative aspect-[2/3] bg-surface-container-high">
       <img
         v-if="movie.poster_path"
         :src="posterUrl(movie.poster_path)"
         :alt="movie.title"
-        class="w-full h-full object-cover"
+        class="h-full w-full object-cover"
       />
-      <div v-else class="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+      <div v-else class="flex h-full w-full items-center justify-center text-xs text-outline">
         No image
       </div>
 
       <div
-        class="absolute top-2 left-2 bg-black/70 backdrop-blur-sm text-white text-xs font-bold px-2 py-1 rounded-lg flex items-center gap-1"
+        class="absolute left-2 top-2 flex items-center gap-1 rounded-lg bg-black/70 px-2 py-1 text-xs font-bold text-white backdrop-blur-sm"
       >
-        <svg class="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+        <svg class="h-3 w-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
           <path
             d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
           />
@@ -26,12 +26,12 @@
       </div>
     </div>
 
-    <div class="p-3 flex flex-col flex-1 justify-between">
+    <div class="flex flex-1 flex-col justify-between p-3">
       <div>
-        <h3 class="text-sm font-bold text-gray-900 dark:text-white line-clamp-1 mb-1">
+        <h3 class="mb-1 line-clamp-1 text-sm font-bold text-on-surface">
           {{ movie.title }}
         </h3>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+        <p class="mb-3 text-xs text-on-surface-variant">
           {{ movie.release_date ? movie.release_date.split('-')[0] : 'Unknown' }}
         </p>
       </div>
@@ -39,7 +39,7 @@
       <div class="flex gap-2">
         <button
           v-if="isWatched"
-          class="group flex-1 py-2 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-red-500 hover:text-white transition-colors rounded-lg text-xs font-bold flex justify-center items-center gap-1"
+          class="group flex flex-1 items-center justify-center gap-1 rounded-lg bg-surface-container-high py-2 text-xs font-bold text-on-surface-variant transition-colors hover:bg-red-500 hover:text-white"
           title="Remove from watched"
           @click.stop="$emit('remove', movie)"
         >
@@ -74,7 +74,7 @@
         </button>
         <button
           v-else
-          class="flex-1 py-2 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white transition-colors rounded-lg text-xs font-bold flex justify-center items-center gap-1"
+          class="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary py-2 text-xs font-bold text-on-primary transition-colors hover:bg-primary/90"
           @click.stop="$emit('add', movie)"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,21 +88,26 @@
           Watched
         </button>
         <button
-          class="py-2 px-2 rounded-lg transition-colors flex items-center justify-center"
+          class="flex items-center justify-center rounded-lg px-2 py-2 transition-colors"
           :class="
             isWatched
-              ? 'bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-600 cursor-not-allowed'
+              ? 'cursor-not-allowed bg-surface-container-high text-outline'
               : isInMyList
-                ? 'bg-rose-500 text-white hover:bg-rose-600'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 hover:text-rose-500'
+                ? 'bg-primary text-on-primary hover:bg-primary/90'
+                : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
           "
           :title="
             isWatched ? 'Already in watched' : isInMyList ? 'Remove from My List' : 'Add to My List'
           "
-          :disabled="isWatched || isInMyList"
+          :disabled="isWatched"
           @click.stop="$emit('toggle-mylist', movie)"
         >
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+          <svg
+            class="h-4 w-4"
+            :fill="isInMyList ? 'currentColor' : 'none'"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
           </svg>
         </button>

@@ -8,6 +8,12 @@ const TMDB_WINDOW = '1 s'
 const RECOMMENDATION_WINDOW = '1 d'
 export const TMDB_GLOBAL_LIMITER_KEY = 'tmdb:global'
 
+export interface RecommendationQuota {
+  limit: number
+  remaining: number
+  reset: number
+}
+
 const redis = createRedisClient()
 
 export const tmdbLimiter = new Ratelimit({

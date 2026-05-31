@@ -1,7 +1,84 @@
+:root {
+  --color-background: 244 244 245;
+  --color-surface: 244 244 245;
+  --color-surface-dim: 228 228 231;
+  --color-surface-bright: 255 255 255;
+  --color-surface-container-lowest: 255 255 255;
+  --color-surface-container-low: 250 250 250;
+  --color-surface-container: 244 244 245;
+  --color-surface-container-high: 228 228 231;
+  --color-surface-container-highest: 212 212 216;
+  --color-surface-variant: 228 228 231;
+  --color-surface-tint: 39 39 42;
+  --color-on-background: 24 24 27;
+  --color-on-surface: 24 24 27;
+  --color-on-surface-variant: 82 82 91;
+  --color-outline: 113 113 122;
+  --color-outline-variant: 212 212 216;
+  --color-primary: 24 24 27;
+  --color-on-primary: 255 255 255;
+  --color-secondary: 63 63 70;
+  --color-on-secondary: 255 255 255;
+  --shadow-glow: 15 23 42;
+  --shadow-glow-alpha: 0.12;
+  --skeleton-base: 228 228 231;
+  --skeleton-highlight: 244 244 245;
+}
+
+.dark {
+  --color-background: 20 19 19;
+  --color-surface: 20 19 19;
+  --color-surface-dim: 20 19 19;
+  --color-surface-bright: 58 57 57;
+  --color-surface-container-lowest: 14 14 14;
+  --color-surface-container-low: 28 27 27;
+  --color-surface-container: 32 31 31;
+  --color-surface-container-high: 42 42 42;
+  --color-surface-container-highest: 53 52 52;
+  --color-surface-variant: 53 52 52;
+  --color-surface-tint: 198 198 199;
+  --color-on-background: 229 226 225;
+  --color-on-surface: 229 226 225;
+  --color-on-surface-variant: 196 199 200;
+  --color-outline: 142 145 146;
+  --color-outline-variant: 68 71 72;
+  --color-primary: 255 255 255;
+  --color-on-primary: 47 49 49;
+  --color-secondary: 185 200 222;
+  --color-on-secondary: 35 49 67;
+  --shadow-glow: 0 0 0;
+  --shadow-glow-alpha: 0.45;
+  --skeleton-base: 32 31 31;
+  --skeleton-highlight: 42 42 42;
+}
+
+html,
+body,
+#__nuxt {
+  min-height: 100%;
+}
+
+html,
+body {
+  background-color: rgb(var(--color-background));
+  color: rgb(var(--color-on-background));
+  font-family: 'Inter', sans-serif;
+}
+
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
 /* ===== Page Transitions ===== */
 .page-enter-active,
 .page-leave-active {
-  transition: opacity 250ms ease, transform 250ms ease;
+  transition:
+    opacity 250ms ease,
+    transform 250ms ease;
 }
 .page-enter-from {
   opacity: 0;
@@ -14,10 +91,14 @@
 
 /* ===== Modal (scale + fade) ===== */
 .modal-enter-active {
-  transition: opacity 800ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    opacity 800ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 800ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .modal-leave-active {
-  transition: opacity 200ms ease, transform 200ms ease;
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
 }
 .modal-enter-from {
   opacity: 0;
@@ -40,14 +121,18 @@
 
 /* ===== Card entrance ===== */
 .card-enter-active {
-  transition: opacity 350ms ease, transform 350ms ease;
+  transition:
+    opacity 350ms ease,
+    transform 350ms ease;
 }
 .card-enter-from {
   opacity: 0;
   transform: translateY(16px) scale(0.97);
 }
 .card-leave-active {
-  transition: opacity 200ms ease, transform 200ms ease;
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
 }
 .card-leave-to {
   opacity: 0;
@@ -56,7 +141,9 @@
 
 /* ===== Stagger list (TransitionGroup) ===== */
 .list-enter-active {
-  transition: opacity 300ms ease, transform 300ms ease;
+  transition:
+    opacity 300ms ease,
+    transform 300ms ease;
 }
 .list-enter-from {
   opacity: 0;
@@ -71,30 +158,29 @@
 
 /* ===== Skeleton shimmer ===== */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 .skeleton-shimmer {
-  background: linear-gradient(90deg,
-    theme('colors.gray.200') 25%,
-    theme('colors.gray.100') 50%,
-    theme('colors.gray.200') 75%
+  background: linear-gradient(
+    90deg,
+    rgb(var(--skeleton-base)) 25%,
+    rgb(var(--skeleton-highlight)) 50%,
+    rgb(var(--skeleton-base)) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
-:is(.dark) .skeleton-shimmer {
-  background: linear-gradient(90deg,
-    theme('colors.gray.700') 25%,
-    theme('colors.gray.600') 50%,
-    theme('colors.gray.700') 75%
-  );
-  background-size: 200% 100%;
-}
 
 /* ===== Button press micro-interaction ===== */
 .btn-press {
-  transition: transform 150ms ease, opacity 150ms ease;
+  transition:
+    transform 150ms ease,
+    opacity 150ms ease;
 }
 .btn-press:active {
   transform: scale(0.93);
@@ -127,18 +213,32 @@
     transform: translateY(0);
   }
 }
-.auth-field-stagger > *:nth-child(1) { animation: field-in 400ms ease 100ms both; }
-.auth-field-stagger > *:nth-child(2) { animation: field-in 400ms ease 180ms both; }
-.auth-field-stagger > *:nth-child(3) { animation: field-in 400ms ease 260ms both; }
-.auth-field-stagger > *:nth-child(4) { animation: field-in 400ms ease 340ms both; }
-.auth-field-stagger > *:nth-child(5) { animation: field-in 400ms ease 420ms both; }
+.auth-field-stagger > *:nth-child(1) {
+  animation: field-in 400ms ease 100ms both;
+}
+.auth-field-stagger > *:nth-child(2) {
+  animation: field-in 400ms ease 180ms both;
+}
+.auth-field-stagger > *:nth-child(3) {
+  animation: field-in 400ms ease 260ms both;
+}
+.auth-field-stagger > *:nth-child(4) {
+  animation: field-in 400ms ease 340ms both;
+}
+.auth-field-stagger > *:nth-child(5) {
+  animation: field-in 400ms ease 420ms both;
+}
 
 /* Auth view switch */
 .auth-switch-enter-active {
-  transition: opacity 250ms ease, transform 250ms ease;
+  transition:
+    opacity 250ms ease,
+    transform 250ms ease;
 }
 .auth-switch-leave-active {
-  transition: opacity 150ms ease, transform 150ms ease;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
 }
 .auth-switch-enter-from {
   opacity: 0;
@@ -157,12 +257,24 @@
   animation: spin-out 100ms ease;
 }
 @keyframes spin-in {
-  from { transform: rotate(-180deg); opacity: 0; }
-  to { transform: rotate(0); opacity: 1; }
+  from {
+    transform: rotate(-180deg);
+    opacity: 0;
+  }
+  to {
+    transform: rotate(0);
+    opacity: 1;
+  }
 }
 @keyframes spin-out {
-  from { transform: rotate(0); opacity: 1; }
-  to { transform: rotate(180deg); opacity: 0; }
+  from {
+    transform: rotate(0);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(180deg);
+    opacity: 0;
+  }
 }
 
 /* ===== Nav link active indicator ===== */
@@ -172,17 +284,16 @@
 .nav-link::after {
   content: '';
   position: absolute;
-  bottom: -4px;
+  top: -10px;
   left: 50%;
-  width: 0;
-  height: 3px;
-  background: theme('colors.rose.500');
-  border-radius: 9999px;
-  transform: translateX(-50%);
-  transition: width 200ms ease;
+  width: 28px;
+  height: 2px;
+  background: rgb(var(--color-primary));
+  transform: translateX(-50%) scaleX(0);
+  transition: transform 200ms ease;
 }
 .nav-link-active::after {
-  width: 16px;
+  transform: translateX(-50%) scaleX(1);
 }
 
 /* ===== Theme switch (temporary global transition) ===== */
@@ -190,6 +301,9 @@ html.theme-transitioning,
 html.theme-transitioning *:not(.theme-toggle):not(.theme-toggle *),
 html.theme-transitioning *:not(.theme-toggle):not(.theme-toggle *)::before,
 html.theme-transitioning *:not(.theme-toggle):not(.theme-toggle *)::after {
-  transition: background-color 300ms ease, color 300ms ease,
-              border-color 300ms ease, fill 300ms ease !important;
+  transition:
+    background-color 300ms ease,
+    color 300ms ease,
+    border-color 300ms ease,
+    fill 300ms ease !important;
 }

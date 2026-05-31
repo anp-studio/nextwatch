@@ -1,3 +1,5 @@
+import { createThemeBootstrapScript } from './app/utils/theme'
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -6,6 +8,14 @@ export default defineNuxtConfig({
   css: ['~/assets/css/transitions.css'],
   app: {
     pageTransition: { name: 'page', mode: 'out-in' },
+    head: {
+      script: [
+        {
+          innerHTML: createThemeBootstrapScript(),
+          tagPosition: 'head',
+        },
+      ],
+    },
   },
   runtimeConfig: {
     tmdbApiKey: process.env.NUXT_TMDB_API_KEY ?? '',
