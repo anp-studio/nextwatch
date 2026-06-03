@@ -8,10 +8,10 @@ import {
   getRecommendationsFromPlatformAi,
   hasEnoughRecommendationsToCache,
   hydrateRecommendationsByTmdbIds,
+  MAX_MY_LIST_RECOMMENDATIONS,
   MIN_RECOMMENDATIONS_TO_CACHE,
   TARGET_RECOMMENDATIONS,
 } from '../utils/recommendations'
-import { MY_LIST_REMINDER_LIMIT } from '../utils/recommendation-taste-profile'
 import type { RecommendationWithId, WatchedMovieRecord } from '../utils/recommendations'
 import { acquireRecommendationLock, releaseRecommendationLock } from '../utils/recommendation-lock'
 import { createRedisClient } from '../utils/redis'
@@ -142,7 +142,7 @@ function filterFinalRecommendations(
 
   const filteredRecommendations = [
     ...nonMyListRecommendations,
-    ...myListRecommendations.slice(0, MY_LIST_REMINDER_LIMIT),
+    ...myListRecommendations.slice(0, MAX_MY_LIST_RECOMMENDATIONS),
   ].slice(0, TARGET_RECOMMENDATIONS)
   const myListRecommendationsKeptCount = filteredRecommendations.filter(
     (recommendation) => recommendation.tmdbId !== null && myListIds.has(recommendation.tmdbId)

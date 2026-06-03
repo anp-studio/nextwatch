@@ -29,7 +29,11 @@ const {
   AI_CANDIDATE_RECOMMENDATIONS,
   appendTmdbIds,
   buildUserMessage,
+  createRecommendationValidationState,
   getRecommendationsFromPlatformAi,
+  INITIAL_RECOMMENDATION_COUNT,
+  MAX_MY_LIST_RECOMMENDATIONS,
+  validateRecommendationBatch,
 } = await import('../../server/utils/recommendations')
 
 interface SearchRow {
@@ -37,6 +41,12 @@ interface SearchRow {
   original_title: string
   popularity: number
   release_date: string
+}
+
+interface SearchMovieFixture {
+  title: string
+  year: number
+  tmdbId: number
 }
 
 function createBuilder(rowsByQuery: Map<string, SearchRow[]>) {
@@ -72,6 +82,60 @@ function createBuilder(rowsByQuery: Map<string, SearchRow[]>) {
   }
 
   return builder
+}
+
+function buildSearchKey(title: string, year: number): string {
+  const query =
+    title
+      .trim()
+      .toLowerCase()
+      .match(/[\p{L}\p{N}]+/gu)
+      ?.map((token) => `${token}:*`)
+      .join(' & ') ?? ''
+
+  return `${query}::${year}-01-01::${year}-12-31`
+}
+
+function createRowsByTitle(movies: SearchMovieFixture[]): Map<string, SearchRow[]> {
+  return new Map(
+    movies.map((movie) => [
+      buildSearchKey(movie.title, movie.year),
+      [
+        {
+          tmdb_id: movie.tmdbId,
+          original_title: movie.title,
+          popularity: 50,
+          release_date: `${movie.year}-01-01`,
+        },
+      ],
+    ])
+  )
+}
+
+function setupSearchRows(movies: SearchMovieFixture[]): void {
+  Object.assign(globalThis, {
+    createError,
+    useRuntimeConfig: vi.fn(() => ({
+      public: {
+        supabaseUrl: 'https://example.supabase.co',
+      },
+      supabaseServiceRoleKey: 'test-service-role-key',
+    })),
+  })
+  createClientMock.mockReturnValue({
+    from: vi.fn().mockImplementation(() => createBuilder(createRowsByTitle(movies))),
+  })
+}
+
+function createIndexedRecommendation(index: number, title: string, tmdbId: number | null) {
+  return {
+    index,
+    name: title,
+    originalName: title,
+    year: 2000,
+    shortReason: `Reason ${index}`,
+    tmdbId,
+  }
 }
 
 describe('appendTmdbIds', () => {
@@ -281,40 +345,128 @@ describe('appendTmdbIds', () => {
   })
 })
 
+describe('validateRecommendationBatch', () => {
+  it('blocks watched movies, My List movies beyond the cap, duplicates, and unresolved movies', () => {
+    const state = createRecommendationValidationState(
+      [{ tmdbId: 11, title: 'Alien', year: 1979 }],
+      [
+        { tmdbId: 21, title: 'Solaris', year: 1972 },
+        { tmdbId: 22, title: 'Moon', year: 2009 },
+        { tmdbId: 23, title: 'Primer', year: 2004 },
+      ]
+    )
+
+    const result = validateRecommendationBatch(
+      [
+        createIndexedRecommendation(1, 'Alien', 11),
+        createIndexedRecommendation(2, 'Solaris', 21),
+        createIndexedRecommendation(3, 'Moon', 22),
+        createIndexedRecommendation(4, 'Primer', 23),
+        createIndexedRecommendation(5, 'Coherence', 220289),
+        createIndexedRecommendation(6, 'Coherence', 220289),
+        createIndexedRecommendation(7, 'Unknown Festival Cut', null),
+      ],
+      state
+    )
+
+    expect(result.accepted.map((recommendation) => recommendation.tmdbId)).toEqual([
+      21,
+      22,
+      220289,
+    ])
+    expect(result.blocked).toEqual([
+      {
+        index: 1,
+        title: 'Alien',
+        release_year: 2000,
+        tmdb_id: 11,
+        reason: 'watched',
+      },
+      {
+        index: 4,
+        title: 'Primer',
+        release_year: 2000,
+        tmdb_id: 23,
+        reason: 'watchlist',
+      },
+      {
+        index: 6,
+        title: 'Coherence',
+        release_year: 2000,
+        tmdb_id: 220289,
+        reason: 'duplicate',
+      },
+      {
+        index: 7,
+        title: 'Unknown Festival Cut',
+        release_year: 2000,
+        tmdb_id: null,
+        reason: 'unresolved',
+      },
+    ])
+    expect(MAX_MY_LIST_RECOMMENDATIONS).toBe(2)
+  })
+})
+
 describe('getRecommendationsFromPlatformAi', () => {
   beforeEach(() => {
     askPlatformAiMock.mockReset()
   })
 
   it('accepts a top-level recommendation array payload', async () => {
+    setupSearchRows([{ title: 'Stalker', year: 1979, tmdbId: 1398 }])
     askPlatformAiMock.mockResolvedValue(
-      JSON.stringify([{ name: 'Stalker', originalName: 'Stalker', year: 1979 }])
+      JSON.stringify([
+        { index: 1, title: 'Stalker', release_year: 1979, short_reason: 'Haunting sci-fi' },
+      ])
     )
 
     const result = await getRecommendationsFromPlatformAi([{ tmdbId: 1, title: 'Alien', year: 1979 }], [])
 
     expect(result.recommendations).toEqual([
-      { name: 'Stalker', originalName: 'Stalker', year: 1979, tmdbId: null },
+      {
+        index: 1,
+        name: 'Stalker',
+        originalName: 'Stalker',
+        year: 1979,
+        shortReason: 'Haunting sci-fi',
+        tmdbId: 1398,
+      },
     ])
   })
 
   it('accepts an object payload that wraps recommendations', async () => {
+    setupSearchRows([{ title: 'Stalker', year: 1979, tmdbId: 1398 }])
     askPlatformAiMock.mockResolvedValue(
       JSON.stringify({
-        recommendations: [{ name: 'Stalker', originalName: 'Stalker', year: 1979 }],
+        recommendations: [
+          { index: 1, title: 'Stalker', release_year: 1979, short_reason: 'Haunting sci-fi' },
+        ],
       })
     )
 
     const result = await getRecommendationsFromPlatformAi([{ tmdbId: 1, title: 'Alien', year: 1979 }], [])
 
     expect(result.recommendations).toEqual([
-      { name: 'Stalker', originalName: 'Stalker', year: 1979, tmdbId: null },
+      {
+        index: 1,
+        name: 'Stalker',
+        originalName: 'Stalker',
+        year: 1979,
+        shortReason: 'Haunting sci-fi',
+        tmdbId: 1398,
+      },
     ])
   })
 
   it('asks for a larger candidate pool and sends taste-profile context', async () => {
+    setupSearchRows([{ title: 'Stalker', year: 1979, tmdbId: 1398 }])
     askPlatformAiMock.mockResolvedValue(
-      JSON.stringify([{ name: 'Stalker', originalName: 'Stalker', year: 1979 }])
+      JSON.stringify({
+        recommendations: [
+          { index: 1, title: 'Stalker', release_year: 1979, short_reason: 'Haunting sci-fi' },
+        ],
+      })
     )
 
     await getRecommendationsFromPlatformAi(
@@ -343,11 +495,108 @@ describe('getRecommendationsFromPlatformAi', () => {
     expect(askPlatformAiMock).toHaveBeenCalledWith(
       expect.objectContaining({
         systemPrompt: expect.stringContaining(
-          `exactly ${AI_CANDIDATE_RECOMMENDATIONS} candidate movies`
+          `exactly ${INITIAL_RECOMMENDATION_COUNT} candidate movies`
         ),
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            role: 'user',
+            content: expect.stringContaining('TASTE PROFILE:'),
+          }),
+        ]),
         userMessage: expect.stringContaining('TASTE PROFILE:'),
       })
     )
+  })
+
+  it('asks for indexed replacements and returns only backend-validated accepted movies', async () => {
+    const validInitialItems = Array.from({ length: 18 }, (_, index) => ({
+      index: index + 3,
+      title: `Candidate ${index + 1}`,
+      release_year: 2000 + index,
+      short_reason: `Reason ${index + 1}`,
+    }))
+    const replacementItems = [
+      {
+        replaced_index: 1,
+        title: 'Replacement One',
+        release_year: 1988,
+        short_reason: 'Fresh replacement one',
+      },
+      {
+        replaced_index: 2,
+        title: 'Replacement Two',
+        release_year: 1991,
+        short_reason: 'Fresh replacement two',
+      },
+    ]
+    const searchMovies = [
+      { title: 'Alien', year: 1979, tmdbId: 1 },
+      ...validInitialItems.map((item, index) => ({
+        title: item.title,
+        year: item.release_year,
+        tmdbId: 1000 + index,
+      })),
+      ...replacementItems.map((item, index) => ({
+        title: item.title,
+        year: item.release_year,
+        tmdbId: 2000 + index,
+      })),
+    ]
+
+    setupSearchRows(searchMovies)
+    askPlatformAiMock
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          recommendations: [
+            {
+              index: 1,
+              title: 'Alien',
+              release_year: 1979,
+              short_reason: 'Too obvious',
+            },
+            {
+              index: 2,
+              title: 'Unknown Festival Cut',
+              release_year: 2024,
+              short_reason: 'Unresolved title',
+            },
+            ...validInitialItems,
+          ],
+        })
+      )
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          recommendations: replacementItems,
+        })
+      )
+
+    const result = await getRecommendationsFromPlatformAi(
+      [{ tmdbId: 1, title: 'Alien', year: 1979 }],
+      [],
+      'user-1'
+    )
+
+    expect(result.recommendations.map((recommendation) => recommendation.tmdbId)).toEqual([
+      ...Array.from({ length: 18 }, (_, index) => 1000 + index),
+      2000,
+      2001,
+    ])
+    expect(askPlatformAiMock).toHaveBeenCalledTimes(2)
+
+    const followUpRequest = askPlatformAiMock.mock.calls[1]?.[0] as
+      | { messages?: Array<{ role: string; content: string }>; rateLimit?: boolean }
+      | undefined
+    if (!followUpRequest?.messages) {
+      throw new Error('Expected follow-up request messages')
+    }
+
+    const followUpMessage = followUpRequest.messages[followUpRequest.messages.length - 1]
+    expect(followUpMessage?.content).toContain('accepted_indexes')
+    expect(followUpMessage?.content).toContain('blocked_indexes')
+    expect(followUpMessage?.content).toContain('2')
+    expect(followUpMessage?.content).not.toContain('Alien')
+    expect(followUpMessage?.content).not.toContain('Unknown Festival Cut')
+    expect(followUpRequest.rateLimit).toBe(false)
   })
 
   it('builds a compact prompt with representative watched, top watched, and My List reminders', () => {

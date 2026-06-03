@@ -1,7 +1,7 @@
 import { createError } from 'h3'
 import { describe, expect, it, vi } from 'vitest'
 
-const { createCompletionMock, openAiConstructorMock } = vi.hoisted(() => ({
+const { createCompletionMock, openAiConstructorMock, recommendationLimitMock } = vi.hoisted(() => ({
   createCompletionMock: vi.fn(),
   openAiConstructorMock: vi.fn(
     function MockOpenAI() {
@@ -14,6 +14,7 @@ const { createCompletionMock, openAiConstructorMock } = vi.hoisted(() => ({
       }
     }
   ),
+  recommendationLimitMock: vi.fn(),
 }))
 
 vi.mock('openai', () => ({
@@ -22,7 +23,7 @@ vi.mock('openai', () => ({
 
 vi.mock('../../server/utils/ratelimit', () => ({
   recommendationLimiter: {
-    limit: vi.fn(),
+    limit: recommendationLimitMock,
   },
   RECOMMENDATION_LIMIT: 20,
 }))
@@ -44,6 +45,12 @@ function setupRuntimeConfig() {
 
   createCompletionMock.mockReset()
   openAiConstructorMock.mockClear()
+  recommendationLimitMock.mockReset()
+  recommendationLimitMock.mockResolvedValue({
+    success: true,
+    remaining: 19,
+    reset: 0,
+  })
 }
 
 describe('parseProviderModels', () => {
@@ -73,6 +80,46 @@ describe('createPlatformAiProviderConfig', () => {
 })
 
 describe('askPlatformAi', () => {
+  it('passes explicit chat history to the provider when messages are supplied', async () => {
+    setupRuntimeConfig()
+    const messages = [
+      { role: 'system' as const, content: 'system instructions' },
+      { role: 'user' as const, content: 'initial request' },
+      { role: 'assistant' as const, content: '{"recommendations":[]}' },
+      { role: 'user' as const, content: 'replacement request' },
+    ]
+    createCompletionMock.mockResolvedValue({
+      choices: [{ message: { content: '{"recommendations":[]}' } }],
+    })
+
+    await askPlatformAi({
+      messages,
+      schema: { type: 'object' },
+    })
+
+    expect(createCompletionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages,
+      })
+    )
+  })
+
+  it('can skip recommendation rate limiting for internal follow-up rounds', async () => {
+    setupRuntimeConfig()
+    createCompletionMock.mockResolvedValue({
+      choices: [{ message: { content: '{"recommendations":[]}' } }],
+    })
+
+    await askPlatformAi({
+      systemPrompt: 'system',
+      userMessage: 'user',
+      userId: 'user-1',
+      rateLimit: false,
+    })
+
+    expect(recommendationLimitMock).not.toHaveBeenCalled()
+  })
+
   it('attaches provider attempt metadata when all configured models fail', async () => {
     setupRuntimeConfig()
     createCompletionMock.mockRejectedValue(

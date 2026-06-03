@@ -18,9 +18,9 @@ import {
   TEST_USER_ID,
   WATCHED_MOVIES,
 } from '../../fixtures/recommendation-fixtures'
-import { MY_LIST_REMINDER_LIMIT } from '../../../server/utils/recommendation-taste-profile'
 
 const TARGET_RECOMMENDATIONS = 20
+const MAX_MY_LIST_RECOMMENDATIONS = 2
 
 const {
   fetchMyListMoviesMock,
@@ -59,6 +59,7 @@ vi.mock('../../../server/utils/recommendations', () => ({
     })),
   MIN_RECOMMENDATIONS_TO_CACHE: 5,
   TARGET_RECOMMENDATIONS: 20,
+  MAX_MY_LIST_RECOMMENDATIONS: 2,
   hasEnoughRecommendationsToCache: (recommendations: Array<{ tmdbId: number | null }>) =>
     recommendations.filter((recommendation) => recommendation.tmdbId !== null).length >= 5,
 }))
@@ -396,8 +397,8 @@ describe('/api/recommend', () => {
       watched_hash: 'stale-hash',
       expires_at: '2026-04-01T00:00:00.000Z',
     }
-    const nonMyListIds = [300, ...Array.from({ length: 16 }, (_, index) => 301 + index)]
-    const myListMovies = Array.from({ length: MY_LIST_REMINDER_LIMIT + 2 }, (_, index) => ({
+    const nonMyListIds = [300, ...Array.from({ length: 17 }, (_, index) => 301 + index)]
+    const myListMovies = Array.from({ length: MAX_MY_LIST_RECOMMENDATIONS + 2 }, (_, index) => ({
       tmdbId: 21 + index,
       title: `My List ${index + 1}`,
       year: 2010 + index,
@@ -413,7 +414,7 @@ describe('/api/recommend', () => {
     ]
     const expectedRecommendationIds = [
       ...nonMyListIds,
-      ...myListMovies.slice(0, MY_LIST_REMINDER_LIMIT).map((movie) => movie.tmdbId),
+      ...myListMovies.slice(0, MAX_MY_LIST_RECOMMENDATIONS).map((movie) => movie.tmdbId),
     ]
 
     fetchMyListMoviesMock.mockResolvedValue(myListMovies)
@@ -444,7 +445,7 @@ describe('/api/recommend', () => {
           removedExcludedCount: 1,
           removedDuplicateCount: 1,
           removedNullTmdbIdCount: 1,
-          myListRecommendationsKeptCount: MY_LIST_REMINDER_LIMIT,
+          myListRecommendationsKeptCount: MAX_MY_LIST_RECOMMENDATIONS,
         }),
       })
     )

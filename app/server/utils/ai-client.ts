@@ -10,12 +10,19 @@ const TOO_MANY_REQUESTS_STATUS_CODE = 429
 const BAD_GATEWAY_STATUS_CODE = 502
 
 export interface PlatformAiRequest {
-  systemPrompt: string
-  userMessage: string
+  systemPrompt?: string
+  userMessage?: string
+  messages?: PlatformAiMessage[]
   schema?: Record<string, unknown>
   schemaName?: string
   userId?: string
   event?: H3Event
+  rateLimit?: boolean
+}
+
+export interface PlatformAiMessage {
+  role: 'system' | 'user' | 'assistant'
+  content: string
 }
 
 interface PlatformAiProviderConfig {
@@ -226,6 +233,23 @@ function attachAttempts(error: unknown, attempts: ProviderAttempt[]): Error {
   return Object.assign(providerError, { attempts })
 }
 
+function getRequestMessages(request: PlatformAiRequest): PlatformAiMessage[] {
+  if (request.messages && request.messages.length > 0) {
+    return request.messages
+  }
+
+  return [
+    {
+      role: 'system',
+      content: request.systemPrompt ?? '',
+    },
+    {
+      role: 'user',
+      content: request.userMessage ?? '',
+    },
+  ]
+}
+
 async function createChatCompletion(
   provider: PlatformAiProviderConfig,
   model: string,
@@ -234,16 +258,7 @@ async function createChatCompletion(
   try {
     const completion = await createOpenAIClient(provider).chat.completions.create({
       model,
-      messages: [
-        {
-          role: 'system',
-          content: request.systemPrompt,
-        },
-        {
-          role: 'user',
-          content: request.userMessage,
-        },
-      ],
+      messages: getRequestMessages(request),
       temperature: 0.4,
       ...(request.schema && {
         response_format: {
@@ -279,7 +294,7 @@ async function createChatCompletion(
 export async function askPlatformAi(request: PlatformAiRequest): Promise<string> {
   const providers = getPlatformAiProviderConfig(request.event, request.userId)
 
-  if (request.userId) {
+  if ((request.rateLimit ?? true) && request.userId) {
     const { success, remaining, reset } = await recommendationLimiter.limit(request.userId)
 
     if (request.event) {
