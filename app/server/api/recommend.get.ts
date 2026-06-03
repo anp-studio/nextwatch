@@ -7,14 +7,15 @@ import {
   fetchWatchedMovies,
   getRecommendationsFromPlatformAi,
   hasEnoughRecommendationsToCache,
-  hasValidTmdbId,
   hydrateRecommendationsByTmdbIds,
   MIN_RECOMMENDATIONS_TO_CACHE,
+  TARGET_RECOMMENDATIONS,
 } from '../utils/recommendations'
+import { MY_LIST_REMINDER_LIMIT } from '../utils/recommendation-taste-profile'
 import type { RecommendationWithId, WatchedMovieRecord } from '../utils/recommendations'
 import { acquireRecommendationLock, releaseRecommendationLock } from '../utils/recommendation-lock'
 import { createRedisClient } from '../utils/redis'
-import { logPrivateError, throwSupabaseError } from '../utils/api-error'
+import { logPrivateError, logPrivateInfo, throwSupabaseError } from '../utils/api-error'
 
 const RECOMMENDATIONS_TABLE = 'recommendations'
 const TTL_MS = 7 * 24 * 60 * 60 * 1000
@@ -45,14 +46,23 @@ interface RecommendationResponse {
   staleRecommendations: number[] | null
 }
 
-function isQueryFlagEnabled(value: unknown): boolean {
-  return typeof value === 'string' && QUERY_TRUE.includes(value)
+interface RecommendationFilterStats {
+  aiCandidateCount: number
+  finalFilteredCount: number
+  removedWatchedCount: number
+  removedExcludedCount: number
+  removedDuplicateCount: number
+  removedNullTmdbIdCount: number
+  myListRecommendationsKeptCount: number
 }
 
-function filterValidRecommendations(
+interface FilteredRecommendationsResult {
   recommendations: RecommendationWithId[]
-): RecommendationWithId[] {
-  return recommendations.filter(hasValidTmdbId)
+  stats: RecommendationFilterStats
+}
+
+function isQueryFlagEnabled(value: unknown): boolean {
+  return typeof value === 'string' && QUERY_TRUE.includes(value)
 }
 
 function computeWatchedHash(movies: WatchedMovieRecord[]): string {
@@ -82,24 +92,74 @@ function dedupeRecommendationIds(recommendationIds: number[]): number[] {
   return dedupedIds
 }
 
-function dedupeRecommendations(recommendations: RecommendationWithId[]): RecommendationWithId[] {
+function filterFinalRecommendations(
+  recommendations: RecommendationWithId[],
+  watchedMovies: WatchedMovieRecord[],
+  myListMovies: WatchedMovieRecord[],
+  excludedMovies: RecommendationWithId[]
+): FilteredRecommendationsResult {
+  const watchedIds = new Set(watchedMovies.map((movie) => movie.tmdbId))
+  const myListIds = new Set(myListMovies.map((movie) => movie.tmdbId))
+  const excludedIds = new Set(toRecommendationIds(excludedMovies))
   const seenIds = new Set<number>()
-  const dedupedRecommendations: RecommendationWithId[] = []
+  const nonMyListRecommendations: RecommendationWithId[] = []
+  const myListRecommendations: RecommendationWithId[] = []
+  let removedWatchedCount = 0
+  let removedExcludedCount = 0
+  let removedDuplicateCount = 0
+  let removedNullTmdbIdCount = 0
 
   for (const recommendation of recommendations) {
     if (recommendation.tmdbId === null) {
+      removedNullTmdbIdCount++
+      continue
+    }
+
+    if (watchedIds.has(recommendation.tmdbId)) {
+      removedWatchedCount++
+      continue
+    }
+
+    if (excludedIds.has(recommendation.tmdbId)) {
+      removedExcludedCount++
       continue
     }
 
     if (seenIds.has(recommendation.tmdbId)) {
+      removedDuplicateCount++
       continue
     }
 
     seenIds.add(recommendation.tmdbId)
-    dedupedRecommendations.push(recommendation)
+
+    if (myListIds.has(recommendation.tmdbId)) {
+      myListRecommendations.push(recommendation)
+      continue
+    }
+
+    nonMyListRecommendations.push(recommendation)
   }
 
-  return dedupedRecommendations
+  const filteredRecommendations = [
+    ...nonMyListRecommendations,
+    ...myListRecommendations.slice(0, MY_LIST_REMINDER_LIMIT),
+  ].slice(0, TARGET_RECOMMENDATIONS)
+  const myListRecommendationsKeptCount = filteredRecommendations.filter(
+    (recommendation) => recommendation.tmdbId !== null && myListIds.has(recommendation.tmdbId)
+  ).length
+
+  return {
+    recommendations: filteredRecommendations,
+    stats: {
+      aiCandidateCount: recommendations.length,
+      finalFilteredCount: filteredRecommendations.length,
+      removedWatchedCount,
+      removedExcludedCount,
+      removedDuplicateCount,
+      removedNullTmdbIdCount,
+      myListRecommendationsKeptCount,
+    },
+  }
 }
 
 function buildSuccessResponse(
@@ -291,8 +351,23 @@ export default defineEventHandler(async (event) => {
         excludedMovies
       )
       const generatedRecommendations = platformAiResult.recommendations
+      const filteredResult = filterFinalRecommendations(
+        generatedRecommendations,
+        watchedMovies,
+        myListMovies,
+        excludedMovies
+      )
+      recommendations = filteredResult.recommendations
 
-      recommendations = dedupeRecommendations(filterValidRecommendations(generatedRecommendations))
+      logPrivateInfo({
+        event: 'recommendation.filtering_completed',
+        source: 'ai_provider',
+        statusCode: 200,
+        userId: user.id,
+        route: event.path,
+        method: event.method,
+        extra: { ...filteredResult.stats },
+      })
 
       if (
         recommendations.length < MIN_RECOMMENDATIONS_TO_CACHE ||

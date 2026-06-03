@@ -18,6 +18,9 @@ import {
   TEST_USER_ID,
   WATCHED_MOVIES,
 } from '../../fixtures/recommendation-fixtures'
+import { MY_LIST_REMINDER_LIMIT } from '../../../server/utils/recommendation-taste-profile'
+
+const TARGET_RECOMMENDATIONS = 20
 
 const {
   fetchMyListMoviesMock,
@@ -27,6 +30,7 @@ const {
   acquireRecommendationLockMock,
   releaseRecommendationLockMock,
   logPrivateErrorMock,
+  logPrivateInfoMock,
 } = vi.hoisted(() => ({
   fetchMyListMoviesMock: vi.fn(),
   fetchWatchedMoviesMock: vi.fn(),
@@ -35,6 +39,7 @@ const {
   acquireRecommendationLockMock: vi.fn(),
   releaseRecommendationLockMock: vi.fn(),
   logPrivateErrorMock: vi.fn(),
+  logPrivateInfoMock: vi.fn(),
 }))
 
 vi.mock('../../../server/utils/auth', () => ({
@@ -45,10 +50,17 @@ vi.mock('../../../server/utils/recommendations', () => ({
   fetchMyListMovies: fetchMyListMoviesMock,
   fetchWatchedMovies: fetchWatchedMoviesMock,
   getRecommendationsFromPlatformAi: getRecommendationsFromPlatformAiMock,
+  hydrateRecommendationsByTmdbIds: (_supabase: unknown, tmdbIds: number[]) =>
+    tmdbIds.map((tmdbId) => ({
+      name: `Movie ${tmdbId}`,
+      originalName: `Movie ${tmdbId}`,
+      year: 2000,
+      tmdbId,
+    })),
   MIN_RECOMMENDATIONS_TO_CACHE: 5,
+  TARGET_RECOMMENDATIONS: 20,
   hasEnoughRecommendationsToCache: (recommendations: Array<{ tmdbId: number | null }>) =>
     recommendations.filter((recommendation) => recommendation.tmdbId !== null).length >= 5,
-  hasValidTmdbId: (recommendation: { tmdbId: number | null }) => recommendation.tmdbId !== null,
 }))
 
 vi.mock('../../../server/utils/recommendation-lock', () => ({
@@ -66,6 +78,7 @@ vi.mock('../../../server/utils/api-error', async (importOriginal) => {
   return {
     ...actual,
     logPrivateError: logPrivateErrorMock,
+    logPrivateInfo: logPrivateInfoMock,
   }
 })
 
@@ -86,6 +99,9 @@ interface MockCacheRow {
 interface MockMovieRow {
   tmdb_id: number
   popularity: number
+  title?: string
+  original_title?: string
+  release_date?: string
 }
 
 interface MockSupabaseState {
@@ -117,7 +133,14 @@ function createMockSupabase(state: MockSupabaseState): SupabaseClient {
           },
           async in(_column: string, tmdbIds: number[]) {
             return {
-              data: state.movieRows.filter((row) => tmdbIds.includes(row.tmdb_id)),
+              data: state.movieRows
+                .filter((row) => tmdbIds.includes(row.tmdb_id))
+                .map((row) => ({
+                  title: `Movie ${row.tmdb_id}`,
+                  original_title: `Movie ${row.tmdb_id}`,
+                  release_date: '2000-01-01',
+                  ...row,
+                })),
               error: null,
             }
           },
@@ -168,6 +191,15 @@ function createMockSupabase(state: MockSupabaseState): SupabaseClient {
 
 async function readJson(response: Response) {
   return response.json() as Promise<Record<string, unknown>>
+}
+
+function createRecommendation(tmdbId: number | null, index: number) {
+  return {
+    name: `Candidate ${index}`,
+    originalName: `Candidate ${index}`,
+    year: 2000 + index,
+    tmdbId,
+  }
 }
 
 describe('/api/recommend', () => {
@@ -350,6 +382,72 @@ describe('/api/recommend', () => {
     expect(Array.isArray(body.recommendations)).toBe(true)
     expect((body.recommendations as Array<unknown>).length).toBeGreaterThanOrEqual(5)
     expect(supabaseState.upsertPayload?.tmdb_ids).toEqual(recommendationIds(extendedRecommendations))
+  })
+
+  it('filters AI candidates server-side before returning and caching final recommendations', async () => {
+    const watchedMovie = WATCHED_MOVIES[0]
+
+    if (!watchedMovie) {
+      throw new Error('Expected watched movie fixture')
+    }
+
+    supabaseState.cachedRow = {
+      tmdb_ids: [200],
+      watched_hash: 'stale-hash',
+      expires_at: '2026-04-01T00:00:00.000Z',
+    }
+    const nonMyListIds = [300, ...Array.from({ length: 16 }, (_, index) => 301 + index)]
+    const myListMovies = Array.from({ length: MY_LIST_REMINDER_LIMIT + 2 }, (_, index) => ({
+      tmdbId: 21 + index,
+      title: `My List ${index + 1}`,
+      year: 2010 + index,
+    }))
+    const candidates = [
+      createRecommendation(null, 1),
+      createRecommendation(watchedMovie.tmdbId, 2),
+      createRecommendation(200, 3),
+      createRecommendation(300, 4),
+      createRecommendation(300, 5),
+      ...nonMyListIds.slice(1).map((tmdbId, index) => createRecommendation(tmdbId, index + 6)),
+      ...myListMovies.map((movie, index) => createRecommendation(movie.tmdbId, index + 30)),
+    ]
+    const expectedRecommendationIds = [
+      ...nonMyListIds,
+      ...myListMovies.slice(0, MY_LIST_REMINDER_LIMIT).map((movie) => movie.tmdbId),
+    ]
+
+    fetchMyListMoviesMock.mockResolvedValue(myListMovies)
+    getRecommendationsFromPlatformAiMock.mockResolvedValue({
+      recommendations: candidates,
+      tmdbFallbackCount: 0,
+      systemPrompt: '',
+      userMessage: '',
+    })
+
+    const response = await fetch(`${baseUrl}/api/recommend?getNew=true`)
+    const body = await readJson(response)
+
+    expect(response.status).toBe(200)
+    expect(body.recommendations).toHaveLength(TARGET_RECOMMENDATIONS)
+    expect(body.recommendations).toEqual(expectedRecommendationIds)
+    expect(body.recommendations).not.toContain(watchedMovie.tmdbId)
+    expect(body.recommendations).not.toContain(200)
+    expect(body.recommendations).not.toContain(null)
+    expect(supabaseState.upsertPayload?.tmdb_ids).toEqual(expectedRecommendationIds)
+    expect(logPrivateInfoMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'recommendation.filtering_completed',
+        extra: expect.objectContaining({
+          aiCandidateCount: candidates.length,
+          finalFilteredCount: TARGET_RECOMMENDATIONS,
+          removedWatchedCount: 1,
+          removedExcludedCount: 1,
+          removedDuplicateCount: 1,
+          removedNullTmdbIdCount: 1,
+          myListRecommendationsKeptCount: MY_LIST_REMINDER_LIMIT,
+        }),
+      })
+    )
   })
 
   it('falls back to cached recommendations when regeneration fails with a 503', async () => {

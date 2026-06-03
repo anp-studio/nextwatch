@@ -25,9 +25,12 @@ vi.mock('../../server/utils/ai-client', () => ({
   askPlatformAi: askPlatformAiMock,
 }))
 
-const { appendTmdbIds, getRecommendationsFromPlatformAi } = await import(
-  '../../server/utils/recommendations'
-)
+const {
+  AI_CANDIDATE_RECOMMENDATIONS,
+  appendTmdbIds,
+  buildUserMessage,
+  getRecommendationsFromPlatformAi,
+} = await import('../../server/utils/recommendations')
 
 interface SearchRow {
   tmdb_id: number
@@ -257,6 +260,25 @@ describe('appendTmdbIds', () => {
     })
     expect(fetchTmdbMock).toHaveBeenCalledTimes(1)
   })
+
+  it('hydrates the larger AI candidate pool before final route filtering', async () => {
+    createClientMock.mockReturnValue({
+      from: vi.fn().mockImplementation(() => createBuilder(new Map())),
+    })
+
+    const recommendations = Array.from(
+      { length: AI_CANDIDATE_RECOMMENDATIONS + 5 },
+      (_, index) => ({
+        name: `Candidate ${index + 1}`,
+        originalName: `Candidate ${index + 1}`,
+        year: 2000 + index,
+      })
+    )
+
+    const results = await appendTmdbIds(recommendations)
+
+    expect(results.recommendations).toHaveLength(AI_CANDIDATE_RECOMMENDATIONS)
+  })
 })
 
 describe('getRecommendationsFromPlatformAi', () => {
@@ -269,10 +291,7 @@ describe('getRecommendationsFromPlatformAi', () => {
       JSON.stringify([{ name: 'Stalker', originalName: 'Stalker', year: 1979 }])
     )
 
-    const result = await getRecommendationsFromPlatformAi(
-      [{ title: 'Alien', year: 1979 }],
-      []
-    )
+    const result = await getRecommendationsFromPlatformAi([{ tmdbId: 1, title: 'Alien', year: 1979 }], [])
 
     expect(result.recommendations).toEqual([
       { name: 'Stalker', originalName: 'Stalker', year: 1979, tmdbId: null },
@@ -286,13 +305,72 @@ describe('getRecommendationsFromPlatformAi', () => {
       })
     )
 
-    const result = await getRecommendationsFromPlatformAi(
-      [{ title: 'Alien', year: 1979 }],
-      []
-    )
+    const result = await getRecommendationsFromPlatformAi([{ tmdbId: 1, title: 'Alien', year: 1979 }], [])
 
     expect(result.recommendations).toEqual([
       { name: 'Stalker', originalName: 'Stalker', year: 1979, tmdbId: null },
     ])
+  })
+
+  it('asks for a larger candidate pool and sends taste-profile context', async () => {
+    askPlatformAiMock.mockResolvedValue(
+      JSON.stringify([{ name: 'Stalker', originalName: 'Stalker', year: 1979 }])
+    )
+
+    await getRecommendationsFromPlatformAi(
+      [
+        {
+          tmdbId: 1,
+          title: 'Alien',
+          year: 1979,
+          genres: ['Science Fiction', 'Horror'],
+          popularity: 80,
+          voteCount: 20000,
+        },
+      ],
+      [
+        {
+          tmdbId: 2,
+          title: 'Solaris',
+          year: 1972,
+          genres: ['Science Fiction', 'Drama'],
+          popularity: 50,
+          voteCount: 10000,
+        },
+      ]
+    )
+
+    expect(askPlatformAiMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        systemPrompt: expect.stringContaining(
+          `exactly ${AI_CANDIDATE_RECOMMENDATIONS} candidate movies`
+        ),
+        userMessage: expect.stringContaining('TASTE PROFILE:'),
+      })
+    )
+  })
+
+  it('builds a compact prompt with representative watched, top watched, and My List reminders', () => {
+    const message = buildUserMessage(
+      [
+        {
+          tmdbId: 1,
+          title: 'Alien',
+          year: 1979,
+          genres: ['Science Fiction', 'Horror'],
+          popularity: 80,
+          voteCount: 20000,
+        },
+      ],
+      [{ tmdbId: 2, title: 'Solaris', year: 1972 }],
+      [{ name: 'Moon', originalName: 'Moon', year: 2009 }]
+    )
+
+    expect(message).toContain('TASTE PROFILE:')
+    expect(message).toContain('REPRESENTATIVE WATCHED MOVIES:')
+    expect(message).toContain('TOP WATCHED MOVIES:')
+    expect(message).toContain('MY LIST REMINDERS:')
+    expect(message).toContain('RECENTLY RECOMMENDED (FORBIDDEN)')
+    expect(message).toContain(`up to 20 final recommendations`)
   })
 })

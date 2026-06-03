@@ -4,26 +4,26 @@ import { askPlatformAi } from './ai-client'
 import { searchMoviesBatch } from './searchMovies'
 import { fetchTmdb } from './tmdb'
 import { logPrivateError, throwAiProviderError, throwSupabaseError } from './api-error'
+import { buildTasteProfile } from './recommendation-taste-profile'
 
 export const WATCHED_MOVIES_TABLE = 'user_watched_movies'
 export const MY_LIST_TABLE = 'user_my_list'
 const MOVIES_TABLE = 'movies'
 export const MIN_RECOMMENDATIONS_TO_CACHE = 5
-const MAX_WATCHED_FOR_PROMPT = 100
-const MAX_MY_LIST_FOR_PROMPT = 100
-const MAX_RECOMMENDATIONS = 20
+export const TARGET_RECOMMENDATIONS = 20
+export const AI_CANDIDATE_RECOMMENDATIONS = 50
 const LOAD_RECOMMENDATIONS_MESSAGE = 'Unable to load recommendations right now.'
 const GENERATE_RECOMMENDATIONS_MESSAGE = 'Unable to generate recommendations right now.'
 
 const SYSTEM_PROMPT = `You are a movie recommendation engine.
 Analyze the user's taste profile from their watch history: preferred genres, directors, eras, themes, and tone.
 
-Recommend exactly ${MAX_RECOMMENDATIONS} movies, obeying these rules:
+Recommend exactly ${AI_CANDIDATE_RECOMMENDATIONS} candidate movies, obeying these rules:
 1. HARD PROHIBITION — watched and recently recommended lists: Never recommend any movie from the WATCHED list or the RECENTLY RECOMMENDED list. Not even sequels, remakes, or alternate cuts of those exact titles. This constraint is absolute and overrides everything else. If you are unsure whether a movie is on these lists, do not include it.
-2. WATCHLIST (My List): The user already knows about these movies and has deliberately saved them. Your default should be 0 recommendations from this list. Only include a My List movie when it is the single best possible match for the user's taste AND no comparable undiscovered film exists. Maximum: 1. Prefer 0.
+2. WATCHLIST (My List): The user already knows about these movies and has deliberately saved them. Your default should be 0 recommendations from this list. Only include a My List movie when it is the single best possible match for the user's taste AND no comparable undiscovered film exists. Prefer 0; the server will enforce the final My List limit.
 3. Aim for variety across genres and decades while staying true to the inferred taste profile.
 4. Return movie titles in their original release language and script exactly as TMDB original_title. Do not transliterate, anglicize, or use localized variants (e.g. ゴジラ-1.0 not Godzilla Minus One).
-5. Respond ONLY with a valid JSON array of exactly ${MAX_RECOMMENDATIONS} objects with keys "name", "originalName", and "year". No explanation, no markdown, no code fences. Example:
+5. Respond ONLY with a valid JSON array of exactly ${AI_CANDIDATE_RECOMMENDATIONS} objects with keys "name", "originalName", and "year". No explanation, no markdown, no code fences. Example:
 [{"name": "ゴジラ-1.0", "originalName": "ゴジラ-1.0", "year": 2023}]`
 
 const RECOMMENDATION_RESPONSE_SCHEMA = {
@@ -71,6 +71,9 @@ export interface WatchedMovieRecord {
   tmdbId: number
   title: string
   year: number
+  genres?: string[]
+  popularity?: number
+  voteCount?: number
 }
 
 export interface Recommendation {
@@ -87,6 +90,9 @@ interface MoviePromptRow {
   tmdb_id: number
   title: string
   release_date: string
+  genres?: string[]
+  popularity?: number
+  vote_count?: number
 }
 
 interface RecommendationMovieRow extends MoviePromptRow {
@@ -405,7 +411,7 @@ async function hydratePromptMovies(
   const rows = await fetchMovieRowsByIds<MoviePromptRow>(
     supabase,
     tmdbIds,
-    'tmdb_id, title, release_date',
+    'tmdb_id, title, release_date, genres, popularity, vote_count',
     context
   )
   const rowById = new Map(rows.map((row) => [row.tmdb_id, row]))
@@ -422,6 +428,9 @@ async function hydratePromptMovies(
         tmdbId,
         title: row.title,
         year: parseYear(row.release_date),
+        genres: row.genres ?? [],
+        popularity: row.popularity ?? 0,
+        voteCount: row.vote_count ?? 0,
       },
     ]
   })
@@ -522,32 +531,32 @@ export async function fetchMyListMovies(
   })
 }
 
-export function buildUserMessage(
-  watchedMovies: Array<{ title: string; year: number }>,
-  myListMovies: Array<{ title: string; year: number }>,
-  excludedMovies: Array<{ name: string; originalName?: string; year: number }> = []
-): string {
-  const watchedList = watchedMovies
-    .slice(0, MAX_WATCHED_FOR_PROMPT)
-    .map((m) => `- ${m.title} (${m.year})`)
-    .join('\n')
-
-  const myListList = myListMovies
-    .slice(0, MAX_MY_LIST_FOR_PROMPT)
-    .map((m) => `- ${m.title} (${m.year})`)
-    .join('\n')
-
-  if (excludedMovies.length === 0) {
-    return `WATCHED (FORBIDDEN — do NOT recommend any of these):
-${watchedList}
-
-WATCHLIST — I already know about these; include at most 1 only if it is an exceptional taste match, otherwise skip all of them:
-${myListList}
-
-Recommend exactly ${MAX_RECOMMENDATIONS} movies I would enjoy that do not appear in either list above.
-Before outputting, verify that every recommended movie is absent from the WATCHED list.`
+function formatPromptMovies(movies: WatchedMovieRecord[], includeGenres: boolean): string {
+  if (movies.length === 0) {
+    return '- None'
   }
 
+  return movies
+    .map((movie) => {
+      const genreLabel =
+        includeGenres && movie.genres && movie.genres.length > 0
+          ? ` - ${movie.genres.join(', ')}`
+          : ''
+
+      return `- ${movie.title} (${movie.year})${genreLabel}`
+    })
+    .join('\n')
+}
+
+export function buildUserMessage(
+  watchedMovies: WatchedMovieRecord[],
+  myListMovies: WatchedMovieRecord[],
+  excludedMovies: Array<{ name: string; originalName?: string; year: number }> = []
+): string {
+  const tasteProfile = buildTasteProfile(watchedMovies, myListMovies)
+  const topGenres = tasteProfile.topGenres.length > 0 ? tasteProfile.topGenres.join(', ') : 'None'
+  const favoriteDecades =
+    tasteProfile.favoriteDecades.length > 0 ? tasteProfile.favoriteDecades.join(', ') : 'None'
   const excludedList = excludedMovies
     .map((m) => {
       const originalLabel =
@@ -555,25 +564,35 @@ Before outputting, verify that every recommended movie is absent from the WATCHE
       return `- ${m.name}${originalLabel} (${m.year})`
     })
     .join('\n')
-
-  return `WATCHED (FORBIDDEN — do NOT recommend any of these):
-${watchedList}
-
-WATCHLIST — I already know about these; include at most 1 only if it is an exceptional taste match, otherwise skip all of them:
-${myListList}
-
-RECENTLY RECOMMENDED (FORBIDDEN) — do NOT repeat any of these (includes alternate titles, sequel variants, and localized title variants):
+  const excludedSection =
+    excludedMovies.length === 0
+      ? ''
+      : `
+RECENTLY RECOMMENDED (FORBIDDEN) - do NOT repeat any of these:
 ${excludedList}
+`
 
-Recommend exactly ${MAX_RECOMMENDATIONS} movies I would enjoy that do not appear in any of the three lists above.
-Before outputting, verify that every recommended movie is absent from both the WATCHED and RECENTLY RECOMMENDED lists.`
+  return `TASTE PROFILE:
+- Top genres: ${topGenres}
+- Favorite decades/eras: ${favoriteDecades}
+
+REPRESENTATIVE WATCHED MOVIES:
+${formatPromptMovies(tasteProfile.representativeWatchedMovies, true)}
+
+TOP WATCHED MOVIES:
+${formatPromptMovies(tasteProfile.topWatchedMovies, false)}
+
+MY LIST REMINDERS:
+${formatPromptMovies(tasteProfile.myListReminderMovies, false)}
+${excludedSection}
+Recommend exactly ${AI_CANDIDATE_RECOMMENDATIONS} candidate movies I would enjoy. These are candidates, not final output: the server will remove watched movies, recently recommended movies, unresolved titles, duplicates, and excess My List matches before keeping up to ${TARGET_RECOMMENDATIONS} final recommendations.
+Prefer undiscovered movies over My List reminders.`
 }
-
 export async function appendTmdbIds(
   recommendations: Recommendation[],
   event?: import('h3').H3Event
 ): Promise<{ recommendations: RecommendationWithId[]; tmdbFallbackCount: number }> {
-  const limited = recommendations.slice(0, MAX_RECOMMENDATIONS)
+  const limited = recommendations.slice(0, AI_CANDIDATE_RECOMMENDATIONS)
 
   const allCandidates = limited.flatMap((recommendation) =>
     getSearchCandidates(recommendation).map((query) => ({
@@ -631,8 +650,8 @@ export async function appendTmdbIds(
 }
 
 export async function getRecommendationsFromPlatformAi(
-  watchedMovies: Array<{ title: string; year: number }>,
-  myListMovies: Array<{ title: string; year: number }>,
+  watchedMovies: WatchedMovieRecord[],
+  myListMovies: WatchedMovieRecord[],
   userId?: string,
   event?: import('h3').H3Event,
   excludedMovies: RecommendationWithId[] = []

@@ -34,6 +34,17 @@ interface PrivateErrorLogOptions {
   extra?: Record<string, unknown>
 }
 
+interface PrivateInfoLogOptions {
+  event: string
+  source: ErrorSource
+  statusCode?: number
+  route?: string
+  method?: string
+  userId?: string
+  tmdbId?: number
+  extra?: Record<string, unknown>
+}
+
 const SERIALIZED_ERROR_KEYS = [
   'status',
   'statusCode',
@@ -104,6 +115,26 @@ export function logPrivateError(options: PrivateErrorLogOptions): void {
       tmdbId,
       statusCode,
       error: toErrorDetails(cause),
+      extra,
+      timestamp: new Date().toISOString(),
+    })
+  )
+}
+
+export function logPrivateInfo(options: PrivateInfoLogOptions): void {
+  const { event, source, statusCode, route, method, userId, tmdbId, extra = {} } = options
+
+  // eslint-disable-next-line no-console
+  console.info(
+    JSON.stringify({
+      level: 'info',
+      event,
+      source,
+      route,
+      method,
+      userId,
+      tmdbId,
+      statusCode,
       extra,
       timestamp: new Date().toISOString(),
     })
