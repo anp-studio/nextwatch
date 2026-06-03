@@ -125,19 +125,31 @@ function buildRepresentativeWatchedMovies(watchedMovies: TasteProfileMovie[]): T
     .slice(0, REPRESENTATIVE_WATCHED_LIMIT)
 }
 
-function buildTopWatchedMovies(watchedMovies: TasteProfileMovie[]): TasteProfileMovie[] {
-  return [...watchedMovies].sort(sortByPopularityAndVotes).slice(0, TOP_WATCHED_MOVIES_LIMIT)
+function buildTopWatchedMovies(
+  watchedMovies: TasteProfileMovie[],
+  representativeWatchedMovies: TasteProfileMovie[]
+): TasteProfileMovie[] {
+  const representativeIds = new Set(representativeWatchedMovies.map((movie) => movie.tmdbId))
+  const nonRepresentativeMovies = watchedMovies.filter(
+    (movie) => !representativeIds.has(movie.tmdbId)
+  )
+
+  return [...(nonRepresentativeMovies.length > 0 ? nonRepresentativeMovies : watchedMovies)]
+    .sort(sortByPopularityAndVotes)
+    .slice(0, TOP_WATCHED_MOVIES_LIMIT)
 }
 
 export function buildTasteProfile(
   watchedMovies: TasteProfileMovie[],
   myListMovies: TasteProfileMovie[]
 ): TasteProfile {
+  const representativeWatchedMovies = buildRepresentativeWatchedMovies(watchedMovies)
+
   return {
     topGenres: buildTopGenres(watchedMovies, myListMovies),
     favoriteDecades: buildFavoriteDecades(watchedMovies),
-    representativeWatchedMovies: buildRepresentativeWatchedMovies(watchedMovies),
-    topWatchedMovies: buildTopWatchedMovies(watchedMovies),
+    representativeWatchedMovies,
+    topWatchedMovies: buildTopWatchedMovies(watchedMovies, representativeWatchedMovies),
     myListReminderMovies: myListMovies.slice(0, MY_LIST_REMINDER_LIMIT),
   }
 }

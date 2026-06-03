@@ -64,8 +64,10 @@ describe('buildTasteProfile', () => {
   })
 
   it('caps representative watched movies, top watched movies, and My List reminders', () => {
-    const watchedMovies = Array.from({ length: REPRESENTATIVE_WATCHED_LIMIT + 5 }, (_, index) =>
-      createMovie(index + 1, `Watched ${index + 1}`, 2000 + index, ['Drama'], index, index)
+    const watchedMovies = Array.from(
+      { length: REPRESENTATIVE_WATCHED_LIMIT + TOP_WATCHED_MOVIES_LIMIT + 5 },
+      (_, index) =>
+        createMovie(index + 1, `Watched ${index + 1}`, 2000 + index, ['Drama'], index, index)
     )
     const myListMovies = Array.from({ length: MY_LIST_REMINDER_LIMIT + 2 }, (_, index) =>
       createMovie(index + 100, `My List ${index + 1}`, 2010 + index, ['Drama'], index, index)
@@ -76,5 +78,18 @@ describe('buildTasteProfile', () => {
     expect(profile.representativeWatchedMovies).toHaveLength(REPRESENTATIVE_WATCHED_LIMIT)
     expect(profile.topWatchedMovies).toHaveLength(TOP_WATCHED_MOVIES_LIMIT)
     expect(profile.myListReminderMovies).toHaveLength(MY_LIST_REMINDER_LIMIT)
+  })
+
+  it('keeps watched prompt examples compact and unique across sections', () => {
+    const watchedMovies = Array.from({ length: 100 }, (_, index) =>
+      createMovie(index + 1, `Watched ${index + 1}`, 2000 + index, ['Drama'], 100 - index, index)
+    )
+
+    const profile = buildTasteProfile(watchedMovies, [])
+    const representativeIds = new Set(profile.representativeWatchedMovies.map((movie) => movie.tmdbId))
+
+    expect(profile.representativeWatchedMovies).toHaveLength(REPRESENTATIVE_WATCHED_LIMIT)
+    expect(profile.topWatchedMovies).toHaveLength(TOP_WATCHED_MOVIES_LIMIT)
+    expect(profile.topWatchedMovies.every((movie) => !representativeIds.has(movie.tmdbId))).toBe(true)
   })
 })
