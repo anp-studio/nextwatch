@@ -60,7 +60,7 @@ Documentation
   Backend API
 
   #description
-  Recommendations, movies, watched, My List, and admin import endpoints
+  AI recommendations, quota, movies, watched, My List, and admin import endpoints
   :::
 
   :::u-page-feature
