@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
-import { getAuthorizedUser } from '../../utils/auth'
-import { throwSupabaseError } from '../../utils/api-error'
+import { getAuthorizedUser } from '../../utils/auth/authorize-user'
+import { throwSupabaseError } from '../../utils/shared/api-error'
 
 interface HydratedMovie {
   tmdbId: number

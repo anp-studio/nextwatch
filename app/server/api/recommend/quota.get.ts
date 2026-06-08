@@ -1,9 +1,9 @@
-import { getAuthorizedUser } from '../../utils/auth'
-import { recommednationLimiter } from '../../utils/ratelimit'
-import type { RecommendationQuota } from '../../utils/ratelimit'
+import { getAuthorizedUser } from '../../utils/auth/authorize-user'
+import { recommendationLimiter } from '../../utils/recommendations/rate-limit'
+import type { RecommendationQuota } from '../../utils/recommendations/rate-limit'
 
 export default defineEventHandler(async (event) => {
   const { user } = await getAuthorizedUser(event)
 
-  return (await recommednationLimiter.getRemaining(user.id)) satisfies RecommendationQuota
+  return (await recommendationLimiter.getRemaining(user.id)) satisfies RecommendationQuota
 })

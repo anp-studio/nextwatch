@@ -21,7 +21,7 @@ vi.mock('openai', () => ({
   default: openAiConstructorMock,
 }))
 
-vi.mock('../../server/utils/ratelimit', () => ({
+vi.mock('../../../server/utils/recommendations/rate-limit', () => ({
   recommendationLimiter: {
     limit: recommendationLimitMock,
   },
@@ -29,7 +29,7 @@ vi.mock('../../server/utils/ratelimit', () => ({
 }))
 
 const { askPlatformAi, createPlatformAiProviderConfig, parseProviderModels } = await import(
-  '../../server/utils/ai-client'
+  '../../../server/utils/recommendations/ai-client'
 )
 
 function setupRuntimeConfig() {

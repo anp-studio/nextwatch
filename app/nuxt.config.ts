@@ -4,7 +4,13 @@ import { createThemeBootstrapScript } from './app/utils/theme'
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
-  modules: ['@nuxtjs/tailwindcss', '@vueuse/nuxt', '@nuxt/eslint'],
+  modules: [
+    '@nuxtjs/tailwindcss',
+    '@vueuse/nuxt',
+    '@nuxt/eslint',
+    '@vercel/speed-insights',
+    '@vercel/analytics',
+  ],
   css: ['~/assets/css/transitions.css'],
   app: {
     pageTransition: { name: 'page', mode: 'out-in' },

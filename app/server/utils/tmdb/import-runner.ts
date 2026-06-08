@@ -2,8 +2,8 @@ import { createInterface } from 'node:readline'
 import { Readable } from 'node:stream'
 import { createGunzip } from 'node:zlib'
 import pLimit from 'p-limit'
-import { createServiceSupabaseClient } from './auth'
-import { throwImportError } from './api-error'
+import { createServiceSupabaseClient } from '../shared/supabase-client'
+import { throwImportError } from '../shared/api-error'
 
 const TMDB_EXPORT_BASE_URL = 'https://files.tmdb.org/p/exports'
 const MOVIES_TABLE = 'movies'
@@ -159,11 +159,13 @@ export async function runTmdbImport(
       parsedRowCount++
 
       if (parsed.adult) {
+        totalSkipped++
         totalAdultExcluded++
         return
       }
 
       if (parsed.popularity < MIN_POPULARITY) {
+        totalSkipped++
         totalLowPopularityExcluded++
         return
       }

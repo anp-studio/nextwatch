@@ -6,14 +6,12 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 
 const {
   createClientMock,
-  createServiceSupabaseClientMock,
   serviceRpcMock,
   signUpMock,
   verifyHcaptchaMock,
 } =
   vi.hoisted(() => ({
     createClientMock: vi.fn(),
-    createServiceSupabaseClientMock: vi.fn(),
     serviceRpcMock: vi.fn(),
     signUpMock: vi.fn(),
     verifyHcaptchaMock: vi.fn(),
@@ -23,11 +21,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: createClientMock,
 }))
 
-vi.mock('../../../server/utils/auth', () => ({
-  createServiceSupabaseClient: createServiceSupabaseClientMock,
-}))
-
-vi.mock('../../../server/utils/verifyHcaptcha', () => ({
+vi.mock('../../../server/utils/auth/hcaptcha', () => ({
   verifyHcaptcha: verifyHcaptchaMock,
 }))
 
@@ -42,6 +36,7 @@ Object.assign(globalThis, {
       supabaseKey: 'test-supabase-key',
       hcaptchaSiteKey: 'test-hcaptcha-key',
     },
+    supabaseServiceRoleKey: 'test-service-role-key',
   })),
 })
 
@@ -110,13 +105,18 @@ describe('/api/auth/signup', () => {
       error: null,
     })
     verifyHcaptchaMock.mockResolvedValue({ success: true })
-    createServiceSupabaseClientMock.mockReturnValue({
-      rpc: serviceRpcMock,
-    })
-    createClientMock.mockReturnValue({
-      auth: {
-        signUp: signUpMock,
-      },
+    createClientMock.mockImplementation((_supabaseUrl: string, supabaseKey: string) => {
+      if (supabaseKey === 'test-service-role-key') {
+        return {
+          rpc: serviceRpcMock,
+        }
+      }
+
+      return {
+        auth: {
+          signUp: signUpMock,
+        },
+      }
     })
   })
 

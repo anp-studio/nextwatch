@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import { fetchTmdb } from '../../utils/tmdb'
+import { fetchTmdb } from '../../utils/tmdb/client'
 
 interface TmdbPopularMovie {
   id: number

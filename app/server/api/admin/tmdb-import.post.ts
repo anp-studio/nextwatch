@@ -1,6 +1,6 @@
-import { runTmdbImport } from '../../utils/tmdb-import-runner'
-import { acquireAdminLock, releaseAdminLock } from '../../utils/admin-lock'
-import { createRedisClient } from '../../utils/redis'
+import { runTmdbImport } from '../../utils/tmdb/import-runner'
+import { acquireAdminLock, releaseAdminLock } from '../../utils/tmdb/import-lock'
+import { createRedisClient } from '../../utils/shared/redis'
 import type { H3Event } from 'h3'
 
 const ADMIN_TOKEN_HEADER = 'x-admin-token'

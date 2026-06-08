@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
-import { TMDB_GLOBAL_LIMITER_KEY, tmdbLimiter } from './ratelimit'
-import { throwConfigError, throwTmdbError } from './api-error'
+import { TMDB_GLOBAL_LIMITER_KEY, tmdbLimiter } from './rate-limit'
+import { throwConfigError, throwTmdbError } from '../shared/api-error'
 
 const TMDB_API_ORIGIN = 'https://api.themoviedb.org'
 const TMDB_API_URL = 'https://api.themoviedb.org/3/'

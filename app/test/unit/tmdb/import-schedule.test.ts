@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { monthlyImportRunAt } from '../../server/utils/tmdb-import-schedule'
+import { monthlyImportRunAt } from '../../../server/utils/tmdb/import-schedule'
 
 describe('monthlyImportRunAt', () => {
   it('returns the first day of the current month at 08:00 UTC', () => {

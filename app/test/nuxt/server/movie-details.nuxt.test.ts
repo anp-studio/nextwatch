@@ -9,11 +9,11 @@ const { fetchTmdbMock, getServiceSupabaseMock } = vi.hoisted(() => ({
   getServiceSupabaseMock: vi.fn(),
 }))
 
-vi.mock('../../../server/utils/tmdb', () => ({
+vi.mock('../../../server/utils/tmdb/client', () => ({
   fetchTmdb: fetchTmdbMock,
 }))
 
-vi.mock('../../../server/utils/auth', () => ({
+vi.mock('../../../server/utils/shared/supabase-client', () => ({
   createServiceSupabaseClient: getServiceSupabaseMock,
 }))
 

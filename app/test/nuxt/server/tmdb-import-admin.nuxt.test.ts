@@ -91,11 +91,11 @@ const { redisState, runTmdbImportMock } = vi.hoisted(() => {
   }
 })
 
-vi.mock('../../../server/utils/tmdb-import-runner', () => ({
+vi.mock('../../../server/utils/tmdb/import-runner', () => ({
   runTmdbImport: runTmdbImportMock,
 }))
 
-vi.mock('../../../server/utils/redis', () => ({
+vi.mock('../../../server/utils/shared/redis', () => ({
   createRedisClient: () => redisState.redis,
 }))
 

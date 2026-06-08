@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import OpenAI from 'openai'
-import { logPrivateError, throwConfigError } from './api-error'
-import { recommendationLimiter, RECOMMENDATION_LIMIT } from './ratelimit'
+import { logPrivateError, throwConfigError } from '../shared/api-error'
+import { recommendationLimiter, RECOMMENDATION_LIMIT } from './rate-limit'
 
 const GOOGLE_AI_STUDIO_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/'
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'

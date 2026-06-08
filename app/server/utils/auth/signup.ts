@@ -1,9 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
-import type { Session, SupabaseClient, User } from '@supabase/supabase-js'
+import type { Session, User } from '@supabase/supabase-js'
 import type { H3Event } from 'h3'
-import { throwConfigError, throwSupabaseError, throwCaptchaError } from './api-error'
-import { createServiceSupabaseClient } from './auth'
-import { verifyHcaptcha } from './verifyHcaptcha'
+import { throwConfigError, throwSupabaseError, throwCaptchaError } from '../shared/api-error'
+import { createPublicSupabaseClient, createServiceSupabaseClient } from '../shared/supabase-client'
+import { verifyHcaptcha } from './hcaptcha'
 
 export const EMAIL_ALREADY_REGISTERED_CODE = 'EMAIL_ALREADY_REGISTERED'
 
@@ -17,6 +16,7 @@ const SIGNUP_FAILED_MESSAGE = 'Unable to create account.'
 const CAPTCHA_REQUIRED_MESSAGE = 'Captcha is required.'
 const CAPTCHA_FAILED_MESSAGE = 'Captcha verification failed.'
 const CAPTCHA_UNAVAILABLE_MESSAGE = 'Captcha service is temporarily unavailable.'
+const SIGNUP_PUBLIC_SUPABASE_MISCONFIGURED_EVENT = 'signup.public_supabase_misconfigured'
 
 export interface SignupPayload {
   email: string
@@ -75,7 +75,7 @@ export function validateSignupPayload(body: unknown): SignupPayload {
   const username = requireStringField(body, 'username')
   const captchaToken = requireStringField(body, 'captchaToken')
 
-  // supabase will fail regardles but it is better to catch these common issues early and return a clear error message
+  // supabase will fail regardles
   if (!EMAIL_PATTERN.test(email)) {
     throw createError({
       statusCode: VALIDATION_STATUS_CODE,
@@ -131,10 +131,10 @@ export async function verifySignupCaptcha(event: H3Event, captchaToken: string):
     })
   }
 
-  let captchResult
+  let captchaResult: Awaited<ReturnType<typeof verifyHcaptcha>>
 
   try {
-    captchResult = await verifyHcaptcha({
+    captchaResult = await verifyHcaptcha({
       token: captchaToken,
       secret: secretKey,
       sitekey: siteKey,
@@ -147,33 +147,15 @@ export async function verifySignupCaptcha(event: H3Event, captchaToken: string):
     })
   }
 
-  if (!captchResult.success) {
+  if (!captchaResult.success) {
     throwCaptchaError(event, new Error('hCaptcha verification failed'), {
       event: 'signup.hcaptcha_verification_failed',
       publicMessage: CAPTCHA_FAILED_MESSAGE,
       extra: {
-        'error-codes': captchResult['error-codes'],
+        'error-codes': captchaResult['error-codes'],
       },
     })
   }
-}
-
-function createSignupSupabaseClient(event: H3Event): SupabaseClient {
-  const config = useRuntimeConfig(event)
-  const { supabaseUrl, supabaseKey } = config.public
-
-  if (!supabaseUrl || !supabaseKey) {
-    throwConfigError(event, new Error('Missing Supabase public configuration'), {
-      event: 'signup.public_supabase_misconfigured',
-    })
-  }
-
-  return createClient(supabaseUrl, supabaseKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  })
 }
 
 export async function checkAuthEmailExists(event: H3Event, email: string): Promise<boolean> {
@@ -213,7 +195,9 @@ export async function signupWithSupabase(
   event: H3Event,
   payload: SignupPayload
 ): Promise<SignupResult> {
-  const supabase = createSignupSupabaseClient(event)
+  const supabase = createPublicSupabaseClient(event, {
+    misconfiguredEvent: SIGNUP_PUBLIC_SUPABASE_MISCONFIGURED_EVENT,
+  })
   const { data, error } = await supabase.auth.signUp({
     email: payload.email,
     password: payload.password,

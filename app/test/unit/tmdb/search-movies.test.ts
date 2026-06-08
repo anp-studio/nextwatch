@@ -9,7 +9,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: createClientMock,
 }))
 
-const { searchMovies, searchMoviesBatch } = await import('../../server/utils/searchMovies')
+const { searchMovies, searchMoviesBatch } = await import('../../../server/utils/tmdb/search-movies')
 
 interface SearchRow {
   tmdb_id: number

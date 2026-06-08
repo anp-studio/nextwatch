@@ -4,8 +4,8 @@ import {
   MY_LIST_REMINDER_LIMIT,
   REPRESENTATIVE_WATCHED_LIMIT,
   TOP_WATCHED_MOVIES_LIMIT,
-} from '../../server/utils/recommendation-taste-profile'
-import type { TasteProfileMovie } from '../../server/utils/recommendation-taste-profile'
+} from '../../../server/utils/recommendations/taste-profile'
+import type { TasteProfileMovie } from '../../../server/utils/recommendations/taste-profile'
 
 function createMovie(
   tmdbId: number,

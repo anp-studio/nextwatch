@@ -4,7 +4,7 @@ import {
   signupWithSupabase,
   validateSignupPayload,
   verifySignupCaptcha,
-} from '../../utils/signup'
+} from '../../utils/auth/signup'
 
 export default defineEventHandler(async (event) => {
   const payload = validateSignupPayload(await readBody<unknown>(event))

@@ -31,7 +31,7 @@ vi.mock('node:stream', () => ({
   },
 }))
 
-const { runTmdbImport } = await import('../../server/utils/tmdb-import-runner')
+const { runTmdbImport } = await import('../../../server/utils/tmdb/import-runner')
 
 interface ImportRow {
   tmdb_id: number
@@ -124,7 +124,7 @@ describe('runTmdbImport', () => {
 
     expect(result).toEqual({
       imported: 1,
-      skipped: 2,
+      skipped: 100_001,
       adultExcluded: 1,
       lowPopularityExcluded: 99_998,
       durationSeconds: expect.any(String),

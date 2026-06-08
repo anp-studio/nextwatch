@@ -1,6 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { logPrivateError } from './api-error'
+import { logPrivateError } from '../shared/api-error'
+import { createSupabaseServerClient } from '../shared/supabase-client'
 
 const MAX_RESULTS = 20
 const MIN_QUERY_LENGTH = 2
@@ -49,12 +49,7 @@ function createSearchSupabaseClient(): SupabaseClient {
     })
   }
 
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  })
+  return createSupabaseServerClient(supabaseUrl, serviceRoleKey)
 }
 
 function parseYear(releaseDate: string): number {

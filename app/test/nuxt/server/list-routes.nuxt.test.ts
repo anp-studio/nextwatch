@@ -15,7 +15,7 @@ const { getAuthorizedUserMock } = vi.hoisted(() => ({
   getAuthorizedUserMock: vi.fn(),
 }))
 
-vi.mock('../../../server/utils/auth', () => ({
+vi.mock('../../../server/utils/auth/authorize-user', () => ({
   getAuthorizedUser: getAuthorizedUserMock,
 }))
 

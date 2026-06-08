@@ -1,7 +1,7 @@
-import { createServiceSupabaseClient } from '../../utils/auth'
-import { throwSupabaseError } from '../../utils/api-error'
-import { IMAGE_BASE } from '../../utils/constants'
-import { fetchTmdb } from '../../utils/tmdb'
+import { createServiceSupabaseClient } from '../../utils/shared/supabase-client'
+import { throwSupabaseError } from '../../utils/shared/api-error'
+import { IMAGE_BASE } from '../../utils/tmdb/constants'
+import { fetchTmdb } from '../../utils/tmdb/client'
 
 interface TMDBMovieDetails {
   id: number
