@@ -27,7 +27,7 @@
       </NuxtLink>
 
       <NuxtLink
-        to="/mylist"
+        to="/watchlist"
         class="nav-link flex min-w-16 flex-1 flex-col items-center justify-center gap-0.5 pt-1 text-[9px] font-medium uppercase tracking-[0.24em] text-on-surface-variant transition-colors hover:text-on-surface sm:gap-1 sm:pt-2 sm:text-[10px] sm:tracking-[0.28em]"
         active-class="!text-on-surface nav-link-active"
       >

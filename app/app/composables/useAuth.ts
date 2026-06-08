@@ -48,8 +48,6 @@ export const useAuth = () => {
   const isAuthenticated = computed(() => !!user.value)
   const userEmail = computed(() => user.value?.email || '')
 
-  // used for fixing error on supabase side
-  // will leave it in case it happens again
   const scheduleSavedMovieStateSyncAfterAuth = (accessToken?: string) => {
     if (pendingAuthSyncTimeout) {
       clearTimeout(pendingAuthSyncTimeout)

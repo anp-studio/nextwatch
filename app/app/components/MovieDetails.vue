@@ -1,8 +1,10 @@
 <template>
+  <Transition :name="isInline ? undefined : 'fade'" appear>
   <div v-if="shouldRender" :class="rootClasses" @click.self="handleRootClick">
     <Transition
       :name="isInline ? undefined : 'modal'"
       appear
+      @after-enter="handleAfterEnter"
       @after-leave="handleAfterLeave"
     >
       <div v-if="activeMovie && showPanel" :class="panelClasses">
@@ -23,12 +25,12 @@
 
         <div :class="mediaClasses">
           <div
-            v-if="trailerVideoId && !trailerFailed"
+            v-if="showTrailerPlayer"
             :id="playerId"
             class="absolute left-0 top-0 h-full w-full"
           ></div>
           <img
-            v-if="(!trailerVideoId || trailerFailed) && fallbackImageSource"
+            v-if="!showTrailerPlayer && fallbackImageSource"
             :src="fallbackImageSource"
             :alt="activeMovie.title"
             class="absolute left-0 top-0 h-full w-full object-cover"
@@ -160,6 +162,7 @@
       </div>
     </Transition>
   </div>
+  </Transition>
 </template>
 
 <script setup lang="ts">
@@ -205,6 +208,9 @@ const mediaClasses = computed(() =>
     : 'relative w-full flex-shrink-0 bg-surface-container-high pt-[56.25%]'
 )
 const showPanel = ref(false)
+// Gate the (heavy) trailer iframe until the open animation finishes so its
+// script/iframe work doesn't block the main thread and make the modal "cut".
+const canLoadTrailer = ref(false)
 
 watch(
   () => [props.isOpen, props.movie, props.variant],
@@ -242,11 +248,26 @@ function handleRootClick() {
   closePanel()
 }
 
+function handleAfterEnter() {
+  if (isInline.value) {
+    return
+  }
+
+  // Open animation is done — now it's safe to mount the trailer.
+  canLoadTrailer.value = true
+
+  const videoId = trailerVideoId.value
+  if (videoId && !trailerFailed.value) {
+    createPlayer(videoId)
+  }
+}
+
 function handleAfterLeave() {
   if (isInline.value) {
     return
   }
 
+  canLoadTrailer.value = false
   emit('close')
 }
 
@@ -260,6 +281,10 @@ const trailerVideoId = computed(() => {
   const match = trailer.match(/[?&]v=([^&]+)/)
   return match ? match[1] : null
 })
+
+const showTrailerPlayer = computed(
+  () => (canLoadTrailer.value || isInline.value) && !!trailerVideoId.value && !trailerFailed.value
+)
 
 const fallbackImageSource = computed(() => {
   const movie = props.movie
@@ -367,6 +392,13 @@ watch(
     const videoId = trailerVideoId.value
     if (!videoId) return
 
+    // Modal: defer to @after-enter so the iframe doesn't jank the open animation.
+    // Inline: no enter animation, so load immediately.
+    if (!isInline.value) {
+      canLoadTrailer.value = false
+      return
+    }
+
     await nextTick()
     createPlayer(videoId)
   },
@@ -378,6 +410,7 @@ watch(
   () => props.isOpen,
   (open) => {
     if (!isInline.value && !open) {
+      canLoadTrailer.value = false
       destroyPlayer()
     }
   }

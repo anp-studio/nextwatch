@@ -103,28 +103,7 @@
       @close="selectedMovie = null"
     />
 
-    <Transition
-      enter-active-class="transition-opacity duration-300 ease-out"
-      enter-from-class="opacity-0"
-      leave-active-class="transition-opacity duration-300 ease-in"
-      leave-to-class="opacity-0"
-    >
-      <div
-        v-if="undoAction"
-        class="fixed left-1/2 top-6 z-50 flex max-w-sm -translate-x-1/2 items-center gap-3 rounded-full border border-outline-variant bg-surface-container-lowest px-5 py-3 text-on-surface shadow-glow"
-      >
-        <span class="truncate text-sm">
-          <strong>{{ undoAction.movie.title }}</strong>
-          {{ undoAction.type === 'watched' ? 'marked as watched' : 'removed from watchlist' }}
-        </span>
-        <button
-          class="whitespace-nowrap text-sm font-semibold text-on-surface transition-colors hover:text-on-surface-variant"
-          @click="handleUndo"
-        >
-          Undo
-        </button>
-      </div>
-    </Transition>
+    <UndoSnackbar :action="undoSnackbar" @undo="handleUndo" />
   </div>
 </template>
 
@@ -166,6 +145,14 @@ const movieCountLabel = computed(() => {
 
   const filteredCount = filteredMovies.value.length
   return `${filteredCount} of ${count} ${noun}`
+})
+const undoSnackbar = computed(() => {
+  const a = undoAction.value
+  if (!a) return null
+  return {
+    title: a.movie.title,
+    message: a.type === 'watched' ? 'marked as watched' : 'removed from watchlist',
+  }
 })
 
 let undoTimer: ReturnType<typeof setTimeout> | null = null

@@ -7,7 +7,7 @@
         to="/"
         class="text-2xl font-black uppercase tracking-[0.35em] text-on-surface transition-colors hover:text-on-surface-variant"
       >
-        RECC
+        NEXT
       </NuxtLink>
 
       <div class="flex items-center gap-2">
