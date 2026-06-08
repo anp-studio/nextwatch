@@ -46,10 +46,9 @@ vi.mock('../../../server/utils/auth/authorize-user', () => ({
   getAuthorizedUser: getAuthorizedUserMock,
 }))
 
-vi.mock('../../../server/utils/recommendations/recommendations', () => ({
+vi.mock('../../../server/utils/recommendations/movie-history', () => ({
   fetchMyListMovies: fetchMyListMoviesMock,
   fetchWatchedMovies: fetchWatchedMoviesMock,
-  getRecommendationsFromPlatformAi: getRecommendationsFromPlatformAiMock,
   hydrateRecommendationsByTmdbIds: (_supabase: unknown, tmdbIds: number[]) =>
     tmdbIds.map((tmdbId) => ({
       name: `Movie ${tmdbId}`,
@@ -57,9 +56,13 @@ vi.mock('../../../server/utils/recommendations/recommendations', () => ({
       year: 2000,
       tmdbId,
     })),
-  MIN_RECOMMENDATIONS_TO_CACHE: 5,
-  TARGET_RECOMMENDATIONS: 20,
-  MAX_MY_LIST_RECOMMENDATIONS: 2,
+}))
+
+vi.mock('../../../server/utils/recommendations/recommendations', () => ({
+  getRecommendationsFromPlatformAi: getRecommendationsFromPlatformAiMock,
+}))
+
+vi.mock('../../../server/utils/recommendations/cache-policy', () => ({
   hasEnoughRecommendationsToCache: (recommendations: Array<{ tmdbId: number | null }>) =>
     recommendations.filter((recommendation) => recommendation.tmdbId !== null).length >= 5,
 }))

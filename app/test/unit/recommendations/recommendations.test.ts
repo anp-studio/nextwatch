@@ -27,14 +27,18 @@ vi.mock('../../../server/utils/recommendations/ai-client', () => ({
 
 const {
   AI_CANDIDATE_RECOMMENDATIONS,
-  appendTmdbIds,
-  buildUserMessage,
-  createRecommendationValidationState,
-  getRecommendationsFromPlatformAi,
   INITIAL_RECOMMENDATION_COUNT,
   MAX_MY_LIST_RECOMMENDATIONS,
+} = await import('../../../server/utils/recommendations/constants')
+const { appendTmdbIds } = await import('../../../server/utils/recommendations/movie-id-matching')
+const { buildUserMessage } = await import('../../../server/utils/recommendations/prompts')
+const {
+  createRecommendationValidationState,
   validateRecommendationBatch,
-} = await import('../../../server/utils/recommendations/recommendations')
+} = await import('../../../server/utils/recommendations/recommendation-validation')
+const { getRecommendationsFromPlatformAi } = await import(
+  '../../../server/utils/recommendations/recommendations'
+)
 
 interface SearchRow {
   tmdb_id: number
