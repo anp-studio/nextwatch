@@ -13,7 +13,6 @@
         <mask id="film-reel-holes">
           <!-- Everything white = visible; black = cut out -->
           <rect width="100" height="100" fill="white" />
-          <!-- Center hub hole -->
           <circle cx="50" cy="50" r="8" fill="black" />
           <!-- Six sprocket holes evenly spaced on a 28px radius -->
           <circle cx="78" cy="50" r="9" fill="black" />
@@ -25,9 +24,7 @@
         </mask>
       </defs>
 
-      <!-- The reel disc with holes punched out -->
       <circle cx="50" cy="50" r="46" fill="currentColor" mask="url(#film-reel-holes)" />
-      <!-- Subtle outer rim accent -->
       <circle cx="50" cy="50" r="48" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4" />
     </svg>
 
