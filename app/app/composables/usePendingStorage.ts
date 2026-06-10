@@ -37,9 +37,7 @@ export function usePendingStorage<T>(
       }
 
       window.localStorage.setItem(storageKey, JSON.stringify(state.value))
-    } catch {
-      // Ignore storage write failures; pending items remain in memory.
-    }
+    } catch {}
   }
 
   return { load, persist }

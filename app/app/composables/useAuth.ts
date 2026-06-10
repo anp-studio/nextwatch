@@ -147,13 +147,21 @@ export const useAuth = () => {
       session.value = null
       clearWatchedMovies()
       clearMyList()
-    } catch {
-      // Logout cleanup is local best-effort.
-    }
+    } catch {}
   }
 
   const resetPassword = async (email: string) => {
     try {
+      const { exists } = await $fetch<{ exists: boolean }>('/api/auth/email-exists', {
+        method: 'POST',
+        body: { email },
+      })
+
+      if (!exists) {
+        const notRegistered = new Error('No account found with that email.') as AuthError
+        return { error: notRegistered }
+      }
+
       const { data: _data, error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: window.location.origin + '/reset-password',
       })

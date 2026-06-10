@@ -339,9 +339,7 @@ function destroyPlayer() {
 
   try {
     player.destroy()
-  } catch {
-    // Ignore player teardown errors.
-  }
+  } catch {}
 
   player = null
 }

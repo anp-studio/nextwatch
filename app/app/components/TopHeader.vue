@@ -1,5 +1,5 @@
 <template>
-  <header class="z-50 border-b border-outline-variant bg-surface-container-lowest/95 backdrop-blur">
+  <header class="z-50 border-b border-outline-variant bg-surface-container-lowest/95 backdrop-blur pt-[env(safe-area-inset-top)]">
     <div
       class="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8"
     >

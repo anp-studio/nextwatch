@@ -1,6 +1,7 @@
 {
   "name": "NextWatch",
   "short_name": "NextWatch",
+  "description": "Personalized movie recommendations, your watchlist, and what you've watched.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0e0e0e",
@@ -10,7 +11,7 @@
       "src": "/pwa-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ]
 }

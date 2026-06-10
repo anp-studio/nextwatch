@@ -60,9 +60,7 @@ const hydrateMissingMyListMovieDetails = async (movies: MyListMovie[]) => {
     try {
       const details = await getMovieDetails(movie.tmdbId)
       applyDetailsToMyListMovie(movie, details)
-    } catch {
-      // Cache warming is best-effort; list sync should still succeed.
-    }
+    } catch {}
   }
 }
 
@@ -98,9 +96,7 @@ export const useMyList = () => {
 
       myList.value = response.movies
       await hydrateMissingMyListMovieDetails(myList.value)
-    } catch {
-      // My List sync is best-effort; callers handle empty state.
-    }
+    } catch {}
   }
 
   const addToMyList = async (
@@ -135,9 +131,7 @@ export const useMyList = () => {
         try {
           const { getMovieDetails } = useMovieDetails()
           details = await getMovieDetails(movie.id)
-        } catch {
-          // Cache warming is best-effort; adding to the list should still use the ID.
-        }
+        } catch {}
       }
 
       const alreadyInState = myList.value.some((m) => m.tmdbId === movie.id)
@@ -295,9 +289,7 @@ export const useMyList = () => {
 
           removePendingMyListMovie(movie.id)
           processedCount++
-        } catch {
-          // Keep processing the pending queue after a single failed insert.
-        }
+        } catch {}
       }
 
       return processedCount

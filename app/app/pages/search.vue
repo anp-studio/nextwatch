@@ -625,9 +625,7 @@ const openDetails = async (movie: SearchMovie) => {
   try {
     selectedMovie.value = await getMovieDetails(movie.id)
     isModalOpen.value = true
-  } catch {
-    // Leave the modal closed when details cannot be loaded.
-  } finally {
+  } catch {} finally {
     isLoadingDetails.value = false
   }
 }

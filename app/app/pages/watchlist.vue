@@ -229,9 +229,7 @@ const handleUndo = async () => {
 const openDetails = async (tmdbId: number) => {
   try {
     selectedMovie.value = await fetchMovieDetails(tmdbId)
-  } catch {
-    // Leave the modal closed when details cannot be loaded.
-  }
+  } catch {}
 }
 
 const onBeforeEnter = (element: Element) => {

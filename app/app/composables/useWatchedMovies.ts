@@ -54,9 +54,7 @@ const hydrateMissingWatchedMovieDetails = async (movies: WatchedMovie[]) => {
     try {
       const details = await getMovieDetails(movie.tmdbId)
       applyDetailsToWatchedMovie(movie, details)
-    } catch {
-      // Cache warming is best-effort; list sync should still succeed.
-    }
+    } catch {}
   }
 }
 
@@ -92,9 +90,7 @@ export const useWatchedMovies = () => {
 
       watchedMovies.value = response.movies
       await hydrateMissingWatchedMovieDetails(watchedMovies.value)
-    } catch {
-      // Watched sync is best-effort; callers handle empty state.
-    }
+    } catch {}
   }
 
   const syncMyListAfterWatchingMovie = async (movieId: number) => {
@@ -106,9 +102,7 @@ export const useWatchedMovies = () => {
 
     try {
       await removeFromMyList(movieId)
-    } catch {
-      // best-effort move; watched succeeded so don't fail the whole call
-    }
+    } catch {}
   }
 
   const markAsWatched = async (
@@ -141,9 +135,7 @@ export const useWatchedMovies = () => {
         try {
           const { getMovieDetails } = useMovieDetails()
           details = await getMovieDetails(movie.id)
-        } catch {
-          // Cache warming is best-effort; adding watched should still use the ID.
-        }
+        } catch {}
       }
 
       const alreadyInState = watchedMovies.value.some((s) => s.tmdbId === movie.id)
@@ -285,9 +277,7 @@ export const useWatchedMovies = () => {
           await syncMyListAfterWatchingMovie(movie.id)
           removePendingWatchedMovie(movie.id)
           processedCount++
-        } catch {
-          // Keep processing the pending queue after a single failed insert.
-        }
+        } catch {}
       }
 
       return processedCount

@@ -23,6 +23,7 @@ export default withNuxt(
       'no-console': 'warn',
       'vue/html-self-closing': 'off',
       'no-debugger': 'warn',
+      'no-empty': ['error', { allowEmptyCatch: true }],
     },
   }
 )
