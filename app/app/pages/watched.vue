@@ -1,5 +1,6 @@
 <template>
   <div
+    v-bind="containerProps"
     class="h-full min-h-0 overflow-y-auto bg-background px-4 pb-24 pt-6 text-on-background sm:px-6 lg:px-8"
   >
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-8">
@@ -73,17 +74,12 @@
           </button>
         </div>
 
-        <div
-          v-else
-          v-bind="containerProps"
-          class="min-h-[24rem] overflow-y-auto"
-          style="height: 70vh"
-        >
+        <div v-else class="min-h-[24rem]">
           <div v-bind="wrapperProps">
             <div
               v-for="row in virtualRows"
               :key="row.data.key"
-              class="grid gap-x-4 gap-y-8 md:gap-x-6 md:gap-y-10"
+              class="mb-8 grid gap-x-4 md:mb-10 md:gap-x-6"
               :style="{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }"
             >
               <WatchedMovieCard
