@@ -80,6 +80,7 @@
             :is-loading-metadata="isLoadingMetadata"
             :metadata-progress="metadataProgress"
             :show-search="false"
+            :show-runtime="false"
             :min-rating="minRating"
             :rating-options="RATING_OPTIONS"
             :sort-labels="SEARCH_SORT_LABELS"
@@ -160,6 +161,7 @@
     <MovieDetails
       :is-open="isModalOpen"
       :movie="selectedMovie"
+      media-size="compact"
       :show-add-button="true"
       :is-watched="selectedMovie ? isAlreadyWatched(selectedMovie.id) : false"
       :show-my-list-button="true"
@@ -177,6 +179,7 @@
 <script setup lang="ts">
 import type { Movie, SearchDisplayMovie, SearchMovie as ApiSearchMovie } from '~/types/movie'
 import { SEARCH_SORT_LABELS, useFilters } from '~/composables/useFilters'
+import { normalizeSearchMovie } from '~/utils/search-movie'
 
 interface SearchMoviesResponse {
   results: ApiSearchMovie[]
@@ -187,33 +190,8 @@ interface RatingOption {
   value: number
 }
 
-const TMDB_GENRE_MAP: Record<number, string> = {
-  28: 'Action',
-  12: 'Adventure',
-  16: 'Animation',
-  35: 'Comedy',
-  80: 'Crime',
-  99: 'Documentary',
-  18: 'Drama',
-  10751: 'Family',
-  14: 'Fantasy',
-  36: 'History',
-  27: 'Horror',
-  10402: 'Music',
-  9648: 'Mystery',
-  10749: 'Romance',
-  878: 'Sci-Fi',
-  10770: 'TV Movie',
-  53: 'Thriller',
-  10752: 'War',
-  37: 'Western',
-}
 const SEARCH_DEBOUNCE_MS = 500
-const SEARCH_METADATA_BATCH_SIZE = 5
 const SKELETON_CARD_COUNT = 6
-const RELEASE_YEAR_INDEX = 0
-const FALLBACK_RELEASE_YEAR = 0
-const DEFAULT_METADATA_PROGRESS = { loaded: 0, total: 0 }
 const SEARCH_ROW_HEIGHT = 390
 const RATING_OPTIONS: RatingOption[] = [
   { label: '7+', value: 7 },
@@ -231,12 +209,11 @@ const {
 } = useWatchedMovies()
 const { myList, addToMyList, removeFromMyList } = useMyList()
 const { getMovieDetails } = useMovieDetails()
-
 const searchQuery = useState('search-query', () => '')
 const searchResults = useState<SearchDisplayMovie[]>('search-results', () => [])
 const isSearching = ref(false)
 const isLoadingMetadata = ref(false)
-const metadataProgress = ref({ ...DEFAULT_METADATA_PROGRESS })
+const metadataProgress = ref({ loaded: 0, total: 0 })
 let debounceTimeout: ReturnType<typeof setTimeout> | null = null
 let activeSearchToken = 0
 
@@ -260,6 +237,7 @@ const {
 } = useFilters(searchResults, {
   searchQuery,
   enableRating: true,
+  enableRuntime: false,
   includeSearchInActiveState: false,
   clearSearchOnReset: false,
 })
@@ -280,84 +258,6 @@ const resultCountLabel = computed(() => {
 
   return `${filteredResults.value.length} of ${totalCount} ${noun}`
 })
-
-const getMovieGenreNames = (movie: ApiSearchMovie) => {
-  if (movie.genres?.length) {
-    return movie.genres
-  }
-
-  return movie.genre_ids
-    .map((id) => TMDB_GENRE_MAP[id])
-    .filter((name): name is string => Boolean(name))
-}
-
-const getReleaseYear = (movie: ApiSearchMovie) => {
-  const releaseYear = movie.release_date.split('-')[RELEASE_YEAR_INDEX]
-  return releaseYear ? Number.parseInt(releaseYear) : FALLBACK_RELEASE_YEAR
-}
-
-const normalizeSearchMovie = (movie: ApiSearchMovie): SearchDisplayMovie => ({
-  ...movie,
-  rating: movie.vote_average,
-  genres: getMovieGenreNames(movie),
-  year: getReleaseYear(movie),
-})
-
-const fetchSearchMetadata = async (movies: SearchDisplayMovie[], searchToken: number) => {
-  if (movies.length === 0) {
-    metadataProgress.value = { ...DEFAULT_METADATA_PROGRESS }
-    return
-  }
-
-  isLoadingMetadata.value = true
-  metadataProgress.value = { loaded: 0, total: movies.length }
-
-  for (let index = 0; index < movies.length; index += SEARCH_METADATA_BATCH_SIZE) {
-    if (searchToken !== activeSearchToken) {
-      return
-    }
-
-    const batch = movies.slice(index, index + SEARCH_METADATA_BATCH_SIZE)
-    const results = await Promise.allSettled(batch.map((movie) => getMovieDetails(movie.id)))
-
-    if (searchToken !== activeSearchToken) {
-      return
-    }
-
-    const metadataById = new Map<number, Pick<SearchDisplayMovie, 'genres' | 'runtime'>>()
-
-    for (let batchIndex = 0; batchIndex < results.length; batchIndex++) {
-      const result = results[batchIndex]
-      const movie = batch[batchIndex]
-
-      if (!movie || result?.status !== 'fulfilled') {
-        continue
-      }
-
-      metadataById.set(movie.id, {
-        genres: result.value.genres,
-        runtime: result.value.runtime,
-      })
-    }
-
-    searchResults.value = searchResults.value.map((movie) => {
-      const metadata = metadataById.get(movie.id)
-
-      if (!metadata) {
-        return movie
-      }
-
-      return { ...movie, ...metadata }
-    })
-
-    metadataProgress.value = {
-      loaded: Math.min(index + SEARCH_METADATA_BATCH_SIZE, movies.length),
-      total: movies.length,
-    }
-  }
-
-  isLoadingMetadata.value = false
-}
 
 const searchTMDB = async (query: string) => {
   const normalizedQuery = query.trim()
@@ -380,7 +280,6 @@ const searchTMDB = async (query: string) => {
     }
 
     searchResults.value = data.results.map(normalizeSearchMovie)
-    void fetchSearchMetadata(searchResults.value, searchToken)
   } catch {
     if (searchToken === activeSearchToken) {
       searchResults.value = []
@@ -405,12 +304,9 @@ const loadPopularMovies = async () => {
     }
 
     searchResults.value = data.results.map(normalizeSearchMovie)
-    void fetchSearchMetadata(searchResults.value, searchToken)
   } catch {
     if (searchToken === activeSearchToken) {
       searchResults.value = []
-      isLoadingMetadata.value = false
-      metadataProgress.value = { ...DEFAULT_METADATA_PROGRESS }
     }
   } finally {
     if (searchToken === activeSearchToken) {
@@ -461,9 +357,7 @@ const buildMovieToSave = (movie: SearchDisplayMovie) => ({
   ...movie,
   tmdbId: movie.id,
   poster: posterUrl(movie.poster_path),
-  year: getReleaseYear(movie),
-  genres: getMovieGenreNames(movie),
-  runtime: movie.runtime,
+  genres: movie.genres,
 })
 
 const toggleMyList = async (movie: SearchDisplayMovie) => {
@@ -480,17 +374,20 @@ const toggleMyList = async (movie: SearchDisplayMovie) => {
   await addToMyList({
     id: movie.id,
     title: movie.title,
-    year: getReleaseYear(movie),
+    year: movie.year,
     poster: posterUrl(movie.poster_path),
     rating: movie.vote_average,
-    genres: getMovieGenreNames(movie),
-    runtime: movie.runtime,
+    genres: movie.genres,
   })
 }
 
 const openDetails = async (movie: SearchDisplayMovie) => {
-  if (isLoadingDetails.value) return
+  if (isLoadingDetails.value) {
+    return
+  }
+
   isLoadingDetails.value = true
+
   try {
     selectedMovie.value = await getMovieDetails(movie.id)
     isModalOpen.value = true

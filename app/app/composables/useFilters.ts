@@ -20,6 +20,7 @@ interface FilterableMovie {
 interface UseFiltersOptions {
   searchQuery?: Ref<string>
   enableRating?: boolean
+  enableRuntime?: boolean
   includeSearchInActiveState?: boolean
   clearSearchOnReset?: boolean
 }
@@ -51,6 +52,7 @@ export function useFilters<T extends FilterableMovie>(
   const {
     searchQuery = ref(''),
     enableRating = false,
+    enableRuntime = true,
     includeSearchInActiveState = true,
     clearSearchOnReset = true,
   } = options
@@ -86,7 +88,7 @@ export function useFilters<T extends FilterableMovie>(
       )
     }
 
-    if (selectedRuntime.value) {
+    if (enableRuntime && selectedRuntime.value) {
       const { min, max } = selectedRuntime.value
       result = result.filter((movie) => {
         if (typeof movie.runtime !== 'number') {
@@ -135,7 +137,7 @@ export function useFilters<T extends FilterableMovie>(
     return (
       hasSearch ||
       selectedGenres.value.length > 0 ||
-      selectedRuntime.value !== null ||
+      (enableRuntime && selectedRuntime.value !== null) ||
       sortBy.value !== DEFAULT_SORT ||
       (enableRating && minRating.value !== null)
     )
@@ -174,6 +176,6 @@ export function useFilters<T extends FilterableMovie>(
     hasActiveFilters,
     clearFilters,
     toggleGenre,
-    runtimeRanges: RUNTIME_RANGES,
+    runtimeRanges: enableRuntime ? RUNTIME_RANGES : [],
   }
 }

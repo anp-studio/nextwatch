@@ -145,9 +145,11 @@ export interface SearchMovie {
   title: string
   original_title: string
   poster_path: string | null
+  backdrop_path: string | null
   release_date: string
   vote_average: number
   genre_ids: number[]
+  overview: string
   runtime?: number | null
   genres?: string[]
   rating?: number | null

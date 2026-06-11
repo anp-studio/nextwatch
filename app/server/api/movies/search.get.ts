@@ -3,9 +3,11 @@ interface TmdbSearchMovie {
   title: string
   original_title: string
   poster_path: string | null
+  backdrop_path: string | null
   release_date: string
   vote_average: number
   genre_ids: number[]
+  overview: string
 }
 
 interface TmdbSearchResponse {
@@ -58,9 +60,11 @@ export default defineEventHandler(async (event) => {
     title: movie.title,
     original_title: movie.original_title,
     poster_path: movie.poster_path,
+    backdrop_path: movie.backdrop_path,
     release_date: movie.release_date,
     vote_average: movie.vote_average,
     genre_ids: movie.genre_ids ?? [],
+    overview: movie.overview,
   }))
 
   return { results }
