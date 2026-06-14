@@ -17,6 +17,7 @@ const CAPTCHA_REQUIRED_MESSAGE = 'Captcha is required.'
 const CAPTCHA_FAILED_MESSAGE = 'Captcha verification failed.'
 const CAPTCHA_UNAVAILABLE_MESSAGE = 'Captcha service is temporarily unavailable.'
 const SIGNUP_PUBLIC_SUPABASE_MISCONFIGURED_EVENT = 'signup.public_supabase_misconfigured'
+const PROFILES_TABLE = 'profiles'
 
 export interface SignupPayload {
   email: string
@@ -191,6 +192,29 @@ export function createEmailAlreadyRegisteredError(): EmailAlreadyRegisteredError
   return error
 }
 
+async function ensureProfileExists(
+  event: H3Event,
+  userId: string
+): Promise<void> {
+  const supabase = createServiceSupabaseClient(event)
+  const { error } = await supabase.from(PROFILES_TABLE).upsert({
+    id: userId,
+    onboarding_completed_at: null,
+  })
+
+  if (error) {
+    throwSupabaseError(event, error, {
+      event: 'signup.profile_seed_failed',
+      publicMessage: SIGNUP_FAILED_MESSAGE,
+      extra: {
+        table: PROFILES_TABLE,
+        operation: 'upsert',
+      },
+      userId,
+    })
+  }
+}
+
 export async function signupWithSupabase(
   event: H3Event,
   payload: SignupPayload
@@ -213,6 +237,10 @@ export async function signupWithSupabase(
       event: 'signup.supabase_signup_failed',
       publicMessage: SIGNUP_FAILED_MESSAGE,
     })
+  }
+
+  if (data.user?.id) {
+    await ensureProfileExists(event, data.user.id)
   }
 
   return {

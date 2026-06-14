@@ -3,6 +3,7 @@ import {
   getOnboardingStatus,
   type OnboardingStatus,
 } from '../../utils/auth/onboarding'
+import { createServiceSupabaseClient } from '../../utils/shared/supabase-client'
 import { throwSupabaseError } from '../../utils/shared/api-error'
 
 const USER_WATCHED_MOVIES_TABLE = 'user_watched_movies'
@@ -95,9 +96,9 @@ async function insertWatchedRows(
 
 async function markOnboardingComplete(
   event: Parameters<typeof getAuthorizedUser>[0],
-  supabase: Awaited<ReturnType<typeof getAuthorizedUser>>['supabase'],
   userId: string
 ): Promise<OnboardingStatus> {
+  const supabase = createServiceSupabaseClient(event, 'onboarding.service_supabase_misconfigured')
   const completedAt = new Date().toISOString()
   const { error } = await supabase.from(PROFILES_TABLE).upsert({
     id: userId,
@@ -135,7 +136,7 @@ export default defineEventHandler(async (event) => {
   }
 
   await insertWatchedRows(event, supabase, user.id, tmdbIds)
-  const completedStatus = await markOnboardingComplete(event, supabase, user.id)
+  const completedStatus = await markOnboardingComplete(event, user.id)
 
   return {
     success: true,

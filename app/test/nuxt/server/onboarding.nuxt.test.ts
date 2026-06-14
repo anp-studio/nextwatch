@@ -1,6 +1,7 @@
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import type { Server } from 'node:http'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   createApp,
   createError,
@@ -13,10 +14,12 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 
 const {
   getAuthorizedUserMock,
+  createServiceSupabaseClientMock,
   userListReadLimiterLimitMock,
   recommendationLimiterGetRemainingMock,
 } = vi.hoisted(() => ({
   getAuthorizedUserMock: vi.fn(),
+  createServiceSupabaseClientMock: vi.fn(),
   userListReadLimiterLimitMock: vi.fn(),
   recommendationLimiterGetRemainingMock: vi.fn(),
 }))
@@ -36,6 +39,16 @@ vi.mock('../../../server/utils/recommendations/rate-limit', () => ({
     getRemaining: recommendationLimiterGetRemainingMock,
   },
 }))
+
+vi.mock('../../../server/utils/shared/supabase-client', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../../server/utils/shared/supabase-client')>()
+
+  return {
+    ...actual,
+    createServiceSupabaseClient: createServiceSupabaseClientMock,
+  }
+})
 
 Object.assign(globalThis, {
   createError,
@@ -69,6 +82,27 @@ interface OnboardingState {
   watchedUpserts: Array<Record<string, unknown> | Array<Record<string, unknown>>>
   profileUpdates: Array<Record<string, unknown>>
   myListRow: MyListRow | null
+}
+
+function createServiceSupabase(state: OnboardingState): SupabaseClient {
+  return {
+    from(table: string) {
+      if (table === 'profiles') {
+        return {
+          async upsert(payload: Record<string, unknown>) {
+            if (payload.id === TEST_USER_ID && typeof payload.onboarding_completed_at === 'string') {
+              state.profile.onboarding_completed_at = payload.onboarding_completed_at
+              state.profileUpdates.push(payload)
+            }
+
+            return { error: null }
+          },
+        }
+      }
+
+      throw new Error(`Unexpected service table: ${table}`)
+    },
+  } as unknown as SupabaseClient
 }
 
 const TEST_USER_ID = '00000000-0000-0000-0000-000000000001'
@@ -266,6 +300,7 @@ describe('onboarding routes', () => {
       supabase: createMockSupabase(state),
       user: { id: TEST_USER_ID },
     })
+    createServiceSupabaseClientMock.mockImplementation(() => createServiceSupabase(state))
     userListReadLimiterLimitMock.mockResolvedValue({
       success: true,
       limit: 20,
