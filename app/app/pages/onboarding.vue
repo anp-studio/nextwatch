@@ -5,7 +5,9 @@
   >
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-8">
       <section class="flex flex-col gap-6">
-        <div class="flex flex-col gap-4 border-l-2 border-primary pl-4 lg:flex-row lg:items-end lg:justify-between">
+        <div
+          class="flex flex-col gap-4 border-l-2 border-primary pl-4 lg:flex-row lg:items-end lg:justify-between"
+        >
           <div class="space-y-2">
             <p class="text-[0.7rem] font-semibold uppercase tracking-[0.26em] text-primary">
               Step 1 of 1
@@ -14,7 +16,7 @@
               Pick At Least {{ ONBOARDING_MIN_SELECTIONS }} Movies
             </h1>
             <p class="max-w-2xl text-sm text-on-surface-variant">
-              We use these picks to seed your watched history and unlock your recommendation feed.
+              We use these picks to build your watched history and unlock your recommendation feed.
             </p>
           </div>
 
@@ -137,14 +139,9 @@
           </button>
         </div>
 
-        <div v-else class="min-h-[24rem]">
+        <div v-else ref="gridMeasureRef" class="min-h-[24rem]">
           <div v-bind="wrapperProps">
-            <div
-              v-for="row in virtualRows"
-              :key="row.data.key"
-              class="mb-8 grid gap-x-4 md:mb-10 md:gap-x-6"
-              :style="{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }"
-            >
+            <div v-for="row in virtualRows" :key="row.data.key" :style="rowStyle">
               <OnboardingMovieCard
                 v-for="movie in row.data.items"
                 :key="movie.id"
@@ -176,6 +173,8 @@ import type { Movie, SearchDisplayMovie, SearchMovie as ApiSearchMovie } from '~
 import { SEARCH_SORT_LABELS, useFilters } from '~/composables/useFilters'
 import { normalizeSearchMovie } from '~/utils/search-movie'
 import { ONBOARDING_MIN_SELECTIONS, createOnboardingMockMovies } from '~/utils/onboarding-movies'
+import { useOnboarding } from '~/composables/useOnboarding'
+import { useVirtualGrid } from '~/composables/useVirtualGrid'
 
 interface SearchMoviesResponse {
   results: ApiSearchMovie[]
@@ -188,7 +187,11 @@ interface RatingOption {
 
 const SEARCH_DEBOUNCE_MS = 500
 const SKELETON_CARD_COUNT = 6
-const SEARCH_ROW_HEIGHT = 390
+const GRID_CARD_ASPECT_RATIO = 2 / 3
+const GRID_CARD_BODY_HEIGHT = 112
+const GRID_COLUMN_GAP = { compact: 16, regular: 24 }
+const GRID_ROW_GAP = { compact: 32, regular: 40 }
+const GRID_OVERSCAN = 12
 const RATING_OPTIONS: RatingOption[] = [
   { label: '7+', value: 7 },
   { label: '8+', value: 8 },
@@ -228,10 +231,17 @@ const {
   includeSearchInActiveState: false,
   clearSearchOnReset: false,
 })
-const { columnCount, virtualRows, containerProps, wrapperProps } = useVirtualGrid(filteredResults, {
-  getKey: (movie) => movie.id,
-  rowHeight: SEARCH_ROW_HEIGHT,
-})
+const { virtualRows, containerProps, gridMeasureRef, rowStyle, wrapperProps } = useVirtualGrid(
+  filteredResults,
+  {
+    getKey: (movie) => movie.id,
+    cardAspectRatio: GRID_CARD_ASPECT_RATIO,
+    cardBodyHeight: GRID_CARD_BODY_HEIGHT,
+    columnGap: GRID_COLUMN_GAP,
+    rowGap: GRID_ROW_GAP,
+    overscan: GRID_OVERSCAN,
+  }
+)
 
 const selectionLabel = computed(() => {
   return `${selectedMovieIds.value.length} of ${ONBOARDING_MIN_SELECTIONS} selected`

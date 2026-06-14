@@ -38,7 +38,7 @@
 
       <button
         type="button"
-        class="flex items-center justify-center gap-1 rounded-lg py-2 text-xs font-bold transition-colors"
+        class="flex h-8 items-center justify-center gap-1 whitespace-nowrap rounded-lg text-xs font-bold transition-colors"
         :class="
           isSelected
             ? 'bg-surface-container-high text-on-surface hover:bg-red-500 hover:text-white'

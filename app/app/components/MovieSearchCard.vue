@@ -39,7 +39,7 @@
       <div class="flex gap-2">
         <button
           v-if="isWatched"
-          class="group flex flex-1 items-center justify-center gap-1 rounded-lg bg-surface-container-high py-2 text-xs font-bold text-on-surface-variant transition-colors hover:bg-red-500 hover:text-white"
+          class="group flex h-8 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-surface-container-high text-xs font-bold text-on-surface-variant transition-colors hover:bg-red-500 hover:text-white"
           title="Remove from watched"
           @click.stop="$emit('remove', movie)"
         >
@@ -74,7 +74,7 @@
         </button>
         <button
           v-else
-          class="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary py-2 text-xs font-bold text-on-primary transition-colors hover:bg-primary/90"
+          class="flex h-8 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-primary text-xs font-bold text-on-primary transition-colors hover:bg-primary/90"
           @click.stop="$emit('add', movie)"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,7 +88,7 @@
           Watched
         </button>
         <button
-          class="flex items-center justify-center rounded-lg px-2 py-2 transition-colors"
+          class="flex h-8 min-w-8 items-center justify-center rounded-lg px-2 transition-colors"
           :class="
             isWatched
               ? 'cursor-not-allowed bg-surface-container-high text-outline'

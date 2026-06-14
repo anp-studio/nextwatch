@@ -133,14 +133,9 @@
           </button>
         </div>
 
-        <div v-else class="min-h-[24rem]">
+        <div v-else ref="gridMeasureRef" class="min-h-[24rem]">
           <div v-bind="wrapperProps">
-            <div
-              v-for="row in virtualRows"
-              :key="row.data.key"
-              class="mb-8 grid gap-x-4 md:mb-10 md:gap-x-6"
-              :style="{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }"
-            >
+            <div v-for="row in virtualRows" :key="row.data.key" :style="rowStyle">
               <MovieSearchCard
                 v-for="movie in row.data.items"
                 :key="movie.id"
@@ -180,6 +175,7 @@
 import type { Movie, SearchDisplayMovie, SearchMovie as ApiSearchMovie } from '~/types/movie'
 import { SEARCH_SORT_LABELS, useFilters } from '~/composables/useFilters'
 import { normalizeSearchMovie } from '~/utils/search-movie'
+import { useVirtualGrid } from '~/composables/useVirtualGrid'
 
 interface SearchMoviesResponse {
   results: ApiSearchMovie[]
@@ -192,7 +188,11 @@ interface RatingOption {
 
 const SEARCH_DEBOUNCE_MS = 500
 const SKELETON_CARD_COUNT = 6
-const SEARCH_ROW_HEIGHT = 390
+const GRID_CARD_ASPECT_RATIO = 2 / 3
+const GRID_CARD_BODY_HEIGHT = 112
+const GRID_COLUMN_GAP = { compact: 16, regular: 24 }
+const GRID_ROW_GAP = { compact: 32, regular: 40 }
+const GRID_OVERSCAN = 12
 const RATING_OPTIONS: RatingOption[] = [
   { label: '7+', value: 7 },
   { label: '8+', value: 8 },
@@ -241,10 +241,17 @@ const {
   includeSearchInActiveState: false,
   clearSearchOnReset: false,
 })
-const { columnCount, virtualRows, containerProps, wrapperProps } = useVirtualGrid(filteredResults, {
-  getKey: (movie) => movie.id,
-  rowHeight: SEARCH_ROW_HEIGHT,
-})
+const { virtualRows, containerProps, gridMeasureRef, rowStyle, wrapperProps } = useVirtualGrid(
+  filteredResults,
+  {
+    getKey: (movie) => movie.id,
+    cardAspectRatio: GRID_CARD_ASPECT_RATIO,
+    cardBodyHeight: GRID_CARD_BODY_HEIGHT,
+    columnGap: GRID_COLUMN_GAP,
+    rowGap: GRID_ROW_GAP,
+    overscan: GRID_OVERSCAN,
+  }
+)
 
 const hasSearchQuery = computed(() => searchQuery.value.trim() !== '')
 
