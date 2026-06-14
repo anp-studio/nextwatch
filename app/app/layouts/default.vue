@@ -5,7 +5,17 @@
       <main class="flex-1 relative overflow-hidden">
         <slot />
       </main>
-      <BottomNav />
+      <BottomNav v-if="showBottomNav" />
     </div>
   </div>
 </template>
+
+<script setup>
+import { computed } from 'vue'
+
+const ONBOARDING_ROUTE = '/onboarding'
+
+const route = useRoute()
+
+const showBottomNav = computed(() => route.path !== ONBOARDING_ROUTE)
+</script>

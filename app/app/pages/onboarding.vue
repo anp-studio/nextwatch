@@ -6,24 +6,39 @@
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-8">
       <section class="flex flex-col gap-6">
         <div
-          class="flex flex-col gap-4 border-l-2 border-primary pl-4 sm:flex-row sm:items-end sm:justify-between"
+          class="flex flex-col gap-4 border-l-2 border-primary pl-4 lg:flex-row lg:items-end lg:justify-between"
         >
           <div class="space-y-2">
-            <h1
-              class="text-3xl font-semibold uppercase tracking-[-0.04em] text-on-background sm:text-3xl"
-            >
-              Search Movies
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.26em] text-primary">
+              Step 1 of 1
+            </p>
+            <h1 class="text-3xl font-semibold uppercase tracking-[-0.04em] text-on-background">
+              Pick At Least {{ ONBOARDING_MIN_SELECTIONS }} Movies
             </h1>
+            <p class="max-w-2xl text-sm text-on-surface-variant">
+              We use these picks to build your watched history and unlock your recommendation feed.
+            </p>
           </div>
 
-          <div
-            v-if="searchResults.length > 0"
-            class="inline-flex w-fit items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-[0.7rem] font-semibold uppercase tracking-[0.26em] text-on-surface-variant"
-          >
-            <span class="h-2 w-2 rounded-full bg-primary"></span>
-            {{ resultCountLabel }}
+          <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            <div
+              class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-[0.7rem] font-semibold uppercase tracking-[0.26em] text-on-surface-variant"
+            >
+              <span class="h-2 w-2 rounded-full bg-primary"></span>
+              {{ selectionLabel }}
+            </div>
+            <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-on-primary transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="selectedMovieIds.length < ONBOARDING_MIN_SELECTIONS || isSubmitting"
+              @click="submitOnboarding"
+            >
+              {{ isSubmitting ? 'Saving...' : 'Finish Onboarding' }}
+            </button>
           </div>
         </div>
+
+        <AlertMessage type="error" :message="submissionError" />
 
         <div
           class="rounded-[1.75rem] border border-outline-variant bg-surface-container-low p-2 shadow-glow"
@@ -49,7 +64,7 @@
               @input="handleInput"
             />
             <button
-              v-if="searchResults.length > 0"
+              v-if="searchQuery || searchResults.length > 0"
               type="button"
               class="absolute inset-y-0 right-4 flex items-center text-outline transition hover:text-on-surface"
               @click="clearSearch"
@@ -77,15 +92,15 @@
             :has-active-filters="hasActiveFilters"
             :filtered-count="filteredResults.length"
             :total-count="searchResults.length"
-            :is-loading-metadata="isLoadingMetadata"
-            :metadata-progress="metadataProgress"
+            :is-loading-metadata="false"
+            :metadata-progress="{ loaded: 0, total: 0 }"
             :show-search="false"
             :show-runtime="false"
             :min-rating="minRating"
             :rating-options="RATING_OPTIONS"
             :sort-labels="SEARCH_SORT_LABELS"
             :embedded="true"
-            sort-modal-title="Sort search results"
+            sort-modal-title="Sort onboarding picks"
             @update:selected-runtime="selectedRuntime = $event"
             @update:sort-by="sortBy = $event"
             @update:min-rating="minRating = $event"
@@ -102,16 +117,7 @@
         </div>
 
         <div
-          v-else-if="!hasSearchQuery && searchResults.length === 0 && !isSearching"
-          class="rounded-[1.75rem] border border-dashed border-outline-variant bg-surface-container-low px-6 py-14 text-center shadow-glow"
-        >
-          <p class="text-2xl font-semibold text-on-background">
-            No popular movies available right now
-          </p>
-        </div>
-
-        <div
-          v-else-if="hasSearchQuery && searchResults.length === 0 && !isSearching"
+          v-else-if="searchResults.length === 0"
           class="rounded-[1.75rem] border border-dashed border-outline-variant bg-surface-container-low px-6 py-14 text-center shadow-glow"
         >
           <p class="text-2xl font-semibold text-on-background">
@@ -120,7 +126,7 @@
         </div>
 
         <div
-          v-else-if="searchResults.length > 0 && filteredResults.length === 0 && hasActiveFilters"
+          v-else-if="filteredResults.length === 0 && hasActiveFilters"
           class="rounded-[1.75rem] border border-dashed border-outline-variant bg-surface-container-low px-6 py-14 text-center shadow-glow"
         >
           <p class="text-2xl font-semibold text-on-background">No results match these filters</p>
@@ -136,16 +142,14 @@
         <div v-else ref="gridMeasureRef" class="min-h-[24rem]">
           <div v-bind="wrapperProps">
             <div v-for="row in virtualRows" :key="row.data.key" :style="rowStyle">
-              <MovieSearchCard
+              <OnboardingMovieCard
                 v-for="movie in row.data.items"
                 :key="movie.id"
                 :movie="movie"
-                :is-watched="isAlreadyWatched(movie.id)"
-                :is-in-my-list="isInMyList(movie.id)"
-                @add="addToWatched"
-                @remove="removeFromWatchedList"
+                :is-selected="selectedMovieIds.includes(movie.id)"
                 @details="openDetails"
-                @toggle-mylist="toggleMyList"
+                @select="selectMovie"
+                @deselect="deselectMovie"
               />
             </div>
           </div>
@@ -157,17 +161,10 @@
       :is-open="isModalOpen"
       :movie="selectedMovie"
       media-size="compact"
-      :show-add-button="true"
-      :is-watched="selectedMovie ? isAlreadyWatched(selectedMovie.id) : false"
-      :show-my-list-button="true"
-      :is-in-my-list="selectedMovie ? isInMyList(selectedMovie.id) : false"
+      :show-add-button="false"
+      :show-my-list-button="false"
       @close="closeDetails"
-      @add="addToWatchedFromModal"
-      @remove="removeFromWatchedFromModal"
-      @toggle-mylist="toggleMyListFromModal"
     />
-
-    <LoginPromptModal :is-open="showLoginModal" @close="handleModalClose" />
     <ScrollToTopButton :target="containerProps.ref" />
   </div>
 </template>
@@ -176,6 +173,8 @@
 import type { Movie, SearchDisplayMovie, SearchMovie as ApiSearchMovie } from '~/types/movie'
 import { SEARCH_SORT_LABELS, useFilters } from '~/composables/useFilters'
 import { normalizeSearchMovie } from '~/utils/search-movie'
+import { ONBOARDING_MIN_SELECTIONS, createOnboardingMockMovies } from '~/utils/onboarding-movies'
+import { useOnboarding } from '~/composables/useOnboarding'
 import { useVirtualGrid } from '~/composables/useVirtualGrid'
 
 interface SearchMoviesResponse {
@@ -200,30 +199,21 @@ const RATING_OPTIONS: RatingOption[] = [
   { label: '9+', value: 9 },
 ]
 
-const { user, isAuthenticated } = useAuth()
-const {
-  markAsWatched,
-  removeFromWatched,
-  queuePendingWatchedMovie,
-  removePendingWatchedMovie,
-  watchedMovies,
-} = useWatchedMovies()
-const { myList, addToMyList, removeFromMyList } = useMyList()
 const { getMovieDetails } = useMovieDetails()
-const searchQuery = useState('search-query', () => '')
-const searchResults = useState<SearchDisplayMovie[]>('search-results', () => [])
+const { completeOnboarding, isOnboardingComplete } = useOnboarding()
+const { syncWatchedMoviesFromSupabase } = useWatchedMovies()
+const searchQuery = useState('onboarding-search-query', () => '')
+const searchResults = useState<SearchDisplayMovie[]>('onboarding-search-results', () => [])
+const selectedMovieIds = useState<number[]>('onboarding-selected-movie-ids', () => [])
 const isSearching = ref(false)
-const isLoadingMetadata = ref(false)
-const metadataProgress = ref({ loaded: 0, total: 0 })
-let debounceTimeout: ReturnType<typeof setTimeout> | null = null
-let activeSearchToken = 0
-
+const submissionError = ref('')
+const isSubmitting = ref(false)
 const isModalOpen = ref(false)
 const selectedMovie = ref<Movie | null>(null)
 const isLoadingDetails = ref(false)
+let debounceTimeout: ReturnType<typeof setTimeout> | null = null
+let activeSearchToken = 0
 
-const showLoginModal = ref(false)
-const pendingModalMovieId = ref<number | null>(null)
 const {
   selectedGenres,
   selectedRuntime,
@@ -254,30 +244,26 @@ const { virtualRows, containerProps, gridMeasureRef, rowStyle, wrapperProps } = 
   }
 )
 
-const hasSearchQuery = computed(() => searchQuery.value.trim() !== '')
-
-const resultCountLabel = computed(() => {
-  const totalCount = searchResults.value.length
-  const noun = totalCount === 1 ? 'result' : 'results'
-
-  if (!hasActiveFilters.value) {
-    return `${totalCount} ${noun}`
-  }
-
-  return `${filteredResults.value.length} of ${totalCount} ${noun}`
+const selectionLabel = computed(() => {
+  return `${selectedMovieIds.value.length} of ${ONBOARDING_MIN_SELECTIONS} selected`
 })
 
-const searchTMDB = async (query: string) => {
+function loadMockMovies() {
+  searchResults.value = createOnboardingMockMovies()
+}
+
+async function searchMovies(query: string) {
   const normalizedQuery = query.trim()
   const searchToken = ++activeSearchToken
 
   if (!normalizedQuery) {
     clearFilters()
-    await loadPopularMovies()
+    loadMockMovies()
     return
   }
 
   isSearching.value = true
+
   try {
     const data = await $fetch<SearchMoviesResponse>('/api/movies/search', {
       query: { q: normalizedQuery },
@@ -299,41 +285,17 @@ const searchTMDB = async (query: string) => {
   }
 }
 
-const loadPopularMovies = async () => {
-  const searchToken = ++activeSearchToken
-
-  isSearching.value = true
-
-  try {
-    const data = await $fetch<SearchMoviesResponse>('/api/movies/popular')
-
-    if (searchToken !== activeSearchToken) {
-      return
-    }
-
-    searchResults.value = data.results.map(normalizeSearchMovie)
-  } catch {
-    if (searchToken === activeSearchToken) {
-      searchResults.value = []
-    }
-  } finally {
-    if (searchToken === activeSearchToken) {
-      isSearching.value = false
-    }
-  }
-}
-
-const handleInput = () => {
+function handleInput() {
   if (debounceTimeout) {
     clearTimeout(debounceTimeout)
   }
 
   debounceTimeout = setTimeout(() => {
-    searchTMDB(searchQuery.value)
+    void searchMovies(searchQuery.value)
   }, SEARCH_DEBOUNCE_MS)
 }
 
-const clearSearch = () => {
+function clearSearch() {
   if (debounceTimeout) {
     clearTimeout(debounceTimeout)
   }
@@ -341,55 +303,22 @@ const clearSearch = () => {
   activeSearchToken++
   searchQuery.value = ''
   clearFilters()
-  void loadPopularMovies()
+  loadMockMovies()
 }
 
-onMounted(() => {
-  if (hasSearchQuery.value) {
-    void searchTMDB(searchQuery.value)
+function selectMovie(movie: SearchDisplayMovie) {
+  if (selectedMovieIds.value.includes(movie.id)) {
     return
   }
 
-  void loadPopularMovies()
-})
-
-const isAlreadyWatched = (tmdbId: number) => {
-  return watchedMovies.value.some((movie) => movie.tmdbId === tmdbId)
+  selectedMovieIds.value = [...selectedMovieIds.value, movie.id]
 }
 
-const isInMyList = (tmdbId: number) => {
-  return myList.value.some((movie) => movie.tmdbId === tmdbId)
+function deselectMovie(movie: SearchDisplayMovie) {
+  selectedMovieIds.value = selectedMovieIds.value.filter((movieId) => movieId !== movie.id)
 }
 
-const buildMovieToSave = (movie: SearchDisplayMovie) => ({
-  ...movie,
-  tmdbId: movie.id,
-  poster: posterUrl(movie.poster_path),
-  genres: movie.genres,
-})
-
-const toggleMyList = async (movie: SearchDisplayMovie) => {
-  if (!user.value) {
-    showLoginModal.value = true
-    return
-  }
-
-  if (isInMyList(movie.id)) {
-    await removeFromMyList(movie.id)
-    return
-  }
-
-  await addToMyList({
-    id: movie.id,
-    title: movie.title,
-    year: movie.year,
-    poster: posterUrl(movie.poster_path),
-    rating: movie.vote_average,
-    genres: movie.genres,
-  })
-}
-
-const openDetails = async (movie: SearchDisplayMovie) => {
+async function openDetails(movie: SearchDisplayMovie) {
   if (isLoadingDetails.value) {
     return
   }
@@ -405,81 +334,43 @@ const openDetails = async (movie: SearchDisplayMovie) => {
   }
 }
 
-const closeDetails = () => {
+function closeDetails() {
   isModalOpen.value = false
   selectedMovie.value = null
 }
 
-const addToWatched = async (movie: SearchDisplayMovie) => {
-  const movieToSave = buildMovieToSave(movie)
-
-  if (!user.value) {
-    queuePendingWatchedMovie(movieToSave)
-    pendingModalMovieId.value = movie.id
-    showLoginModal.value = true
+async function submitOnboarding() {
+  if (selectedMovieIds.value.length < ONBOARDING_MIN_SELECTIONS || isSubmitting.value) {
     return
   }
 
-  const status = await markAsWatched(movieToSave)
-  if (status === 'unauthorized' || status === 'error') {
-    queuePendingWatchedMovie(movieToSave)
+  submissionError.value = ''
+  isSubmitting.value = true
+
+  try {
+    const result = await completeOnboarding(selectedMovieIds.value)
+
+    if (!result?.completed) {
+      throw new Error('Unable to complete onboarding.')
+    }
+
+    await syncWatchedMoviesFromSupabase()
+    selectedMovieIds.value = []
+    await navigateTo('/')
+  } catch (caughtError) {
+    submissionError.value =
+      caughtError instanceof Error ? caughtError.message : 'Unable to complete onboarding.'
+  } finally {
+    isSubmitting.value = false
   }
 }
 
-const handleModalClose = () => {
-  showLoginModal.value = false
-  if (!isAuthenticated.value && pendingModalMovieId.value !== null) {
-    removePendingWatchedMovie(pendingModalMovieId.value)
-  }
-  pendingModalMovieId.value = null
-}
-
-const removeFromWatchedList = async (movie: SearchDisplayMovie) => {
-  if (!user.value) return
-  await removeFromWatched(movie.id)
-}
-
-const removeFromWatchedFromModal = async () => {
-  if (!selectedMovie.value || !user.value) return
-  await removeFromWatched(selectedMovie.value.id)
-}
-
-const toggleMyListFromModal = async () => {
-  if (!selectedMovie.value || !user.value) {
-    showLoginModal.value = true
+onMounted(async () => {
+  if (isOnboardingComplete.value) {
+    await navigateTo('/')
     return
   }
 
-  const movie = selectedMovie.value
-  if (isInMyList(movie.id)) {
-    await removeFromMyList(movie.id)
-    return
-  }
-
-  await addToMyList({
-    id: movie.id,
-    title: movie.title,
-    year: movie.year,
-    poster: movie.poster,
-    rating: movie.rating,
-    genres: movie.genres,
-    runtime: movie.runtime,
-  })
-}
-
-const addToWatchedFromModal = async () => {
-  if (!selectedMovie.value) return
-
-  if (!user.value) {
-    queuePendingWatchedMovie(selectedMovie.value)
-    pendingModalMovieId.value = selectedMovie.value.id
-    showLoginModal.value = true
-    return
-  }
-
-  const status = await markAsWatched(selectedMovie.value)
-  if (status === 'unauthorized' || status === 'error') {
-    queuePendingWatchedMovie(selectedMovie.value)
-  }
-}
+  loadMockMovies()
+})
 </script>

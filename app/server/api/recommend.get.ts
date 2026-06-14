@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import type { H3Event } from 'h3'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getAuthorizedUser } from '../utils/auth/authorize-user'
+import { requireCompletedOnboarding } from '../utils/auth/onboarding'
 import { hasEnoughRecommendationsToCache } from '../utils/recommendations/cache-policy'
 import {
   MAX_MY_LIST_RECOMMENDATIONS,
@@ -304,6 +305,7 @@ async function storeCachedRecommendations(
 
 export default defineEventHandler(async (event) => {
   const { supabase, user } = await getAuthorizedUser(event)
+  await requireCompletedOnboarding(event, supabase, user.id)
   const { getNew, refresh } = getQuery(event)
   const isGetNew = isQueryFlagEnabled(getNew)
   const isRefresh = !isGetNew && isQueryFlagEnabled(refresh)

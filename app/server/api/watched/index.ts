@@ -1,4 +1,5 @@
 import { getAuthorizedUser } from '../../utils/auth/authorize-user'
+import { requireCompletedOnboarding } from '../../utils/auth/onboarding'
 import { throwSupabaseError } from '../../utils/shared/api-error'
 import { userListReadLimiter } from '../../utils/user-lists/rate-limit'
 
@@ -39,6 +40,7 @@ function validateTmdbId(tmdbId: number | null): number {
 export default defineEventHandler(async (event) => {
   const method = event.method
   const { supabase, user } = await getAuthorizedUser(event)
+  await requireCompletedOnboarding(event, supabase, user.id)
 
   if (method === 'GET') {
     const { success } = await userListReadLimiter.limit(`watched:${user.id}`)

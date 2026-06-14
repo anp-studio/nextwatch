@@ -6,12 +6,14 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 
 const {
   createClientMock,
+  profileUpsertMock,
   serviceRpcMock,
   signUpMock,
   verifyHcaptchaMock,
 } =
   vi.hoisted(() => ({
     createClientMock: vi.fn(),
+    profileUpsertMock: vi.fn(),
     serviceRpcMock: vi.fn(),
     signUpMock: vi.fn(),
     verifyHcaptchaMock: vi.fn(),
@@ -97,6 +99,7 @@ describe('/api/auth/signup', () => {
 
   beforeEach(() => {
     serviceRpcMock.mockResolvedValue({ data: false, error: null })
+    profileUpsertMock.mockResolvedValue({ error: null })
     signUpMock.mockResolvedValue({
       data: {
         user: TEST_USER,
@@ -108,6 +111,9 @@ describe('/api/auth/signup', () => {
     createClientMock.mockImplementation((_supabaseUrl: string, supabaseKey: string) => {
       if (supabaseKey === 'test-service-role-key') {
         return {
+          from: vi.fn(() => ({
+            upsert: profileUpsertMock,
+          })),
           rpc: serviceRpcMock,
         }
       }
@@ -189,6 +195,10 @@ describe('/api/auth/signup', () => {
           full_name: 'Test',
         },
       },
+    })
+    expect(profileUpsertMock).toHaveBeenCalledWith({
+      id: TEST_USER.id,
+      onboarding_completed_at: null,
     })
   })
 

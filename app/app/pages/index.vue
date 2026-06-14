@@ -225,6 +225,7 @@ const {
 } = useWatchedMovies()
 const { myList, addToMyList } = useMyList()
 const { isAuthenticated, loading: authLoading, session } = useAuth()
+const { completed: onboardingCompleted, hasResolved: onboardingResolved } = useOnboarding()
 const { getMovieDetails } = useMovieDetails()
 const supabase = useSupabase()
 
@@ -583,10 +584,17 @@ const resetMovies = () => {
 // client was still restoring the session), this re-fires once it lands so the feed
 // loads on its own rather than waiting for a manual refresh.
 watch(
-  [authLoading, () => session.value?.access_token],
-  ([isLoading]) => {
+  [authLoading, () => session.value?.access_token, onboardingResolved, onboardingCompleted],
+  ([isLoading, _token, hasResolvedOnboarding, hasCompletedOnboarding]) => {
     if (isLoading) return
     if (!isAuthenticated.value) {
+      recommendationsPending.value = false
+      return
+    }
+    if (!hasResolvedOnboarding) {
+      return
+    }
+    if (hasCompletedOnboarding !== true) {
       recommendationsPending.value = false
       return
     }

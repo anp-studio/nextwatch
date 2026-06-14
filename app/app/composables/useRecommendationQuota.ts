@@ -22,6 +22,7 @@ function isRecommendationQuota(value: unknown): value is RecommendationQuota {
 
 export function useRecommendationQuota() {
   const supabase = useSupabase()
+  const { completed } = useOnboarding()
   const quota = useState<RecommendationQuota>('recommendation-quota', () => ({
     limit: DEFAULT_RECOMMENDATION_LIMIT,
     remaining: DEFAULT_RECOMMENDATION_LIMIT,
@@ -40,6 +41,15 @@ export function useRecommendationQuota() {
       } = await supabase.auth.getSession()
 
       if (!session?.access_token) {
+        quota.value = {
+          limit: DEFAULT_RECOMMENDATION_LIMIT,
+          remaining: DEFAULT_RECOMMENDATION_LIMIT,
+          reset: 0,
+        }
+        return
+      }
+
+      if (completed.value !== true) {
         quota.value = {
           limit: DEFAULT_RECOMMENDATION_LIMIT,
           remaining: DEFAULT_RECOMMENDATION_LIMIT,

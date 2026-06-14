@@ -109,6 +109,7 @@ interface MockMovieRow {
 }
 
 interface MockSupabaseState {
+  profileCompletedAt: string | null
   cachedRow: MockCacheRow | null
   movieRows: MockMovieRow[]
   selectError: { message: string } | null
@@ -130,6 +131,30 @@ function computeWatchedHash(movies: typeof WATCHED_MOVIES): string {
 function createMockSupabase(state: MockSupabaseState): SupabaseClient {
   return {
     from(table: string) {
+      if (table === 'profiles') {
+        const profilesBuilder = {
+          select() {
+            return profilesBuilder
+          },
+          eq() {
+            return profilesBuilder
+          },
+          limit() {
+            return profilesBuilder
+          },
+          async maybeSingle() {
+            return {
+              data: {
+                onboarding_completed_at: state.profileCompletedAt,
+              },
+              error: null,
+            }
+          },
+        }
+
+        return profilesBuilder
+      }
+
       if (table === 'movies') {
         const movieBuilder = {
           select() {
@@ -243,6 +268,7 @@ describe('/api/recommend', () => {
     vi.setSystemTime(new Date('2026-04-23T00:00:00.000Z'))
 
     supabaseState = {
+      profileCompletedAt: '2026-06-14T10:00:00.000Z',
       cachedRow: null,
       movieRows: [
         ...recommendationIds(FRESH_CACHE_RECOMMENDATIONS),

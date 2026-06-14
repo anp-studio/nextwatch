@@ -167,6 +167,7 @@ import { onMounted, ref } from 'vue'
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha'
 
 const { login, signup, resetPassword, signInWithGoogle } = useAuth()
+const { isOnboardingComplete } = useOnboarding()
 const route = useRoute()
 const router = useRouter()
 
@@ -241,6 +242,10 @@ const submitAuth = async () => {
       const { error } = await login(email.value, password.value)
       if (error) throw error
       successMessage.value = 'Login successful!'
+      if (!isOnboardingComplete.value) {
+        await navigateTo('/onboarding')
+        return
+      }
       setTimeout(() => emit('authenticated'), 1000)
     } else if (authView.value === 'register') {
       if (!captchaToken.value) {

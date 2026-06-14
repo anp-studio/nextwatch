@@ -9,7 +9,9 @@
           class="flex flex-col gap-4 border-l-2 border-primary pl-4 sm:flex-row sm:items-end sm:justify-between"
         >
           <div class="space-y-2">
-            <h1 class="text-3xl font-semibold uppercase tracking-[-0.04em] text-on-background sm:text-3xl">
+            <h1
+              class="text-3xl font-semibold uppercase tracking-[-0.04em] text-on-background sm:text-3xl"
+            >
               Watched Movies
             </h1>
           </div>
@@ -74,14 +76,9 @@
           </button>
         </div>
 
-        <div v-else class="min-h-[24rem]">
+        <div v-else ref="gridMeasureRef" class="min-h-[24rem]">
           <div v-bind="wrapperProps">
-            <div
-              v-for="row in virtualRows"
-              :key="row.data.key"
-              class="mb-8 grid gap-x-4 md:mb-10 md:gap-x-6"
-              :style="{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }"
-            >
+            <div v-for="row in virtualRows" :key="row.data.key" :style="rowStyle">
               <WatchedMovieCard
                 v-for="movie in row.data.items"
                 :key="movie.tmdbId"
@@ -103,18 +100,24 @@
     />
 
     <UndoSnackbar :action="undoSnackbar" @undo="handleUndo" />
+    <ScrollToTopButton :target="containerProps.ref" />
   </div>
 </template>
 
 <script setup lang="ts">
 import type { Movie, WatchedMovie } from '~/types/movie'
-import { WATCHED_SORT_LABELS } from '~/composables/useFilters'
+import { useFilters, WATCHED_SORT_LABELS } from '~/composables/useFilters'
+import { useVirtualGrid } from '~/composables/useVirtualGrid'
 
 const SEARCH_PLACEHOLDER = 'Search watched movies...'
 const SORT_MODAL_TITLE = 'Sort watched movies'
 const UNDO_TIMEOUT_MS = 5000
-const WATCHED_ROW_HEIGHT = 420
 const DEFAULT_METADATA_PROGRESS = { loaded: 0, total: 0 }
+const GRID_CARD_ASPECT_RATIO = 2 / 3
+const GRID_CARD_BODY_HEIGHT = 96
+const GRID_COLUMN_GAP = { compact: 16, regular: 24 }
+const GRID_ROW_GAP = { compact: 32, regular: 40 }
+const GRID_OVERSCAN = 12
 
 const { watchedMovies, removeFromWatched, markAsWatched } = useWatchedMovies()
 const { getMovieDetails: fetchMovieDetails } = useMovieDetails()
@@ -136,10 +139,17 @@ const selectedMovie = ref<Movie | null>(null)
 const undoAction = ref<{ movie: WatchedMovie } | null>(null)
 const hasMovies = computed(() => watchedMovies.value.length > 0)
 const hasFilteredMovies = computed(() => filteredMovies.value.length > 0)
-const { columnCount, virtualRows, containerProps, wrapperProps } = useVirtualGrid(filteredMovies, {
-  getKey: (movie) => movie.tmdbId,
-  rowHeight: WATCHED_ROW_HEIGHT,
-})
+const { virtualRows, containerProps, gridMeasureRef, rowStyle, wrapperProps } = useVirtualGrid(
+  filteredMovies,
+  {
+    getKey: (movie) => movie.tmdbId,
+    cardAspectRatio: GRID_CARD_ASPECT_RATIO,
+    cardBodyHeight: GRID_CARD_BODY_HEIGHT,
+    columnGap: GRID_COLUMN_GAP,
+    rowGap: GRID_ROW_GAP,
+    overscan: GRID_OVERSCAN,
+  }
+)
 const movieCountLabel = computed(() => {
   const count = watchedMovies.value.length
   const noun = count === 1 ? 'movie' : 'movies'
@@ -151,9 +161,7 @@ const movieCountLabel = computed(() => {
   return `${filteredMovies.value.length} of ${count} ${noun}`
 })
 const undoSnackbar = computed(() =>
-  undoAction.value
-    ? { title: undoAction.value.movie.title, message: 'removed from watched' }
-    : null
+  undoAction.value ? { title: undoAction.value.movie.title, message: 'removed from watched' } : null
 )
 const isLoadingMetadata = computed(() => false)
 const metadataProgress = computed(() => DEFAULT_METADATA_PROGRESS)

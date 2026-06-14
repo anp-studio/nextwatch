@@ -72,14 +72,9 @@
           </button>
         </div>
 
-        <div v-else class="min-h-[24rem]">
+        <div v-else ref="gridMeasureRef" class="min-h-[24rem]">
           <div v-bind="wrapperProps">
-            <div
-              v-for="row in virtualRows"
-              :key="row.data.key"
-              class="mb-8 grid gap-x-4 md:mb-10 md:gap-x-6"
-              :style="{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }"
-            >
+            <div v-for="row in virtualRows" :key="row.data.key" :style="rowStyle">
               <MyListMovieCard
                 v-for="movie in row.data.items"
                 :key="movie.tmdbId"
@@ -102,15 +97,22 @@
     />
 
     <UndoSnackbar :action="undoSnackbar" @undo="handleUndo" />
+    <ScrollToTopButton :target="containerProps.ref" />
   </div>
 </template>
 
 <script setup lang="ts">
+import { useFilters } from '~/composables/useFilters'
+import { useVirtualGrid } from '~/composables/useVirtualGrid'
 import type { Movie, MyListMovie } from '~/types/movie'
 
 const UNDO_TIMEOUT_MS = 5000
-const WATCHLIST_ROW_HEIGHT = 430
 const DEFAULT_METADATA_PROGRESS = { loaded: 0, total: 0 }
+const GRID_CARD_ASPECT_RATIO = 2 / 3
+const GRID_CARD_BODY_HEIGHT = 136
+const GRID_COLUMN_GAP = { compact: 16, regular: 24 }
+const GRID_ROW_GAP = { compact: 32, regular: 40 }
+const GRID_OVERSCAN = 12
 
 const { myList, removeFromMyList, addToMyList } = useMyList()
 const { markAsWatched, removeFromWatched } = useWatchedMovies()
@@ -132,10 +134,17 @@ const selectedMovie = ref<Movie | null>(null)
 const undoAction = ref<{ movie: MyListMovie; type: 'watched' | 'removed' } | null>(null)
 const hasMovies = computed(() => myList.value.length > 0)
 const hasFilteredMovies = computed(() => filteredMovies.value.length > 0)
-const { columnCount, virtualRows, containerProps, wrapperProps } = useVirtualGrid(filteredMovies, {
-  getKey: (movie) => movie.tmdbId,
-  rowHeight: WATCHLIST_ROW_HEIGHT,
-})
+const { virtualRows, containerProps, gridMeasureRef, rowStyle, wrapperProps } = useVirtualGrid(
+  filteredMovies,
+  {
+    getKey: (movie) => movie.tmdbId,
+    cardAspectRatio: GRID_CARD_ASPECT_RATIO,
+    cardBodyHeight: GRID_CARD_BODY_HEIGHT,
+    columnGap: GRID_COLUMN_GAP,
+    rowGap: GRID_ROW_GAP,
+    overscan: GRID_OVERSCAN,
+  }
+)
 const movieCountLabel = computed(() => {
   const count = myList.value.length
   const noun = count === 1 ? 'item' : 'items'

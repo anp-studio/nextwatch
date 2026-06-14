@@ -1,5 +1,8 @@
 <template>
-  <nav class="z-50 border-t border-outline-variant bg-surface-container-lowest/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+  <nav
+    data-bottom-nav
+    class="z-50 border-t border-outline-variant bg-surface-container-lowest/95 backdrop-blur pb-[env(safe-area-inset-bottom)]"
+  >
     <div
       class="mx-auto flex h-16 w-full max-w-7xl items-center justify-around gap-2 px-3 sm:h-[4.25rem] sm:px-6 lg:px-8"
     >

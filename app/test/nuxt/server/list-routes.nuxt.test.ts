@@ -55,6 +55,7 @@ interface MovieRow {
 }
 
 interface SupabaseState {
+  profileCompletedAt: string | null
   watchedIds: number[]
   myListIds: number[]
   movies: MovieRow[]
@@ -89,6 +90,10 @@ const movieRows: MovieRow[] = [
 function createMockSupabase(state: SupabaseState) {
   return {
     from(table: string) {
+      if (table === 'profiles') {
+        return createProfilesBuilder(state)
+      }
+
       if (table === 'user_watched_movies') {
         return createWatchedBuilder(state)
       }
@@ -108,6 +113,37 @@ function createMockSupabase(state: SupabaseState) {
       return { error: null }
     },
   }
+}
+
+function createProfilesBuilder(state: SupabaseState) {
+  const filters: Record<string, unknown> = {}
+
+  const builder = {
+    select() {
+      return builder
+    },
+    eq(key: string, value: unknown) {
+      filters[key] = value
+      return builder
+    },
+    limit() {
+      return builder
+    },
+    async maybeSingle() {
+      if (filters.id !== TEST_USER_ID) {
+        return { data: null, error: null }
+      }
+
+      return {
+        data: {
+          onboarding_completed_at: state.profileCompletedAt,
+        },
+        error: null,
+      }
+    },
+  }
+
+  return builder
 }
 
 function createWatchedBuilder(state: SupabaseState) {
@@ -229,6 +265,7 @@ describe('normalized list routes', () => {
 
   beforeEach(() => {
     state = {
+      profileCompletedAt: '2026-06-14T10:00:00.000Z',
       watchedIds: [550],
       myListIds: [13],
       movies: movieRows,
