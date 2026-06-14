@@ -129,3 +129,35 @@ export interface MyListPatchBody {
   title?: string
   year?: number
 }
+
+export interface MovieListMetadata {
+  tmdbId: number
+  title: string
+  year: number
+  posterPath: string
+  genres: string[]
+  runtime: number | null
+  rating: number | null
+}
+
+export interface SearchMovie {
+  id: number
+  title: string
+  original_title: string
+  poster_path: string | null
+  backdrop_path: string | null
+  release_date: string
+  vote_average: number
+  genre_ids: number[]
+  overview: string
+  runtime?: number | null
+  genres?: string[]
+  rating?: number | null
+  year?: number
+}
+
+export interface SearchDisplayMovie extends SearchMovie {
+  genres: string[]
+  rating: number
+  year: number
+}

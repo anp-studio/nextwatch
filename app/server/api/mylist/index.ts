@@ -1,38 +1,14 @@
-import type { H3Event } from 'h3'
 import { getAuthorizedUser } from '../../utils/auth/authorize-user'
 import { throwSupabaseError } from '../../utils/shared/api-error'
-
-interface HydratedMovie {
-  tmdbId: number
-  title: string
-  year: number
-  posterPath: string
-  rating?: number | null
-  genres?: string[]
-  runtime?: number | null
-}
-
-interface MovieRow {
-  tmdb_id: number
-  title: string
-  poster_path: string
-  release_date: string
-  runtime: number
-  genres: string[]
-  vote_average: number
-}
+import { userListReadLimiter } from '../../utils/user-lists/rate-limit'
 
 const USER_MY_LIST_TABLE = 'user_my_list'
 const USER_WATCHED_MOVIES_TABLE = 'user_watched_movies'
-const MOVIES_TABLE = 'movies'
 const APPEND_MY_LIST_RPC = 'append_my_list'
 const REMOVE_MY_LIST_RPC = 'remove_my_list'
 const SUPPORTED_METHODS = ['GET', 'POST', 'DELETE']
 const ALREADY_WATCHED_STATUS = 'Movie is already in watched list'
-
-function parseYear(releaseDate: string): number {
-  return parseInt(releaseDate.split('-')[0] || '0', 10)
-}
+const RATE_LIMIT_STATUS_MESSAGE = 'Too many My List requests.'
 
 // can send boyh tmdbId or full movie object with tmdbId property
 function extractTmdbId(body: unknown): number | null {
@@ -61,75 +37,8 @@ function validateTmdbId(tmdbId: number | null): number {
   return tmdbId
 }
 
-function toHydratedMovie(row: MovieRow): HydratedMovie {
-  const movie: HydratedMovie = {
-    tmdbId: row.tmdb_id,
-    title: row.title,
-    year: parseYear(row.release_date),
-    posterPath: row.poster_path,
-  }
-
-  if (row.vote_average > 0) {
-    movie.rating = row.vote_average
-  }
-
-  if (row.genres.length > 0) {
-    movie.genres = row.genres
-  }
-
-  if (row.runtime > 0) {
-    movie.runtime = row.runtime
-  }
-
-  return movie
-}
-
-async function hydrateMovies(
-  event: H3Event,
-  supabase: Awaited<ReturnType<typeof getAuthorizedUser>>['supabase'],
-  tmdbIds: number[]
-): Promise<HydratedMovie[]> {
-  if (tmdbIds.length === 0) {
-    return []
-  }
-
-  const { data, error } = await supabase
-    .from(MOVIES_TABLE)
-    .select('tmdb_id, title, poster_path, release_date, runtime, genres, vote_average')
-    .in('tmdb_id', tmdbIds)
-
-  if (error) {
-    throwSupabaseError(event, error, {
-      event: 'mylist.hydrate_movies_failed',
-      publicMessage: 'Unable to load My List.',
-      extra: {
-        table: MOVIES_TABLE,
-        operation: 'select',
-      },
-    })
-  }
-
-  const rows = (data ?? []) as MovieRow[]
-  const rowById = new Map(rows.map((row) => [row.tmdb_id, row]))
-
-  return tmdbIds.map((tmdbId) => {
-    const row = rowById.get(tmdbId)
-
-    if (row) {
-      return toHydratedMovie(row)
-    }
-
-    return {
-      tmdbId,
-      title: '',
-      year: 0,
-      posterPath: '',
-    }
-  })
-}
-
 async function callMyListRpc(
-  event: H3Event,
+  event: Parameters<typeof getAuthorizedUser>[0],
   supabase: Awaited<ReturnType<typeof getAuthorizedUser>>['supabase'],
   name: string,
   userId: string,
@@ -153,7 +62,7 @@ async function callMyListRpc(
 }
 
 async function ensureMovieIsNotWatched(
-  event: H3Event,
+  event: Parameters<typeof getAuthorizedUser>[0],
   supabase: Awaited<ReturnType<typeof getAuthorizedUser>>['supabase'],
   userId: string,
   tmdbId: number
@@ -187,6 +96,15 @@ export default defineEventHandler(async (event) => {
   const { supabase, user } = await getAuthorizedUser(event)
 
   if (method === 'GET') {
+    const { success } = await userListReadLimiter.limit(`mylist:${user.id}`)
+
+    if (!success) {
+      throw createError({
+        statusCode: 429,
+        statusMessage: RATE_LIMIT_STATUS_MESSAGE,
+      })
+    }
+
     const { data, error } = await supabase
       .from(USER_MY_LIST_TABLE)
       .select('tmdb_ids')
@@ -208,10 +126,7 @@ export default defineEventHandler(async (event) => {
 
     const tmdbIds = Array.isArray(data?.tmdb_ids) ? (data.tmdb_ids as number[]) : []
 
-    return {
-      success: true,
-      movies: await hydrateMovies(event, supabase, tmdbIds),
-    }
+    return { success: true, tmdbIds }
   }
 
   if (method === 'POST') {

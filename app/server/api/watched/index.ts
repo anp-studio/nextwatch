@@ -1,35 +1,13 @@
-import type { H3Event } from 'h3'
 import { getAuthorizedUser } from '../../utils/auth/authorize-user'
 import { throwSupabaseError } from '../../utils/shared/api-error'
-
-interface HydratedMovie {
-  tmdbId: number
-  title: string
-  year: number
-  posterPath: string
-  genres?: string[]
-  runtime?: number | null
-}
-
-interface MovieRow {
-  tmdb_id: number
-  title: string
-  poster_path: string
-  release_date: string
-  runtime: number
-  genres: string[]
-}
+import { userListReadLimiter } from '../../utils/user-lists/rate-limit'
 
 const USER_WATCHED_MOVIES_TABLE = 'user_watched_movies'
-const MOVIES_TABLE = 'movies'
 const WATCHED_CONFLICT_TARGET = 'user_id,tmdb_id'
 const SUPPORTED_METHODS = ['GET', 'POST', 'DELETE']
 const LOAD_WATCHED_MOVIES_MESSAGE = 'Unable to load watched movies.'
 const UPDATE_WATCHED_MOVIES_MESSAGE = 'Unable to update watched movies.'
-
-function parseYear(releaseDate: string): number {
-  return parseInt(releaseDate.split('-')[0] || '0', 10)
-}
+const RATE_LIMIT_STATUS_MESSAGE = 'Too many watched list requests.'
 
 function extractTmdbId(body: unknown): number | null {
   if (!body || typeof body !== 'object') {
@@ -57,74 +35,21 @@ function validateTmdbId(tmdbId: number | null): number {
   return tmdbId
 }
 
-function toHydratedMovie(row: MovieRow): HydratedMovie {
-  const movie: HydratedMovie = {
-    tmdbId: row.tmdb_id,
-    title: row.title,
-    year: parseYear(row.release_date),
-    posterPath: row.poster_path,
-  }
-
-  if (row.genres.length > 0) {
-    movie.genres = row.genres
-  }
-
-  if (row.runtime > 0) {
-    movie.runtime = row.runtime
-  }
-
-  return movie
-}
-
-async function hydrateMovies(
-  event: H3Event,
-  supabase: Awaited<ReturnType<typeof getAuthorizedUser>>['supabase'],
-  tmdbIds: number[]
-): Promise<HydratedMovie[]> {
-  if (tmdbIds.length === 0) {
-    return []
-  }
-
-  const { data, error } = await supabase
-    .from(MOVIES_TABLE)
-    .select('tmdb_id, title, poster_path, release_date, runtime, genres')
-    .in('tmdb_id', tmdbIds)
-
-  if (error) {
-    throwSupabaseError(event, error, {
-      event: 'watched.hydrate_movies_failed',
-      publicMessage: LOAD_WATCHED_MOVIES_MESSAGE,
-      extra: {
-        table: MOVIES_TABLE,
-        operation: 'select',
-      },
-    })
-  }
-
-  const rows = (data ?? []) as MovieRow[]
-  const rowById = new Map(rows.map((row) => [row.tmdb_id, row]))
-
-  return tmdbIds.map((tmdbId) => {
-    const row = rowById.get(tmdbId)
-
-    if (row) {
-      return toHydratedMovie(row)
-    }
-
-    return {
-      tmdbId,
-      title: '',
-      year: 0,
-      posterPath: '',
-    }
-  })
-}
 
 export default defineEventHandler(async (event) => {
   const method = event.method
   const { supabase, user } = await getAuthorizedUser(event)
 
   if (method === 'GET') {
+    const { success } = await userListReadLimiter.limit(`watched:${user.id}`)
+
+    if (!success) {
+      throw createError({
+        statusCode: 429,
+        statusMessage: RATE_LIMIT_STATUS_MESSAGE,
+      })
+    }
+
     const { data, error } = await supabase
       .from(USER_WATCHED_MOVIES_TABLE)
       .select('tmdb_id')
@@ -144,10 +69,7 @@ export default defineEventHandler(async (event) => {
 
     const tmdbIds = ((data ?? []) as Array<{ tmdb_id: number }>).map((movie) => movie.tmdb_id)
 
-    return {
-      success: true,
-      movies: await hydrateMovies(event, supabase, tmdbIds),
-    }
+    return { success: true, tmdbIds }
   }
 
   if (method === 'POST') {

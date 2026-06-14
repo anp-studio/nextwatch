@@ -21,7 +21,7 @@
         </button>
       </div>
 
-      <section class="space-y-3">
+      <section v-if="showRuntime" class="space-y-3">
         <h3 class="text-[0.7rem] uppercase tracking-[0.22em] text-outline">Genre</h3>
         <div class="flex flex-wrap gap-2">
           <button
@@ -111,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import type { RuntimeRange, SortOption } from '~/composables/useWatchedFilters'
+import type { RuntimeRange, SortOption } from '~/composables/useFilters'
 
 const ACTIVE_CHIP_CLASS = 'border-primary/10 bg-primary text-on-primary'
 const INACTIVE_CHIP_CLASS =
@@ -131,6 +131,7 @@ defineProps<{
   sortBy: SortOption
   availableGenres: string[]
   runtimeRanges: RuntimeRange[]
+  showRuntime?: boolean
   minRating: number | null
   ratingOptions: RatingOption[]
 }>()

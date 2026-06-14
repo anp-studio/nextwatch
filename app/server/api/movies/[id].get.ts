@@ -1,3 +1,6 @@
+import type { H3Event } from 'h3'
+import { getOptionalAuthorizedUser } from '../../utils/auth/authorize-user'
+import { limitMovieDetails } from '../../utils/movies/details-rate-limit'
 import { createServiceSupabaseClient } from '../../utils/shared/supabase-client'
 import { throwSupabaseError } from '../../utils/shared/api-error'
 import { IMAGE_BASE } from '../../utils/tmdb/constants'
@@ -88,6 +91,9 @@ const TRAILER_TYPE = 'Trailer'
 const MOVIE_ID_PATTERN = /^\d+$/
 const MOVIES_TABLE = 'movies'
 const MOVIE_DATA_UNAVAILABLE_MESSAGE = 'Movie data is temporarily unavailable.'
+const TOO_MANY_MOVIE_DETAIL_REQUESTS_MESSAGE = 'Too many movie detail requests'
+const VERCEL_FORWARDED_FOR_HEADER = 'x-vercel-forwarded-for'
+const UNKNOWN_GUEST_IP = 'unknown'
 
 function isPositiveInteger(value: number): boolean {
   return Number.isInteger(value) && value > 0
@@ -223,6 +229,31 @@ async function fetchCachedMovie(
   return { supabase, row: data as MovieRow | null }
 }
 
+function getGuestIp(event: H3Event): string {
+  const vercelForwardedFor = getHeader(event, VERCEL_FORWARDED_FOR_HEADER)
+  if (vercelForwardedFor) {
+    return vercelForwardedFor.split(',')[0]?.trim() || UNKNOWN_GUEST_IP
+  }
+
+  return getRequestIP(event) ?? UNKNOWN_GUEST_IP
+}
+
+async function enforceMovieDetailsRateLimit(event: H3Event): Promise<void> {
+  const authorizedUser = await getOptionalAuthorizedUser(event)
+  const rateLimit = authorizedUser
+    ? await limitMovieDetails(event, { userId: authorizedUser.user.id })
+    : await limitMovieDetails(event, { guestIp: getGuestIp(event) })
+
+  if (rateLimit.success) {
+    return
+  }
+
+  throw createError({
+    statusCode: 429,
+    statusMessage: TOO_MANY_MOVIE_DETAIL_REQUESTS_MESSAGE,
+  })
+}
+
 export default defineEventHandler(async (event): Promise<MovieResponse> => {
   const rawId = getRouterParam(event, 'id') ?? ''
   if (!MOVIE_ID_PATTERN.test(rawId)) {
@@ -234,6 +265,8 @@ export default defineEventHandler(async (event): Promise<MovieResponse> => {
   if (!isPositiveInteger(id)) {
     throw createError({ statusCode: 400, message: 'Invalid movie id' })
   }
+
+  await enforceMovieDetailsRateLimit(event)
 
   const { supabase, row } = await fetchCachedMovie(event, id)
 

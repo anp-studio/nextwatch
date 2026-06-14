@@ -154,7 +154,7 @@
             </div>
           </div>
 
-          <div class="relative" data-movie-filter-dropdown>
+          <div v-if="showRuntime" class="relative" data-movie-filter-dropdown>
             <button
               type="button"
               class="inline-flex h-12 items-center gap-2 rounded-full border px-4 text-sm font-medium transition"
@@ -334,7 +334,7 @@
         </button>
 
         <button
-          v-if="selectedRuntime"
+          v-if="showRuntime && selectedRuntime"
           type="button"
           class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-lowest px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-on-surface transition hover:border-primary/40"
           @click="selectRuntime(null)"
@@ -416,6 +416,7 @@
                 :sort-by="sortBy"
                 :available-genres="availableGenres"
                 :runtime-ranges="runtimeRanges"
+                :show-runtime="showRuntime"
                 :min-rating="minRating"
                 :rating-options="ratingOptions"
                 @update:selected-runtime="$emit('update:selectedRuntime', $event)"
@@ -483,8 +484,8 @@
 </template>
 
 <script setup lang="ts">
-import type { RuntimeRange, SortOption } from '~/composables/useWatchedFilters'
-import { MY_LIST_SORT_LABELS } from '~/composables/useMyListFilters'
+import type { RuntimeRange, SortOption } from '~/composables/useFilters'
+import { MY_LIST_SORT_LABELS } from '~/composables/useFilters'
 
 const DEFAULT_SORT: SortOption = 'default'
 const SEARCH_PLACEHOLDER = 'Search your watchlist...'
@@ -533,6 +534,7 @@ const props = withDefaults(
       total: number
     }
     showSearch?: boolean
+    showRuntime?: boolean
     minRating?: number | null
     ratingOptions?: RatingOption[]
     embedded?: boolean
@@ -543,6 +545,7 @@ const props = withDefaults(
   }>(),
   {
     showSearch: true,
+    showRuntime: true,
     minRating: null,
     ratingOptions: () => [],
     embedded: false,
@@ -579,6 +582,7 @@ const mobileActionInactiveClass = MOBILE_ACTION_INACTIVE_CLASS
 const mobileSortActiveClass = MOBILE_SORT_ACTIVE_CLASS
 const mobileSortInactiveClass = MOBILE_SORT_INACTIVE_CLASS
 const showSearch = computed(() => props.showSearch)
+const showRuntime = computed(() => props.showRuntime)
 const filterSurfaceClass = computed(() => {
   if (props.embedded) {
     return 'bg-transparent p-0'
@@ -606,7 +610,7 @@ const hasVisibleActiveFilters = computed(() => {
   return (
     (props.showSearch && props.searchQuery.trim() !== '') ||
     props.selectedGenres.length > 0 ||
-    props.selectedRuntime !== null ||
+    (props.showRuntime && props.selectedRuntime !== null) ||
     props.minRating !== null
   )
 })
@@ -615,7 +619,7 @@ const hasFilterSelections = computed(() => {
   return (
     (props.showSearch && props.searchQuery.trim() !== '') ||
     props.selectedGenres.length > 0 ||
-    props.selectedRuntime !== null ||
+    (props.showRuntime && props.selectedRuntime !== null) ||
     props.minRating !== null
   )
 })
@@ -629,7 +633,7 @@ const activeFilterCount = computed(() => {
 
   count += props.selectedGenres.length
 
-  if (props.selectedRuntime !== null) {
+  if (props.showRuntime && props.selectedRuntime !== null) {
     count++
   }
 

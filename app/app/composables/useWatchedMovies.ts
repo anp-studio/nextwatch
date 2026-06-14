@@ -3,7 +3,9 @@ import type {
   PendingWatchedMovie,
   MoviePreview,
   Movie,
+  MovieListMetadata,
 } from '~/types/movie'
+import { fetchMovieListMetadata } from '~/composables/useMovieListMetadata'
 
 const PENDING_WATCHED_STORAGE_KEY = 'movie-recommender-pending-watched'
 
@@ -35,27 +37,30 @@ const hasWatchedMovieDetails = (
   movie.genres.length > 0 &&
   movie.runtime !== undefined
 
-const applyDetailsToWatchedMovie = (movie: WatchedMovie, details: Movie) => {
-  movie.title = details.title
-  movie.year = details.year
-  movie.posterPath = posterPath(details.poster)
-  movie.genres = details.genres
-  movie.runtime = details.runtime
-}
+const toWatchedMovie = (movie: MovieListMetadata): WatchedMovie => ({
+  tmdbId: movie.tmdbId,
+  title: movie.title,
+  year: movie.year,
+  posterPath: movie.posterPath,
+  genres: movie.genres,
+  runtime: movie.runtime,
+})
 
-const hydrateMissingWatchedMovieDetails = async (movies: WatchedMovie[]) => {
-  const { getMovieDetails } = useMovieDetails()
+const mergeWatchedMetadata = (currentMovies: WatchedMovie[], metadata: MovieListMetadata[]) => {
+  const currentById = new Map(currentMovies.map((movie) => [movie.tmdbId, movie]))
 
-  for (const movie of movies) {
-    if (hasWatchedMovieDetails(movie)) {
-      continue
+  return metadata.map((movie) => {
+    const currentMovie = currentById.get(movie.tmdbId)
+
+    if (!currentMovie) {
+      return toWatchedMovie(movie)
     }
 
-    try {
-      const details = await getMovieDetails(movie.tmdbId)
-      applyDetailsToWatchedMovie(movie, details)
-    } catch {}
-  }
+    return {
+      ...currentMovie,
+      ...toWatchedMovie(movie),
+    }
+  })
 }
 
 export const useWatchedMovies = () => {
@@ -81,15 +86,15 @@ export const useWatchedMovies = () => {
         return
       }
 
-      const response = await $fetch<{ success: boolean; movies: WatchedMovie[] }>('/api/watched', {
+      const response = await $fetch<{ success: boolean; tmdbIds: number[] }>('/api/watched', {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
 
-      watchedMovies.value = response.movies
-      await hydrateMissingWatchedMovieDetails(watchedMovies.value)
+      const metadata = await fetchMovieListMetadata(token, response.tmdbIds)
+      watchedMovies.value = mergeWatchedMetadata(watchedMovies.value, metadata)
     } catch {}
   }
 

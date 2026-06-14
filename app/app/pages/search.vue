@@ -1,5 +1,6 @@
 <template>
   <div
+    v-bind="containerProps"
     class="h-full min-h-0 overflow-y-auto bg-background px-4 pb-24 pt-6 text-on-background sm:px-6 lg:px-8"
   >
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-8">
@@ -72,13 +73,14 @@
             :selected-runtime="selectedRuntime"
             :sort-by="sortBy"
             :available-genres="availableGenres"
-            :runtime-ranges="RUNTIME_RANGES"
+            :runtime-ranges="runtimeRanges"
             :has-active-filters="hasActiveFilters"
             :filtered-count="filteredResults.length"
             :total-count="searchResults.length"
             :is-loading-metadata="isLoadingMetadata"
             :metadata-progress="metadataProgress"
             :show-search="false"
+            :show-runtime="false"
             :min-rating="minRating"
             :rating-options="RATING_OPTIONS"
             :sort-labels="SEARCH_SORT_LABELS"
@@ -131,35 +133,35 @@
           </button>
         </div>
 
-        <TransitionGroup
-          v-else
-          name="list"
-          tag="div"
-          class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-2 md:grid-cols-3 md:gap-x-6 md:gap-y-10 lg:grid-cols-4 xl:grid-cols-5"
-          @before-enter="onBeforeEnter"
-          @enter="onEnter"
-          @before-leave="onBeforeLeave"
-          @leave="onLeave"
-        >
-          <MovieSearchCard
-            v-for="(movie, index) in filteredResults"
-            :key="movie.id"
-            :data-index="index"
-            :movie="movie"
-            :is-watched="isAlreadyWatched(movie.id)"
-            :is-in-my-list="isInMyList(movie.id)"
-            @add="addToWatched"
-            @remove="removeFromWatchedList"
-            @details="openDetails"
-            @toggle-mylist="toggleMyList"
-          />
-        </TransitionGroup>
+        <div v-else class="min-h-[24rem]">
+          <div v-bind="wrapperProps">
+            <div
+              v-for="row in virtualRows"
+              :key="row.data.key"
+              class="mb-8 grid gap-x-4 md:mb-10 md:gap-x-6"
+              :style="{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }"
+            >
+              <MovieSearchCard
+                v-for="movie in row.data.items"
+                :key="movie.id"
+                :movie="movie"
+                :is-watched="isAlreadyWatched(movie.id)"
+                :is-in-my-list="isInMyList(movie.id)"
+                @add="addToWatched"
+                @remove="removeFromWatchedList"
+                @details="openDetails"
+                @toggle-mylist="toggleMyList"
+              />
+            </div>
+          </div>
+        </div>
       </section>
     </div>
 
     <MovieDetails
       :is-open="isModalOpen"
       :movie="selectedMovie"
+      media-size="compact"
       :show-add-button="true"
       :is-watched="selectedMovie ? isAlreadyWatched(selectedMovie.id) : false"
       :show-my-list-button="true"
@@ -175,24 +177,12 @@
 </template>
 
 <script setup lang="ts">
-import type { RuntimeRange, SortOption } from '~/composables/useWatchedFilters'
-import type { Movie } from '~/types/movie'
-import { RUNTIME_RANGES } from '~/composables/useWatchedFilters'
-
-interface SearchMovie {
-  id: number
-  title: string
-  original_title: string
-  poster_path: string | null
-  release_date: string
-  vote_average: number
-  genre_ids: number[]
-  runtime?: number | null
-  genres?: string[]
-}
+import type { Movie, SearchDisplayMovie, SearchMovie as ApiSearchMovie } from '~/types/movie'
+import { SEARCH_SORT_LABELS, useFilters } from '~/composables/useFilters'
+import { normalizeSearchMovie } from '~/utils/search-movie'
 
 interface SearchMoviesResponse {
-  results: SearchMovie[]
+  results: ApiSearchMovie[]
 }
 
 interface RatingOption {
@@ -200,50 +190,14 @@ interface RatingOption {
   value: number
 }
 
-const TMDB_GENRE_MAP: Record<number, string> = {
-  28: 'Action',
-  12: 'Adventure',
-  16: 'Animation',
-  35: 'Comedy',
-  80: 'Crime',
-  99: 'Documentary',
-  18: 'Drama',
-  10751: 'Family',
-  14: 'Fantasy',
-  36: 'History',
-  27: 'Horror',
-  10402: 'Music',
-  9648: 'Mystery',
-  10749: 'Romance',
-  878: 'Sci-Fi',
-  10770: 'TV Movie',
-  53: 'Thriller',
-  10752: 'War',
-  37: 'Western',
-}
 const SEARCH_DEBOUNCE_MS = 500
-const ENTER_ANIMATION_DELAY_MS = 50
-const MAX_ENTER_ANIMATION_DELAY_MS = 500
-const ENTER_ANIMATION_MS = 300
-const LEAVE_ANIMATION_MS = 250
-const SEARCH_METADATA_BATCH_SIZE = 5
 const SKELETON_CARD_COUNT = 6
-const DEFAULT_SORT: SortOption = 'default'
-const RELEASE_YEAR_INDEX = 0
-const FALLBACK_RELEASE_YEAR = 0
-const DEFAULT_METADATA_PROGRESS = { loaded: 0, total: 0 }
+const SEARCH_ROW_HEIGHT = 390
 const RATING_OPTIONS: RatingOption[] = [
   { label: '7+', value: 7 },
   { label: '8+', value: 8 },
   { label: '9+', value: 9 },
 ]
-const SEARCH_SORT_LABELS: Record<SortOption, string> = {
-  default: 'Default',
-  'title-asc': 'Title A-Z',
-  'title-desc': 'Title Z-A',
-  'year-desc': 'Newest first',
-  'year-asc': 'Oldest first',
-}
 
 const { user, isAuthenticated } = useAuth()
 const {
@@ -255,12 +209,11 @@ const {
 } = useWatchedMovies()
 const { myList, addToMyList, removeFromMyList } = useMyList()
 const { getMovieDetails } = useMovieDetails()
-
 const searchQuery = useState('search-query', () => '')
-const searchResults = useState<SearchMovie[]>('search-results', () => [])
+const searchResults = useState<SearchDisplayMovie[]>('search-results', () => [])
 const isSearching = ref(false)
 const isLoadingMetadata = ref(false)
-const metadataProgress = ref({ ...DEFAULT_METADATA_PROGRESS })
+const metadataProgress = ref({ loaded: 0, total: 0 })
 let debounceTimeout: ReturnType<typeof setTimeout> | null = null
 let activeSearchToken = 0
 
@@ -270,11 +223,28 @@ const isLoadingDetails = ref(false)
 
 const showLoginModal = ref(false)
 const pendingModalMovieId = ref<number | null>(null)
-
-const selectedGenres = ref<string[]>([])
-const selectedRuntime = ref<RuntimeRange | null>(null)
-const sortBy = ref<SortOption>(DEFAULT_SORT)
-const minRating = ref<number | null>(null)
+const {
+  selectedGenres,
+  selectedRuntime,
+  sortBy,
+  minRating,
+  availableGenres,
+  filteredMovies: filteredResults,
+  hasActiveFilters,
+  clearFilters,
+  toggleGenre,
+  runtimeRanges,
+} = useFilters(searchResults, {
+  searchQuery,
+  enableRating: true,
+  enableRuntime: false,
+  includeSearchInActiveState: false,
+  clearSearchOnReset: false,
+})
+const { columnCount, virtualRows, containerProps, wrapperProps } = useVirtualGrid(filteredResults, {
+  getKey: (movie) => movie.id,
+  rowHeight: SEARCH_ROW_HEIGHT,
+})
 
 const hasSearchQuery = computed(() => searchQuery.value.trim() !== '')
 
@@ -288,162 +258,6 @@ const resultCountLabel = computed(() => {
 
   return `${filteredResults.value.length} of ${totalCount} ${noun}`
 })
-
-const getMovieGenreNames = (movie: SearchMovie) => {
-  if (movie.genres?.length) {
-    return movie.genres
-  }
-
-  return movie.genre_ids
-    .map((id) => TMDB_GENRE_MAP[id])
-    .filter((name): name is string => Boolean(name))
-}
-
-const getReleaseYear = (movie: SearchMovie) => {
-  const releaseYear = movie.release_date.split('-')[RELEASE_YEAR_INDEX]
-  return releaseYear ? Number.parseInt(releaseYear) : FALLBACK_RELEASE_YEAR
-}
-
-const availableGenres = computed(() => {
-  const genreSet = new Set<string>()
-
-  for (const movie of searchResults.value) {
-    for (const name of getMovieGenreNames(movie)) {
-      genreSet.add(name)
-    }
-  }
-
-  return [...genreSet].sort()
-})
-
-const filteredResults = computed(() => {
-  let result = [...searchResults.value]
-
-  if (selectedGenres.value.length > 0) {
-    result = result.filter((movie) => {
-      const genres = getMovieGenreNames(movie)
-      return selectedGenres.value.some((genre) => genres.includes(genre))
-    })
-  }
-
-  if (selectedRuntime.value) {
-    const { min, max } = selectedRuntime.value
-    result = result.filter((movie) => {
-      if (typeof movie.runtime !== 'number') {
-        return false
-      }
-
-      return movie.runtime >= min && movie.runtime <= max
-    })
-  }
-
-  if (minRating.value !== null) {
-    const ratingThreshold = minRating.value
-    result = result.filter((movie) => movie.vote_average >= ratingThreshold)
-  }
-
-  if (sortBy.value !== DEFAULT_SORT) {
-    result.sort((firstMovie, secondMovie) => {
-      switch (sortBy.value) {
-        case 'title-asc':
-          return firstMovie.title.localeCompare(secondMovie.title)
-        case 'title-desc':
-          return secondMovie.title.localeCompare(firstMovie.title)
-        case 'year-desc':
-          return getReleaseYear(secondMovie) - getReleaseYear(firstMovie)
-        case 'year-asc':
-          return getReleaseYear(firstMovie) - getReleaseYear(secondMovie)
-        default:
-          return FALLBACK_RELEASE_YEAR
-      }
-    })
-  }
-
-  return result
-})
-
-const hasActiveFilters = computed(() => {
-  return (
-    selectedGenres.value.length > 0 ||
-    selectedRuntime.value !== null ||
-    minRating.value !== null ||
-    sortBy.value !== DEFAULT_SORT
-  )
-})
-
-const clearFilters = () => {
-  selectedGenres.value = []
-  selectedRuntime.value = null
-  minRating.value = null
-  sortBy.value = DEFAULT_SORT
-}
-
-const toggleGenre = (genre: string) => {
-  const existingIndex = selectedGenres.value.indexOf(genre)
-
-  if (existingIndex >= 0) {
-    selectedGenres.value.splice(existingIndex, 1)
-    return
-  }
-
-  selectedGenres.value.push(genre)
-}
-
-const fetchSearchMetadata = async (movies: SearchMovie[], searchToken: number) => {
-  if (movies.length === 0) {
-    metadataProgress.value = { ...DEFAULT_METADATA_PROGRESS }
-    return
-  }
-
-  isLoadingMetadata.value = true
-  metadataProgress.value = { loaded: 0, total: movies.length }
-
-  for (let index = 0; index < movies.length; index += SEARCH_METADATA_BATCH_SIZE) {
-    if (searchToken !== activeSearchToken) {
-      return
-    }
-
-    const batch = movies.slice(index, index + SEARCH_METADATA_BATCH_SIZE)
-    const results = await Promise.allSettled(batch.map((movie) => getMovieDetails(movie.id)))
-
-    if (searchToken !== activeSearchToken) {
-      return
-    }
-
-    const metadataById = new Map<number, Pick<SearchMovie, 'genres' | 'runtime'>>()
-
-    for (let batchIndex = 0; batchIndex < results.length; batchIndex++) {
-      const result = results[batchIndex]
-      const movie = batch[batchIndex]
-
-      if (!movie || result?.status !== 'fulfilled') {
-        continue
-      }
-
-      metadataById.set(movie.id, {
-        genres: result.value.genres,
-        runtime: result.value.runtime,
-      })
-    }
-
-    searchResults.value = searchResults.value.map((movie) => {
-      const metadata = metadataById.get(movie.id)
-
-      if (!metadata) {
-        return movie
-      }
-
-      return { ...movie, ...metadata }
-    })
-
-    metadataProgress.value = {
-      loaded: Math.min(index + SEARCH_METADATA_BATCH_SIZE, movies.length),
-      total: movies.length,
-    }
-  }
-
-  isLoadingMetadata.value = false
-}
 
 const searchTMDB = async (query: string) => {
   const normalizedQuery = query.trim()
@@ -465,8 +279,7 @@ const searchTMDB = async (query: string) => {
       return
     }
 
-    searchResults.value = data.results
-    void fetchSearchMetadata(data.results, searchToken)
+    searchResults.value = data.results.map(normalizeSearchMovie)
   } catch {
     if (searchToken === activeSearchToken) {
       searchResults.value = []
@@ -490,13 +303,10 @@ const loadPopularMovies = async () => {
       return
     }
 
-    searchResults.value = data.results
-    void fetchSearchMetadata(data.results, searchToken)
+    searchResults.value = data.results.map(normalizeSearchMovie)
   } catch {
     if (searchToken === activeSearchToken) {
       searchResults.value = []
-      isLoadingMetadata.value = false
-      metadataProgress.value = { ...DEFAULT_METADATA_PROGRESS }
     }
   } finally {
     if (searchToken === activeSearchToken) {
@@ -535,51 +345,6 @@ onMounted(() => {
   void loadPopularMovies()
 })
 
-const onBeforeEnter = (element: Element) => {
-  const htmlElement = element as HTMLElement
-  htmlElement.style.opacity = '0'
-  htmlElement.style.transform = 'translateY(20px)'
-}
-
-const onEnter = (element: Element, done: () => void) => {
-  const htmlElement = element as HTMLElement
-  const delay = Math.min(
-    Number(htmlElement.dataset.index) * ENTER_ANIMATION_DELAY_MS,
-    MAX_ENTER_ANIMATION_DELAY_MS
-  )
-
-  htmlElement.style.transition = `opacity ${ENTER_ANIMATION_MS}ms ease ${delay}ms, transform ${ENTER_ANIMATION_MS}ms ease ${delay}ms`
-  void htmlElement.offsetHeight
-  htmlElement.style.opacity = '1'
-  htmlElement.style.transform = 'translateY(0)'
-  setTimeout(() => {
-    htmlElement.style.removeProperty('opacity')
-    htmlElement.style.removeProperty('transform')
-    htmlElement.style.removeProperty('transition')
-    done()
-  }, ENTER_ANIMATION_MS + delay)
-}
-
-const onBeforeLeave = (element: Element) => {
-  const htmlElement = element as HTMLElement
-  const rect = htmlElement.getBoundingClientRect()
-  htmlElement.style.position = 'fixed'
-  htmlElement.style.top = `${rect.top}px`
-  htmlElement.style.left = `${rect.left}px`
-  htmlElement.style.width = `${rect.width}px`
-  htmlElement.style.height = `${rect.height}px`
-  htmlElement.style.zIndex = '1'
-}
-
-const onLeave = (element: Element, done: () => void) => {
-  const htmlElement = element as HTMLElement
-  htmlElement.style.transition = `opacity ${LEAVE_ANIMATION_MS}ms ease, transform ${LEAVE_ANIMATION_MS}ms ease`
-  void htmlElement.offsetHeight
-  htmlElement.style.opacity = '0'
-  htmlElement.style.transform = 'scale(0)'
-  setTimeout(done, LEAVE_ANIMATION_MS)
-}
-
 const isAlreadyWatched = (tmdbId: number) => {
   return watchedMovies.value.some((movie) => movie.tmdbId === tmdbId)
 }
@@ -588,16 +353,14 @@ const isInMyList = (tmdbId: number) => {
   return myList.value.some((movie) => movie.tmdbId === tmdbId)
 }
 
-const buildMovieToSave = (movie: SearchMovie) => ({
+const buildMovieToSave = (movie: SearchDisplayMovie) => ({
   ...movie,
   tmdbId: movie.id,
   poster: posterUrl(movie.poster_path),
-  year: getReleaseYear(movie),
-  genres: getMovieGenreNames(movie),
-  runtime: movie.runtime,
+  genres: movie.genres,
 })
 
-const toggleMyList = async (movie: SearchMovie) => {
+const toggleMyList = async (movie: SearchDisplayMovie) => {
   if (!user.value) {
     showLoginModal.value = true
     return
@@ -611,21 +374,25 @@ const toggleMyList = async (movie: SearchMovie) => {
   await addToMyList({
     id: movie.id,
     title: movie.title,
-    year: getReleaseYear(movie),
+    year: movie.year,
     poster: posterUrl(movie.poster_path),
     rating: movie.vote_average,
-    genres: getMovieGenreNames(movie),
-    runtime: movie.runtime,
+    genres: movie.genres,
   })
 }
 
-const openDetails = async (movie: SearchMovie) => {
-  if (isLoadingDetails.value) return
+const openDetails = async (movie: SearchDisplayMovie) => {
+  if (isLoadingDetails.value) {
+    return
+  }
+
   isLoadingDetails.value = true
+
   try {
     selectedMovie.value = await getMovieDetails(movie.id)
     isModalOpen.value = true
-  } catch {} finally {
+  } catch {
+  } finally {
     isLoadingDetails.value = false
   }
 }
@@ -635,7 +402,7 @@ const closeDetails = () => {
   selectedMovie.value = null
 }
 
-const addToWatched = async (movie: SearchMovie) => {
+const addToWatched = async (movie: SearchDisplayMovie) => {
   const movieToSave = buildMovieToSave(movie)
 
   if (!user.value) {
@@ -659,7 +426,7 @@ const handleModalClose = () => {
   pendingModalMovieId.value = null
 }
 
-const removeFromWatchedList = async (movie: SearchMovie) => {
+const removeFromWatchedList = async (movie: SearchDisplayMovie) => {
   if (!user.value) return
   await removeFromWatched(movie.id)
 }

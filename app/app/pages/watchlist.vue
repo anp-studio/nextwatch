@@ -1,5 +1,6 @@
 <template>
   <div
+    v-bind="containerProps"
     class="h-full min-h-0 overflow-y-auto bg-background px-4 pb-24 pt-6 text-on-background sm:px-6 lg:px-8"
   >
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-8">
@@ -32,7 +33,7 @@
           :selected-runtime="selectedRuntime"
           :sort-by="sortBy"
           :available-genres="availableGenres"
-          :runtime-ranges="RUNTIME_RANGES"
+          :runtime-ranges="runtimeRanges"
           :has-active-filters="hasActiveFilters"
           :filtered-count="filteredMovies.length"
           :total-count="myList.length"
@@ -71,28 +72,25 @@
           </button>
         </div>
 
-        <TransitionGroup
-          v-else
-          name="watchlist"
-          tag="div"
-          class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-2 md:grid-cols-3 md:gap-x-6 md:gap-y-10 lg:grid-cols-4 xl:grid-cols-5"
-          move-class="transition-transform duration-[280ms] ease-in-out"
-          leave-active-class="absolute transition duration-[280ms] ease-in-out"
-          leave-to-class="scale-[0.96] opacity-0"
-          @before-enter="onBeforeEnter"
-          @enter="onEnter"
-          @leave="onLeave"
-        >
-          <MyListMovieCard
-            v-for="(movie, index) in filteredMovies"
-            :key="movie.tmdbId"
-            :movie="movie"
-            :data-index="index"
-            @open="openDetails"
-            @mark-watched="handleMarkWatched"
-            @remove="handleRemove"
-          />
-        </TransitionGroup>
+        <div v-else class="min-h-[24rem]">
+          <div v-bind="wrapperProps">
+            <div
+              v-for="row in virtualRows"
+              :key="row.data.key"
+              class="mb-8 grid gap-x-4 md:mb-10 md:gap-x-6"
+              :style="{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }"
+            >
+              <MyListMovieCard
+                v-for="movie in row.data.items"
+                :key="movie.tmdbId"
+                :movie="movie"
+                @open="openDetails"
+                @mark-watched="handleMarkWatched"
+                @remove="handleRemove"
+              />
+            </div>
+          </div>
+        </div>
       </section>
     </div>
 
@@ -111,6 +109,8 @@
 import type { Movie, MyListMovie } from '~/types/movie'
 
 const UNDO_TIMEOUT_MS = 5000
+const WATCHLIST_ROW_HEIGHT = 430
+const DEFAULT_METADATA_PROGRESS = { loaded: 0, total: 0 }
 
 const { myList, removeFromMyList, addToMyList } = useMyList()
 const { markAsWatched, removeFromWatched } = useWatchedMovies()
@@ -123,18 +123,19 @@ const {
   availableGenres,
   filteredMovies,
   hasActiveFilters,
-  isLoadingMetadata,
-  metadataProgress,
   clearFilters,
   toggleGenre,
-  fetchMissingMetadata,
-  RUNTIME_RANGES,
-} = useMyListFilters(myList)
+  runtimeRanges,
+} = useFilters(myList)
 
 const selectedMovie = ref<Movie | null>(null)
 const undoAction = ref<{ movie: MyListMovie; type: 'watched' | 'removed' } | null>(null)
 const hasMovies = computed(() => myList.value.length > 0)
 const hasFilteredMovies = computed(() => filteredMovies.value.length > 0)
+const { columnCount, virtualRows, containerProps, wrapperProps } = useVirtualGrid(filteredMovies, {
+  getKey: (movie) => movie.tmdbId,
+  rowHeight: WATCHLIST_ROW_HEIGHT,
+})
 const movieCountLabel = computed(() => {
   const count = myList.value.length
   const noun = count === 1 ? 'item' : 'items'
@@ -154,6 +155,8 @@ const undoSnackbar = computed(() => {
     message: a.type === 'watched' ? 'marked as watched' : 'removed from watchlist',
   }
 })
+const isLoadingMetadata = computed(() => false)
+const metadataProgress = computed(() => DEFAULT_METADATA_PROGRESS)
 
 let undoTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -231,42 +234,4 @@ const openDetails = async (tmdbId: number) => {
     selectedMovie.value = await fetchMovieDetails(tmdbId)
   } catch {}
 }
-
-const onBeforeEnter = (element: Element) => {
-  const htmlElement = element as HTMLElement
-  htmlElement.style.opacity = '0'
-  htmlElement.style.transform = 'translateY(24px)'
-}
-
-const onEnter = (element: Element, done: () => void) => {
-  const htmlElement = element as HTMLElement
-  const delay = Math.min(Number(htmlElement.dataset.index ?? 0) * 45, 360)
-
-  htmlElement.style.transition = `opacity 280ms ease ${delay}ms, transform 280ms ease ${delay}ms`
-  void htmlElement.offsetHeight
-  htmlElement.style.opacity = '1'
-  htmlElement.style.transform = 'translateY(0)'
-
-  setTimeout(done, 280 + delay)
-}
-
-const onLeave = (_element: Element, done: () => void) => {
-  done()
-}
-
-onMounted(() => {
-  if (myList.value.length > 0) {
-    fetchMissingMetadata()
-  }
-})
-
-// Refetch detail metadata when new watchlist items arrive so filters stay accurate.
-watch(
-  () => myList.value.length,
-  (newLength, previousLength) => {
-    if (newLength > previousLength) {
-      fetchMissingMetadata()
-    }
-  }
-)
 </script>

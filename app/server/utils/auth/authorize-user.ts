@@ -28,3 +28,25 @@ export async function getAuthorizedUser(event: H3Event): Promise<AuthorizedUser>
 
   return { supabase, user }
 }
+
+export async function getOptionalAuthorizedUser(event: H3Event): Promise<AuthorizedUser | null> {
+  const authHeader = getHeader(event, 'authorization')
+
+  if (!authHeader?.startsWith('Bearer ')) {
+    return null
+  }
+
+  const token = authHeader.slice('Bearer '.length)
+  const supabase = createAuthorizedSupabaseClient(event, token)
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(token)
+
+  if (error || !user) {
+    return null
+  }
+
+  return { supabase, user }
+}

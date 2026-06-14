@@ -11,12 +11,26 @@ import {
 } from 'h3'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { getAuthorizedUserMock } = vi.hoisted(() => ({
+const { getAuthorizedUserMock, metadataLimiterLimitMock, userListReadLimiterLimitMock } = vi.hoisted(() => ({
   getAuthorizedUserMock: vi.fn(),
+  metadataLimiterLimitMock: vi.fn(),
+  userListReadLimiterLimitMock: vi.fn(),
 }))
 
 vi.mock('../../../server/utils/auth/authorize-user', () => ({
   getAuthorizedUser: getAuthorizedUserMock,
+}))
+
+vi.mock('../../../server/utils/movies/filter-metadata-rate-limit', () => ({
+  filterMetadataLimiter: {
+    limit: metadataLimiterLimitMock,
+  },
+}))
+
+vi.mock('../../../server/utils/user-lists/rate-limit', () => ({
+  userListReadLimiter: {
+    limit: userListReadLimiterLimitMock,
+  },
 }))
 
 Object.assign(globalThis, {
@@ -28,6 +42,7 @@ Object.assign(globalThis, {
 
 const { default: watchedHandler } = await import('../../../server/api/watched/index')
 const { default: myListHandler } = await import('../../../server/api/mylist/index')
+const { default: metadataHandler } = await import('../../../server/api/movies/metadata.post')
 
 interface MovieRow {
   tmdb_id: number
@@ -36,6 +51,7 @@ interface MovieRow {
   release_date: string
   runtime: number
   genres: string[]
+  vote_average: number
 }
 
 interface SupabaseState {
@@ -57,6 +73,7 @@ const movieRows: MovieRow[] = [
     release_date: '1999-10-15',
     runtime: 139,
     genres: ['Drama'],
+    vote_average: 8.4,
   },
   {
     tmdb_id: 13,
@@ -65,6 +82,7 @@ const movieRows: MovieRow[] = [
     release_date: '1994-07-06',
     runtime: 142,
     genres: ['Drama', 'Romance'],
+    vote_average: 8.8,
   },
 ]
 
@@ -173,14 +191,15 @@ function createMoviesBuilder(state: SupabaseState) {
   return builder
 }
 
-async function readJson(response: Response) {
-  return response.json() as Promise<Record<string, unknown>>
+async function readJson<T>(response: Response) {
+  return response.json() as Promise<T>
 }
 
 describe('normalized list routes', () => {
   const app = createApp()
   app.use('/api/watched', watchedHandler)
   app.use('/api/mylist', myListHandler)
+  app.use('/api/movies/metadata', metadataHandler)
 
   let baseUrl = ''
   let server: Server
@@ -222,27 +241,30 @@ describe('normalized list routes', () => {
       supabase: createMockSupabase(state),
       user: { id: TEST_USER_ID },
     })
+    metadataLimiterLimitMock.mockResolvedValue({
+      success: true,
+      limit: 5,
+      remaining: 4,
+      reset: 0,
+    })
+    userListReadLimiterLimitMock.mockResolvedValue({
+      success: true,
+      limit: 20,
+      remaining: 19,
+      reset: 0,
+    })
   })
 
   afterEach(() => {
     vi.clearAllMocks()
   })
 
-  it('hydrates watched IDs into the existing frontend movie shape', async () => {
+  it('returns watched ids only', async () => {
     const response = await fetch(`${baseUrl}/api/watched`)
-    const body = await readJson(response)
+    const body = await readJson<{ tmdbIds: number[] }>(response)
 
     expect(response.status).toBe(200)
-    expect(body.movies).toEqual([
-      {
-        tmdbId: 550,
-        title: 'Fight Club',
-        year: 1999,
-        posterPath: '/fight-club.jpg',
-        genres: ['Drama'],
-        runtime: 139,
-      },
-    ])
+    expect(body.tmdbIds).toEqual([550])
   })
 
   it('uses duplicate-safe watched inserts for ID-only payloads', async () => {
@@ -251,7 +273,7 @@ describe('normalized list routes', () => {
       body: JSON.stringify({ tmdbId: 550 }),
       headers: { 'Content-Type': 'application/json' },
     })
-    const body = await readJson(response)
+    const body = await readJson<{ success: boolean }>(response)
 
     expect(response.status).toBe(200)
     expect(body.success).toBe(true)
@@ -259,7 +281,7 @@ describe('normalized list routes', () => {
     expect(state.watchedIds).toEqual([550])
   })
 
-  it('rejects invalid watched IDs', async () => {
+  it('rejects invalid watched ids', async () => {
     const response = await fetch(`${baseUrl}/api/watched`, {
       method: 'POST',
       body: JSON.stringify({ tmdbId: 0 }),
@@ -269,9 +291,31 @@ describe('normalized list routes', () => {
     expect(response.status).toBe(400)
   })
 
-  it('hydrates my-list IDs into the existing frontend movie shape', async () => {
+  it('returns my-list ids only', async () => {
     const response = await fetch(`${baseUrl}/api/mylist`)
-    const body = await readJson(response)
+    const body = await readJson<{ tmdbIds: number[] }>(response)
+
+    expect(response.status).toBe(200)
+    expect(body.tmdbIds).toEqual([13])
+  })
+
+  it('returns ordered metadata for requested ids', async () => {
+    const response = await fetch(`${baseUrl}/api/movies/metadata`, {
+      method: 'POST',
+      body: JSON.stringify({ tmdbIds: [13, 550, 999999, 13] }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const body = await readJson<{
+      movies: Array<{
+        tmdbId: number
+        title: string
+        year: number
+        posterPath: string
+        genres: string[]
+        runtime: number | null
+        rating: number | null
+      }>
+    }>(response)
 
     expect(response.status).toBe(200)
     expect(body.movies).toEqual([
@@ -282,11 +326,72 @@ describe('normalized list routes', () => {
         posterPath: '/forrest-gump.jpg',
         genres: ['Drama', 'Romance'],
         runtime: 142,
+        rating: 8.8,
+      },
+      {
+        tmdbId: 550,
+        title: 'Fight Club',
+        year: 1999,
+        posterPath: '/fight-club.jpg',
+        genres: ['Drama'],
+        runtime: 139,
+        rating: 8.4,
+      },
+      {
+        tmdbId: 999999,
+        title: '',
+        year: 0,
+        posterPath: '',
+        genres: [],
+        runtime: null,
+        rating: null,
       },
     ])
+    expect(metadataLimiterLimitMock).toHaveBeenCalledWith(TEST_USER_ID)
   })
 
-  it('uses my-list RPC functions for ID-only mutations', async () => {
+  it('rejects invalid metadata ids', async () => {
+    const response = await fetch(`${baseUrl}/api/movies/metadata`, {
+      method: 'POST',
+      body: JSON.stringify({ tmdbIds: [13, 0] }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    expect(response.status).toBe(400)
+  })
+
+  it('rejects unauthenticated metadata requests', async () => {
+    getAuthorizedUserMock.mockRejectedValueOnce(
+      createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    )
+
+    const response = await fetch(`${baseUrl}/api/movies/metadata`, {
+      method: 'POST',
+      body: JSON.stringify({ tmdbIds: [13] }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    expect(response.status).toBe(401)
+  })
+
+  it('returns 429 when the metadata endpoint is rate limited', async () => {
+    metadataLimiterLimitMock.mockResolvedValueOnce({
+      success: false,
+      limit: 5,
+      remaining: 0,
+      reset: 0,
+    })
+
+    const response = await fetch(`${baseUrl}/api/movies/metadata`, {
+      method: 'POST',
+      body: JSON.stringify({ tmdbIds: [13] }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    expect(response.status).toBe(429)
+  })
+
+  it('uses my-list rpc functions for id-only mutations', async () => {
     const addResponse = await fetch(`${baseUrl}/api/mylist`, {
       method: 'POST',
       body: JSON.stringify({ tmdbId: 13 }),

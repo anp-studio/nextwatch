@@ -1,16 +1,37 @@
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import type { Server } from 'node:http'
-import { createApp, createError, defineEventHandler, getRouterParam, toNodeListener } from 'h3'
+import {
+  createApp,
+  createError,
+  defineEventHandler,
+  getHeader,
+  getRequestIP,
+  getRouterParam,
+  toNodeListener,
+} from 'h3'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { fetchTmdbMock, getServiceSupabaseMock } = vi.hoisted(() => ({
+const RATE_LIMIT_RESET = 1_234_567_890
+
+const { fetchTmdbMock, getOptionalAuthorizedUserMock, getServiceSupabaseMock, limitMovieDetailsMock } =
+  vi.hoisted(() => ({
   fetchTmdbMock: vi.fn(),
+  getOptionalAuthorizedUserMock: vi.fn(),
   getServiceSupabaseMock: vi.fn(),
+  limitMovieDetailsMock: vi.fn(),
 }))
 
 vi.mock('../../../server/utils/tmdb/client', () => ({
   fetchTmdb: fetchTmdbMock,
+}))
+
+vi.mock('../../../server/utils/auth/authorize-user', () => ({
+  getOptionalAuthorizedUser: getOptionalAuthorizedUserMock,
+}))
+
+vi.mock('../../../server/utils/movies/details-rate-limit', () => ({
+  limitMovieDetails: limitMovieDetailsMock,
 }))
 
 vi.mock('../../../server/utils/shared/supabase-client', () => ({
@@ -20,6 +41,8 @@ vi.mock('../../../server/utils/shared/supabase-client', () => ({
 Object.assign(globalThis, {
   createError,
   defineEventHandler,
+  getHeader,
+  getRequestIP,
   getRouterParam,
 })
 
@@ -176,7 +199,14 @@ describe('/api/movies/:id', () => {
       upsertPayload: null,
     }
     getServiceSupabaseMock.mockReturnValue(createMockSupabase(state))
+    getOptionalAuthorizedUserMock.mockResolvedValue(null)
     fetchTmdbMock.mockResolvedValue(createTmdbDetails())
+    limitMovieDetailsMock.mockResolvedValue({
+      success: true,
+      limit: 5,
+      remaining: 4,
+      reset: RATE_LIMIT_RESET,
+    })
   })
 
   afterEach(() => {
@@ -227,5 +257,73 @@ describe('/api/movies/:id', () => {
       runtime: 139,
       genres: ['Drama'],
     })
+  })
+
+  it('rate-limits authenticated users by user id', async () => {
+    getOptionalAuthorizedUserMock.mockResolvedValue({
+      user: { id: 'user-123' },
+    })
+    limitMovieDetailsMock.mockResolvedValue({
+      success: false,
+      limit: 20,
+      remaining: 0,
+      reset: RATE_LIMIT_RESET,
+    })
+
+    const response = await fetch(`${baseUrl}/api/movies/550`, {
+      headers: {
+        Authorization: 'Bearer valid-token',
+      },
+    })
+    const body = await readJson(response)
+
+    expect(response.status).toBe(429)
+    expect(body.statusMessage).toBe('Too many movie detail requests')
+    expect(limitMovieDetailsMock).toHaveBeenCalledWith(expect.anything(), {
+      userId: 'user-123',
+    })
+    expect(fetchTmdbMock).not.toHaveBeenCalled()
+  })
+
+  it('rate-limits guests by the Vercel forwarded IP header', async () => {
+    limitMovieDetailsMock.mockResolvedValue({
+      success: false,
+      limit: 10,
+      remaining: 0,
+      reset: RATE_LIMIT_RESET,
+    })
+
+    const response = await fetch(`${baseUrl}/api/movies/550`, {
+      headers: {
+        'x-vercel-forwarded-for': '203.0.113.10, 198.51.100.2',
+      },
+    })
+    const body = await readJson(response)
+
+    expect(response.status).toBe(429)
+    expect(body.statusMessage).toBe('Too many movie detail requests')
+    expect(limitMovieDetailsMock).toHaveBeenCalledWith(expect.anything(), {
+      guestIp: '203.0.113.10',
+    })
+    expect(fetchTmdbMock).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the request IP when the Vercel forwarded IP header is missing', async () => {
+    limitMovieDetailsMock.mockResolvedValue({
+      success: false,
+      limit: 10,
+      remaining: 0,
+      reset: RATE_LIMIT_RESET,
+    })
+
+    const response = await fetch(`${baseUrl}/api/movies/550`)
+    const body = await readJson(response)
+
+    expect(response.status).toBe(429)
+    expect(body.statusMessage).toBe('Too many movie detail requests')
+    expect(limitMovieDetailsMock).toHaveBeenCalledWith(expect.anything(), {
+      guestIp: '127.0.0.1',
+    })
+    expect(fetchTmdbMock).not.toHaveBeenCalled()
   })
 })

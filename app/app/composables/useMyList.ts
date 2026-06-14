@@ -2,9 +2,11 @@ import type {
   MyListMovie,
   Movie,
   MoviePreview,
+  MovieListMetadata,
   PendingMyListMovie,
   WatchedMovie,
 } from '~/types/movie'
+import { fetchMovieListMetadata } from '~/composables/useMovieListMetadata'
 
 const PENDING_MY_LIST_STORAGE_KEY = 'movie-recommender-pending-my-list'
 
@@ -40,28 +42,31 @@ const hasMyListMovieDetails = (
   movie.genres.length > 0 &&
   movie.runtime !== undefined
 
-const applyDetailsToMyListMovie = (movie: MyListMovie, details: Movie) => {
-  movie.title = details.title
-  movie.year = details.year
-  movie.posterPath = posterPath(details.poster)
-  movie.rating = details.rating
-  movie.genres = details.genres
-  movie.runtime = details.runtime
-}
+const toMyListMovie = (movie: MovieListMetadata): MyListMovie => ({
+  tmdbId: movie.tmdbId,
+  title: movie.title,
+  year: movie.year,
+  posterPath: movie.posterPath,
+  rating: movie.rating,
+  genres: movie.genres,
+  runtime: movie.runtime,
+})
 
-const hydrateMissingMyListMovieDetails = async (movies: MyListMovie[]) => {
-  const { getMovieDetails } = useMovieDetails()
+const mergeMyListMetadata = (currentMovies: MyListMovie[], metadata: MovieListMetadata[]) => {
+  const currentById = new Map(currentMovies.map((movie) => [movie.tmdbId, movie]))
 
-  for (const movie of movies) {
-    if (hasMyListMovieDetails(movie)) {
-      continue
+  return metadata.map((movie) => {
+    const currentMovie = currentById.get(movie.tmdbId)
+
+    if (!currentMovie) {
+      return toMyListMovie(movie)
     }
 
-    try {
-      const details = await getMovieDetails(movie.tmdbId)
-      applyDetailsToMyListMovie(movie, details)
-    } catch {}
-  }
+    return {
+      ...currentMovie,
+      ...toMyListMovie(movie),
+    }
+  })
 }
 
 export const useMyList = () => {
@@ -87,15 +92,15 @@ export const useMyList = () => {
         return
       }
 
-      const response = await $fetch<{ success: boolean; movies: MyListMovie[] }>('/api/mylist', {
+      const response = await $fetch<{ success: boolean; tmdbIds: number[] }>('/api/mylist', {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
 
-      myList.value = response.movies
-      await hydrateMissingMyListMovieDetails(myList.value)
+      const metadata = await fetchMovieListMetadata(token, response.tmdbIds)
+      myList.value = mergeMyListMetadata(myList.value, metadata)
     } catch {}
   }
 

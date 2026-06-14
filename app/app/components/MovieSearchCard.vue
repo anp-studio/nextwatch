@@ -116,11 +116,19 @@
   </div>
 </template>
 
-<script setup>
-defineProps({
-  movie: { type: Object, required: true },
-  isWatched: { type: Boolean, required: true },
-  isInMyList: { type: Boolean, required: true },
-})
-defineEmits(['add', 'remove', 'details', 'toggle-mylist'])
+<script setup lang="ts">
+import type { SearchDisplayMovie } from '~/types/movie'
+
+defineProps<{
+  movie: SearchDisplayMovie
+  isWatched: boolean
+  isInMyList: boolean
+}>()
+
+defineEmits<{
+  add: [movie: SearchDisplayMovie]
+  remove: [movie: SearchDisplayMovie]
+  details: [movie: SearchDisplayMovie]
+  'toggle-mylist': [movie: SearchDisplayMovie]
+}>()
 </script>
