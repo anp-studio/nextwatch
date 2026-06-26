@@ -2,6 +2,11 @@
 
 NextWatch is a Nuxt 4 movie recommendation app. It supports authenticated recommendation feeds, watched-history tracking, My List management, onboarding, cached movie metadata, and a separate Docus-powered developer docs site.
 
+## Links
+
+- App: [nextwatch.dev](https://nextwatch.dev)
+- Docs: [docs.nextwatch.dev](https://docs.nextwatch.dev)
+
 ## Repository Layout
 
 ```text
