@@ -105,7 +105,7 @@
         </div>
         <div class="text-right">
           <p class="text-xl font-black text-zinc-950 dark:text-white">
-            {{ quota.remaining }} / {{ quota.limit }}
+            {{ quota.remaining }} / {{ RECOMMENDATION_LIMIT }}
           </p>
           <p class="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">
             Requests left
@@ -423,6 +423,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 
+import { RECOMMENDATION_LIMIT } from '../constants'
 import { THEME_DARK_VALUE, THEME_LIGHT_VALUE, THEME_STORAGE_KEY } from '~/utils/theme'
 
 const { user, logout, updatePassword, setCurrentUser } = useAuth()
@@ -470,11 +471,11 @@ const isDarkMode = computed(() => mode.value === THEME_DARK_VALUE)
 const darkThemeValue = THEME_DARK_VALUE
 const lightThemeValue = THEME_LIGHT_VALUE
 const quotaUsedPercent = computed(() => {
-  if (quota.value.limit <= 0) {
+  if (RECOMMENDATION_LIMIT <= 0) {
     return 0
   }
 
-  return Math.round(((quota.value.limit - quota.value.remaining) / quota.value.limit) * 100)
+  return Math.round(((RECOMMENDATION_LIMIT - quota.value.remaining) / RECOMMENDATION_LIMIT) * 100)
 })
 const quotaProgressWidth = computed(() => `${Math.min(100, Math.max(0, quotaUsedPercent.value))}%`)
 
