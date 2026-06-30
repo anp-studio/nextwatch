@@ -258,6 +258,50 @@
       </div>
     </section>
 
+    <section class="mb-8">
+      <h2 class="mb-4 text-[11px] font-black uppercase tracking-[0.28em] text-zinc-500">
+        About & Legal
+      </h2>
+
+      <div
+        class="overflow-hidden rounded-[1.25rem] border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80"
+      >
+        <NuxtLink
+          v-for="link in LEGAL_PAGE_LINKS"
+          :key="link.href"
+          :to="link.href"
+          class="group flex min-h-14 items-center justify-between border-b border-zinc-200 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900/40"
+        >
+          <span class="flex min-w-0 items-center gap-3">
+            <span
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 transition-colors group-hover:border-zinc-950 group-hover:text-zinc-950 dark:border-zinc-800 dark:group-hover:border-white dark:group-hover:text-white"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.75"
+                  d="M4.75 6.75A1.75 1.75 0 016.5 5h11A1.75 1.75 0 0119.25 6.75v10.5A1.75 1.75 0 0117.5 19h-11a1.75 1.75 0 01-1.75-1.75V6.75zM8 9h8M8 12h8m-8 3h5"
+                />
+              </svg>
+            </span>
+
+            <span class="min-w-0">
+              <span class="block font-semibold text-zinc-950 dark:text-white">{{ link.label }}</span>
+              <span class="mt-1 block text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+                {{ link.description }}
+              </span>
+            </span>
+          </span>
+
+          <span
+            class="shrink-0 text-zinc-400 transition-colors group-hover:text-zinc-950 dark:text-zinc-600 dark:group-hover:text-white"
+            >&rarr;</span
+          >
+        </NuxtLink>
+      </div>
+    </section>
+
     <section class="pb-8">
       <button
         class="group flex min-h-14 w-full items-center justify-between rounded-[1.25rem] border border-red-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-red-50 dark:border-red-900 dark:bg-zinc-950/80 dark:hover:bg-red-950/20"
@@ -511,6 +555,7 @@
 import { computed, onMounted, ref } from 'vue'
 
 import { RECOMMENDATION_LIMIT } from '../constants'
+import { LEGAL_PAGE_LINKS } from '~/constants/legal'
 import { THEME_DARK_VALUE, THEME_LIGHT_VALUE, THEME_STORAGE_KEY } from '~/utils/theme'
 
 const { user, session, logout, updatePassword, setCurrentUser } = useAuth()
