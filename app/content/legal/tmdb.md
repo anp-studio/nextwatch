@@ -7,6 +7,8 @@ lastUpdated: June 30, 2026
 
 > **This product uses the TMDB API but is not endorsed or certified by TMDB.**
 
+<img src="/images/tmdb-logo.svg" alt="TMDB" class="mt-4 h-8 w-auto" />
+
 
 ## About TMDB
 
