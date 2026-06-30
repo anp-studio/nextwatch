@@ -1,4 +1,5 @@
 import { createThemeBootstrapScript } from './app/utils/theme'
+import { fileURLToPath } from 'node:url'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -11,6 +12,10 @@ export default defineNuxtConfig({
     '@vercel/speed-insights',
     '@vercel/analytics',
   ],
+  alias: {
+    '#mdc-configs': fileURLToPath(new URL('./mdc-configs.ts', import.meta.url)),
+    '#mdc-imports': fileURLToPath(new URL('./mdc-imports.ts', import.meta.url)),
+  },
   css: ['~/assets/css/transitions.css'],
   app: {
     pageTransition: { name: 'page', mode: 'out-in' },
