@@ -119,7 +119,8 @@ const GRID_COLUMN_GAP = { compact: 16, regular: 24 }
 const GRID_ROW_GAP = { compact: 32, regular: 40 }
 const GRID_OVERSCAN = 12
 
-const { watchedMovies, removeFromWatched, markAsWatched } = useWatchedMovies()
+const { watchedMovies, removeFromWatched, markAsWatched, syncWatchedMoviesFromSupabase } =
+  useWatchedMovies()
 const { getMovieDetails: fetchMovieDetails } = useMovieDetails()
 
 const {
@@ -167,6 +168,10 @@ const isLoadingMetadata = computed(() => false)
 const metadataProgress = computed(() => DEFAULT_METADATA_PROGRESS)
 
 let undoTimer: ReturnType<typeof setTimeout> | null = null
+
+onMounted(() => {
+  void syncWatchedMoviesFromSupabase()
+})
 
 const dismissUndo = () => {
   if (undoTimer) {

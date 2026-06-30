@@ -207,8 +207,9 @@ const {
   queuePendingWatchedMovie,
   removePendingWatchedMovie,
   watchedMovies,
+  syncWatchedMoviesFromSupabase,
 } = useWatchedMovies()
-const { myList, addToMyList, removeFromMyList } = useMyList()
+const { myList, addToMyList, removeFromMyList, syncMyListFromSupabase } = useMyList()
 const { getMovieDetails } = useMovieDetails()
 const searchQuery = useState('search-query', () => '')
 const searchResults = useState<SearchDisplayMovie[]>('search-results', () => [])
@@ -345,6 +346,9 @@ const clearSearch = () => {
 }
 
 onMounted(() => {
+  void syncWatchedMoviesFromSupabase()
+  void syncMyListFromSupabase()
+
   if (hasSearchQuery.value) {
     void searchTMDB(searchQuery.value)
     return

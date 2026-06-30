@@ -44,7 +44,9 @@ export default defineNuxtConfig({
       process.env.NUXT_GOOGLE_MODELS ??
       'gemini-flash-lite-latest,gemini-2.5-flash-lite,gemini-2.0-flash-lite',
     openRouterApiKey: process.env.NUXT_OPENROUTER_API_KEY ?? '',
-    openRouterModels: process.env.NUXT_OPENROUTER_MODELS ?? 'google/gemini-2.5-flash-lite',
+    openRouterModels:
+      process.env.NUXT_OPENROUTER_MODELS ??
+      'deepseek/deepseek-v4-flash,google/gemini-2.5-flash-lite',
     adminToken: process.env.ADMIN_API_TOKEN ?? '',
     supabaseServiceRoleKey: process.env.NUXT_SUPABASE_SERVICE_ROLE_KEY ?? '',
     hcaptchaSecretKey: process.env.NUXT_HCAPTCHA_SECRET ?? '',

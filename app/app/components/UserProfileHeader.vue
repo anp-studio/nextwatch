@@ -469,7 +469,7 @@ import { RECOMMENDATION_LIMIT } from '../constants'
 import { LEGAL_PAGE_LINKS } from '~/constants/legal'
 import { THEME_DARK_VALUE, THEME_LIGHT_VALUE, THEME_STORAGE_KEY } from '~/utils/theme'
 
-const { user, session, logout, updatePassword, setCurrentUser } = useAuth()
+const { user, session, logout, updatePassword, setCurrentUser, resetClientState } = useAuth()
 const supabase = useSupabase()
 const mode = useColorMode({
   initialValue: THEME_DARK_VALUE,
@@ -717,7 +717,7 @@ const confirmDeleteAccount = async () => {
     })
 
     await supabase.auth.signOut({ scope: 'local' })
-    setCurrentUser(null)
+    resetClientState()
     isDeleteAccountModalOpen.value = false
     await navigateTo(DELETE_ACCOUNT_REDIRECT_PATH)
   } catch (error) {
