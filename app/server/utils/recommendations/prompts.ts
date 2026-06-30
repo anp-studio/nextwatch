@@ -7,16 +7,18 @@ import {
 import { buildTasteProfile } from './taste-profile'
 import type { WatchedMovieRecord } from './types'
 
-const SYSTEM_PROMPT = `You are a movie recommendation engine.
+function createSystemPrompt(candidateCount: number): string {
+  return `You are a movie recommendation engine.
 Analyze the user's taste profile from their watch history: preferred genres, directors, eras, themes, and tone.
 
-Recommend exactly ${INITIAL_RECOMMENDATION_COUNT} candidate movies, obeying these rules:
+Recommend exactly ${candidateCount} candidate movies, obeying these rules:
 1. Backend validation is the source of truth. You suggest candidates; the server will remove watched movies, repeated recommendations, unresolved titles, duplicate TMDB matches, and excess My List matches.
 2. WATCHLIST (My List): The user already knows about these movies and has deliberately saved them. Prefer undiscovered movies; the server will keep at most ${MAX_MY_LIST_RECOMMENDATIONS} My List matches.
 3. Aim for variety across genres and decades while staying true to the inferred taste profile.
 4. Return movie titles in their original release language and script exactly as TMDB original_title. Do not transliterate, anglicize, or use localized variants (e.g. ゴジラ-1.0 not Godzilla Minus One).
-5. Every item must include a stable "index" inside the response, "title", "release_year" when known or null when unknown, and "short_reason".
+5. Every item must include a stable "index" inside the response, "title", and "release_year" when known or null when unknown.
 6. Respond ONLY with structured recommendations. No explanation, no markdown, no code fences.`
+}
 
 const EXACT_ORIGINAL_TITLE_PROMPT_SUFFIX = `
 Additional hard requirements:
@@ -53,12 +55,8 @@ export const RECOMMENDATION_RESPONSE_SCHEMA = {
             anyOf: [{ type: 'integer' }, { type: 'null' }],
             description: 'Release year when known, otherwise null',
           },
-          short_reason: {
-            type: 'string',
-            description: 'Brief reason this movie fits the taste profile',
-          },
         },
-        required: ['index', 'title', 'release_year', 'short_reason'],
+        required: ['index', 'title', 'release_year'],
       },
     },
   },
@@ -87,20 +85,18 @@ export const REPLACEMENT_RESPONSE_SCHEMA = {
             anyOf: [{ type: 'integer' }, { type: 'null' }],
             description: 'Release year when known, otherwise null',
           },
-          short_reason: {
-            type: 'string',
-            description: 'Brief reason this replacement fits the taste profile',
-          },
         },
-        required: ['replaced_index', 'title', 'release_year', 'short_reason'],
+        required: ['replaced_index', 'title', 'release_year'],
       },
     },
   },
   required: ['recommendations'],
 } satisfies Record<string, unknown>
 
-export function createRecommendationSystemPrompt(): string {
-  return `${SYSTEM_PROMPT}\n${EXACT_ORIGINAL_TITLE_PROMPT_SUFFIX}\n${POPULAR_MOVIE_PROMPT_SUFFIX}`
+export function createRecommendationSystemPrompt(
+  candidateCount: number = INITIAL_RECOMMENDATION_COUNT
+): string {
+  return `${createSystemPrompt(candidateCount)}\n${EXACT_ORIGINAL_TITLE_PROMPT_SUFFIX}\n${POPULAR_MOVIE_PROMPT_SUFFIX}`
 }
 
 function formatRecommendationYear(year: number | null): string {
@@ -127,7 +123,8 @@ function formatPromptMovies(movies: WatchedMovieRecord[], includeGenres: boolean
 export function buildUserMessage(
   watchedMovies: WatchedMovieRecord[],
   myListMovies: WatchedMovieRecord[],
-  excludedMovies: Array<{ name: string; originalName?: string; year: number | null }> = []
+  excludedMovies: Array<{ name: string; originalName?: string; year: number | null }> = [],
+  candidateCount: number = INITIAL_RECOMMENDATION_COUNT
 ): string {
   const tasteProfile = buildTasteProfile(watchedMovies, myListMovies)
   const topGenres = tasteProfile.topGenres.length > 0 ? tasteProfile.topGenres.join(', ') : 'None'
@@ -161,7 +158,7 @@ ${formatPromptMovies(tasteProfile.topWatchedMovies, false)}
 MY LIST REMINDERS:
 ${formatPromptMovies(tasteProfile.myListReminderMovies, false)}
 ${excludedSection}
-Recommend exactly ${INITIAL_RECOMMENDATION_COUNT} candidate movies I would enjoy. These are candidates, not final output: the server will remove watched movies, recently recommended movies, unresolved titles, duplicates, and excess My List matches before keeping up to ${TARGET_RECOMMENDATIONS} final recommendations. At most ${MAX_MY_LIST_RECOMMENDATIONS} final recommendations may come from My List.
+Recommend exactly ${candidateCount} candidate movies I would enjoy. These are candidates, not final output: the server will remove watched movies, recently recommended movies, unresolved titles, duplicates, and excess My List matches before keeping up to ${TARGET_RECOMMENDATIONS} final recommendations. At most ${MAX_MY_LIST_RECOMMENDATIONS} final recommendations may come from My List.
 Prefer undiscovered movies over My List reminders.`
 }
 
@@ -184,5 +181,5 @@ new_replacements_needed: ${replacementsNeeded}
 You already know which titles those indexes refer to from your previous assistant response.
 Generate only ${replacementsNeeded} replacement recommendations for blocked indexes.
 Do not repeat accepted or blocked recommendations from earlier rounds.
-Each item must include replaced_index, title, release_year, and short_reason.${deeperCutGuidance}`
+Each item must include replaced_index, title, and release_year.${deeperCutGuidance}`
 }

@@ -17,12 +17,14 @@ vi.mock('../../../server/utils/tmdb/client', () => ({
   fetchTmdb: fetchTmdbMock,
 }))
 
-const { askPlatformAiMock } = vi.hoisted(() => ({
+const { askPlatformAiMock, askPlatformAiResponseMock } = vi.hoisted(() => ({
   askPlatformAiMock: vi.fn(),
+  askPlatformAiResponseMock: vi.fn(),
 }))
 
 vi.mock('../../../server/utils/recommendations/ai-client', () => ({
   askPlatformAi: askPlatformAiMock,
+  askPlatformAiResponse: askPlatformAiResponseMock,
 }))
 
 const {
@@ -459,14 +461,13 @@ describe('parseInitialRecommendationResponse', () => {
 describe('getRecommendationsFromPlatformAi', () => {
   beforeEach(() => {
     askPlatformAiMock.mockReset()
+    askPlatformAiResponseMock.mockReset()
   })
 
   it('accepts a top-level recommendation array payload', async () => {
     setupSearchRows([{ title: 'Stalker', year: 1979, tmdbId: 1398 }])
     askPlatformAiMock.mockResolvedValue(
-      JSON.stringify([
-        { index: 1, title: 'Stalker', release_year: 1979, short_reason: 'Haunting sci-fi' },
-      ])
+      JSON.stringify([{ index: 1, title: 'Stalker', release_year: 1979 }])
     )
 
     const result = await getRecommendationsFromPlatformAi([{ tmdbId: 1, title: 'Alien', year: 1979 }], [])
@@ -477,7 +478,6 @@ describe('getRecommendationsFromPlatformAi', () => {
         name: 'Stalker',
         originalName: 'Stalker',
         year: 1979,
-        shortReason: 'Haunting sci-fi',
         tmdbId: 1398,
       },
     ])
@@ -487,9 +487,7 @@ describe('getRecommendationsFromPlatformAi', () => {
     setupSearchRows([{ title: 'Stalker', year: 1979, tmdbId: 1398 }])
     askPlatformAiMock.mockResolvedValue(
       JSON.stringify({
-        recommendations: [
-          { index: 1, title: 'Stalker', release_year: 1979, short_reason: 'Haunting sci-fi' },
-        ],
+        recommendations: [{ index: 1, title: 'Stalker', release_year: 1979 }],
       })
     )
 
@@ -501,7 +499,6 @@ describe('getRecommendationsFromPlatformAi', () => {
         name: 'Stalker',
         originalName: 'Stalker',
         year: 1979,
-        shortReason: 'Haunting sci-fi',
         tmdbId: 1398,
       },
     ])
@@ -511,9 +508,7 @@ describe('getRecommendationsFromPlatformAi', () => {
     setupSearchRows([{ title: 'Stalker', year: 1979, tmdbId: 1398 }])
     askPlatformAiMock.mockResolvedValue(
       JSON.stringify({
-        recommendations: [
-          { index: 1, title: 'Stalker', release_year: 1979, short_reason: 'Haunting sci-fi' },
-        ],
+        recommendations: [{ index: 1, title: 'Stalker', release_year: 1979 }],
       })
     )
 
@@ -561,20 +556,17 @@ describe('getRecommendationsFromPlatformAi', () => {
       index: index + 3,
       title: `Candidate ${index + 1}`,
       release_year: 2000 + index,
-      short_reason: `Reason ${index + 1}`,
     }))
     const replacementItems = [
       {
         replaced_index: 1,
         title: 'Replacement One',
         release_year: 1988,
-        short_reason: 'Fresh replacement one',
       },
       {
         replaced_index: 2,
         title: 'Replacement Two',
         release_year: 1991,
-        short_reason: 'Fresh replacement two',
       },
     ]
     const searchMovies = [
@@ -600,13 +592,11 @@ describe('getRecommendationsFromPlatformAi', () => {
               index: 1,
               title: 'Alien',
               release_year: 1979,
-              short_reason: 'Too obvious',
             },
             {
               index: 2,
               title: 'Unknown Festival Cut',
               release_year: 2024,
-              short_reason: 'Unresolved title',
             },
             ...validInitialItems,
           ],
@@ -647,6 +637,55 @@ describe('getRecommendationsFromPlatformAi', () => {
     expect(followUpRequest.rateLimit).toBe(false)
   })
 
+  it('retries the initial request with a smaller candidate pool after truncated JSON', async () => {
+    setupSearchRows([{ title: 'Stalker', year: 1979, tmdbId: 1398 }])
+    askPlatformAiMock
+      .mockResolvedValueOnce('{"recommendations":[{"index":1,"title":"Stalker","release_year":1979}')
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          recommendations: [{ index: 1, title: 'Stalker', release_year: 1979 }],
+        })
+      )
+
+    const result = await getRecommendationsFromPlatformAi(
+      [{ tmdbId: 1, title: 'Alien', year: 1979 }],
+      [],
+      'user-1'
+    )
+
+    expect(result.recommendations).toEqual([
+      {
+        index: 1,
+        name: 'Stalker',
+        originalName: 'Stalker',
+        year: 1979,
+        tmdbId: 1398,
+      },
+    ])
+    expect(askPlatformAiMock).toHaveBeenCalledTimes(2)
+    expect(askPlatformAiMock.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({
+        userMessage: expect.stringContaining('Recommend exactly 30 candidate movies'),
+      })
+    )
+  })
+
+  it('preserves the original error when the initial retry also fails', async () => {
+    setupSearchRows([])
+    askPlatformAiMock
+      .mockResolvedValueOnce('{"recommendations":[{"index":1,"title":"Stalker","release_year":1979}')
+      .mockResolvedValueOnce('{"recommendations":[{"index":1,"title":"Solaris","release_year":1972}')
+
+    await expect(
+      getRecommendationsFromPlatformAi([{ tmdbId: 1, title: 'Alien', year: 1979 }], [], 'user-1')
+    ).rejects.toMatchObject({
+      statusCode: 502,
+      statusMessage: 'Unable to generate recommendations right now.',
+    })
+
+    expect(askPlatformAiMock).toHaveBeenCalledTimes(2)
+  })
+
   it('builds a compact prompt with representative watched, top watched, and My List reminders', () => {
     const message = buildUserMessage(
       [
@@ -669,5 +708,12 @@ describe('getRecommendationsFromPlatformAi', () => {
     expect(message).toContain('MY LIST REMINDERS:')
     expect(message).toContain('RECENTLY RECOMMENDED (FORBIDDEN)')
     expect(message).toContain(`up to 20 final recommendations`)
+  })
+
+  it('builds the prompt for 50 initial candidates by default', () => {
+    const message = buildUserMessage([{ tmdbId: 1, title: 'Alien', year: 1979 }], [])
+
+    expect(INITIAL_RECOMMENDATION_COUNT).toBe(50)
+    expect(message).toContain('Recommend exactly 50 candidate movies')
   })
 })

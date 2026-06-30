@@ -83,8 +83,7 @@ function isInitialModelRecommendationArray(value: unknown): value is InitialMode
         typeof record.index === 'number' &&
         Number.isInteger(record.index) &&
         typeof record.title === 'string' &&
-        isKnownOrUnknownYear(record.release_year) &&
-        typeof record.short_reason === 'string'
+        isKnownOrUnknownYear(record.release_year)
       )
     })
   )
@@ -105,8 +104,7 @@ function isReplacementModelRecommendationArray(
         typeof record.replaced_index === 'number' &&
         Number.isInteger(record.replaced_index) &&
         typeof record.title === 'string' &&
-        isKnownOrUnknownYear(record.release_year) &&
-        typeof record.short_reason === 'string'
+        isKnownOrUnknownYear(record.release_year)
       )
     })
   )

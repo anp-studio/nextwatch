@@ -1,7 +1,11 @@
 import type { H3Event } from 'h3'
 import { askPlatformAi } from './ai-client'
 import type { PlatformAiMessage } from './ai-client'
-import { MAX_RECOMMENDATION_ROUNDS, TARGET_RECOMMENDATIONS } from './constants'
+import {
+  INITIAL_RECOMMENDATION_RETRY_COUNT,
+  MAX_RECOMMENDATION_ROUNDS,
+  TARGET_RECOMMENDATIONS,
+} from './constants'
 import { appendTmdbIds } from './movie-id-matching'
 import {
   buildReplacementUserMessage,
@@ -38,7 +42,101 @@ function toRecommendation(
     name: title,
     originalName: title,
     year: recommendation.release_year,
-    shortReason: recommendation.short_reason,
+  }
+}
+
+interface InitialRecommendationRequest {
+  systemPrompt: string
+  userMessage: string
+  messages: PlatformAiMessage[]
+}
+
+function buildInitialRecommendationRequest(
+  watchedMovies: WatchedMovieRecord[],
+  myListMovies: WatchedMovieRecord[],
+  excludedMovies: RecommendationWithId[],
+  candidateCount?: number
+): InitialRecommendationRequest {
+  const systemPrompt = createRecommendationSystemPrompt(candidateCount)
+  const userMessage = buildUserMessage(watchedMovies, myListMovies, excludedMovies, candidateCount)
+
+  return {
+    systemPrompt,
+    userMessage,
+    messages: [
+      {
+        role: 'system',
+        content: systemPrompt,
+      },
+      {
+        role: 'user',
+        content: userMessage,
+      },
+    ],
+  }
+}
+
+async function requestInitialRecommendationRaw(
+  request: InitialRecommendationRequest,
+  userId?: string,
+  event?: H3Event
+): Promise<string> {
+  return askPlatformAi({
+    systemPrompt: request.systemPrompt,
+    userMessage: request.userMessage,
+    messages: [...request.messages],
+    schema: RECOMMENDATION_RESPONSE_SCHEMA,
+    schemaName: 'movie_recommendations',
+    userId,
+    event,
+  })
+}
+
+async function fetchInitialRecommendations(
+  watchedMovies: WatchedMovieRecord[],
+  myListMovies: WatchedMovieRecord[],
+  excludedMovies: RecommendationWithId[],
+  userId?: string,
+  event?: H3Event
+): Promise<{
+  systemPrompt: string
+  userMessage: string
+  raw: string
+  parsed: InitialModelRecommendation[]
+}> {
+  const initialRequest = buildInitialRecommendationRequest(
+    watchedMovies,
+    myListMovies,
+    excludedMovies
+  )
+  const initialRaw = await requestInitialRecommendationRaw(initialRequest, userId, event)
+
+  try {
+    return {
+      systemPrompt: initialRequest.systemPrompt,
+      userMessage: initialRequest.userMessage,
+      raw: initialRaw,
+      parsed: parseInitialRecommendationResponse(initialRaw, userId, event),
+    }
+  } catch (error) {
+    const retryRequest = buildInitialRecommendationRequest(
+      watchedMovies,
+      myListMovies,
+      excludedMovies,
+      INITIAL_RECOMMENDATION_RETRY_COUNT
+    )
+    const retryRaw = await requestInitialRecommendationRaw(retryRequest, userId, event)
+
+    try {
+      return {
+        systemPrompt: retryRequest.systemPrompt,
+        userMessage: retryRequest.userMessage,
+        raw: retryRaw,
+        parsed: parseInitialRecommendationResponse(retryRaw, userId, event),
+      }
+    } catch {
+      throw error
+    }
   }
 }
 
@@ -146,8 +244,23 @@ export async function getRecommendationsFromPlatformAi(
   systemPrompt: string
   userMessage: string
 }> {
-  const systemPrompt = createRecommendationSystemPrompt()
-  const userMessage = buildUserMessage(watchedMovies, myListMovies, excludedMovies)
+  const validationState = createRecommendationValidationState(
+    watchedMovies,
+    myListMovies,
+    toBlockedExcludedRecommendations(excludedMovies)
+  )
+  const acceptedRecommendations: IndexedRecommendationWithId[] = []
+  let tmdbFallbackCount = 0
+  let aiCandidateCount = 0
+
+  const initialResult = await fetchInitialRecommendations(
+    watchedMovies,
+    myListMovies,
+    excludedMovies,
+    userId,
+    event
+  )
+  const { systemPrompt, userMessage, raw, parsed } = initialResult
   const messages: PlatformAiMessage[] = [
     {
       role: 'system',
@@ -158,35 +271,19 @@ export async function getRecommendationsFromPlatformAi(
       content: userMessage,
     },
   ]
-  const validationState = createRecommendationValidationState(
-    watchedMovies,
-    myListMovies,
-    toBlockedExcludedRecommendations(excludedMovies)
-  )
-  const acceptedRecommendations: IndexedRecommendationWithId[] = []
-  let tmdbFallbackCount = 0
-  let aiCandidateCount = 0
-
-  const raw = await askPlatformAi({
-    systemPrompt,
-    userMessage,
-    messages: [...messages],
-    schema: RECOMMENDATION_RESPONSE_SCHEMA,
-    schemaName: 'movie_recommendations',
-    userId,
-    event,
-  })
   messages.push({
     role: 'assistant',
     content: raw,
   })
 
-  const parsed = parseInitialRecommendationResponse(raw, userId, event)
   aiCandidateCount += parsed.length
-  const initialResult = await resolveInitialRecommendations(parsed, event)
-  tmdbFallbackCount += initialResult.tmdbFallbackCount
+  const resolvedInitialResult = await resolveInitialRecommendations(parsed, event)
+  tmdbFallbackCount += resolvedInitialResult.tmdbFallbackCount
 
-  let validationResult = validateRecommendationBatch(initialResult.recommendations, validationState)
+  let validationResult = validateRecommendationBatch(
+    resolvedInitialResult.recommendations,
+    validationState
+  )
   acceptedRecommendations.push(...validationResult.accepted)
 
   for (
